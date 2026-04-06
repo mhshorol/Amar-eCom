@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Settings as SettingsIcon, 
-  User, 
+  User as UserIcon, 
   Bell, 
   Shield, 
   Globe, 
@@ -13,24 +13,40 @@ import {
   Upload,
   Save,
   Truck,
-  ShoppingCart
+  ShoppingCart,
+  Users,
+  Check,
+  X,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { db, auth, doc, getDoc, setDoc, onSnapshot, collection, getDocs, query, where, deleteDoc, writeBatch } from '../firebase';
+import { db, auth, doc, getDoc, setDoc, onSnapshot, collection, getDocs, query, where, deleteDoc, writeBatch, updateDoc, addDoc, Timestamp } from '../firebase';
+import { User, UserRole, UserPermissions } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Settings() {
+  const { user: currentUser, role: currentUserRole } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('General');
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   
+  // Team Permissions State
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isUpdatingPermissions, setIsUpdatingPermissions] = useState(false);
+
   const [companyInfo, setCompanyInfo] = useState({
     companyName: '',
     companyLogo: '',
     companyAddress: '',
     companyMobile: '',
     companyPhone: '',
+    companyEmail: '',
     companyWebsite: '',
+    companyVat: '',
+    invoiceFooterNote: '',
+    signatureImage: '',
     currency: 'BDT',
     timezone: 'Asia/Dhaka',
     language: 'English',
@@ -40,6 +56,92 @@ export default function Settings() {
     wooConsumerKey: '',
     wooConsumerSecret: ''
   });
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const docRef = doc(db, 'settings', 'company');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setCompanyInfo(prev => ({ ...prev, ...docSnap.data() }));
+        }
+
+        const userDocRef = doc(db, 'settings', `user_${auth.currentUser?.uid}`);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+          const data = userDocSnap.data();
+          if (data.account) setAccountSettings(prev => ({ ...prev, ...data.account }));
+          if (data.notifications) setNotificationSettings(prev => ({ ...prev, ...data.notifications }));
+          if (data.security) setSecuritySettings(prev => ({ ...prev, ...data.security }));
+          if (data.integrations) setIntegrationSettings(prev => ({ ...prev, ...data.integrations }));
+          if (data.dataManagement) setDataSettings(prev => ({ ...prev, ...data.dataManagement }));
+          if (data.mobile) setMobileSettings(prev => ({ ...prev, ...data.mobile }));
+        }
+      } catch (error) {
+        console.error("Error fetching settings:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSettings();
+
+    // Fetch users for Team Permissions
+    if (currentUserRole === 'admin') {
+      const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+        setUsers(snapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as any as User)));
+      });
+      return () => unsubUsers();
+    }
+  }, [currentUserRole]);
+
+  const handleUpdatePermissions = async (user: User, permissions: UserPermissions) => {
+    setIsUpdatingPermissions(true);
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, { permissions });
+      
+      // Log activity
+      await addDoc(collection(db, 'activityLogs'), {
+        userId: auth.currentUser?.uid,
+        userName: auth.currentUser?.displayName || auth.currentUser?.email,
+        action: 'Updated Permissions',
+        module: 'Settings',
+        details: `Updated module permissions for ${user.name} via Settings`,
+        timestamp: Timestamp.now()
+      });
+      
+      toast.success('Permissions updated successfully.');
+    } catch (error) {
+      console.error('Error updating permissions:', error);
+      toast.error('Failed to update permissions.');
+    } finally {
+      setIsUpdatingPermissions(false);
+    }
+  };
+
+  const togglePermission = (user: User, key: keyof UserPermissions) => {
+    if (!user.permissions) return;
+    const newPermissions = {
+      ...user.permissions,
+      [key]: !user.permissions[key]
+    };
+    handleUpdatePermissions(user, newPermissions);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, field: 'companyLogo' | 'signatureImage') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 500000) { // 500KB limit
+        toast.error('Image size too large. Please use an image under 500KB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCompanyInfo(prev => ({ ...prev, [field]: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const [accountSettings, setAccountSettings] = useState({
     fullName: auth.currentUser?.displayName || '',
@@ -242,13 +344,14 @@ export default function Settings() {
           {[
             { name: 'General', icon: SettingsIcon },
             { name: 'Company Info', icon: Building2 },
-            { name: 'Account', icon: User },
+            { name: 'Account', icon: UserIcon },
             { name: 'Notifications', icon: Bell },
             { name: 'Security', icon: Shield },
             { name: 'Integrations', icon: Globe },
             { name: 'Logistics', icon: Truck },
             { name: 'Data Management', icon: Database },
             { name: 'Mobile App', icon: Smartphone },
+            ...(currentUserRole === 'admin' ? [{ name: 'Team Permissions', icon: Users }] : []),
           ].map((item) => (
             <button
               key={item.name}
@@ -320,25 +423,81 @@ export default function Settings() {
                 <h3 className="text-lg font-bold flex items-center gap-2">
                   <Building2 size={20} /> Company Information
                 </h3>
-                <div className="flex items-center gap-6 pb-6 border-b border-gray-50">
-                  <div className="w-24 h-24 bg-gray-100 rounded-2xl flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-200">
-                    {companyInfo.companyLogo ? (
-                      <img src={companyInfo.companyLogo} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                    ) : (
-                      <Building2 size={32} className="text-gray-300" />
-                    )}
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-6 border-b border-gray-50">
+                  <div className="space-y-4">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">Company Logo</label>
+                    <div className="flex items-center gap-4">
+                      <div className="w-24 h-24 bg-gray-100 rounded-2xl flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-200">
+                        {companyInfo.companyLogo ? (
+                          <img src={companyInfo.companyLogo} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                        ) : (
+                          <Building2 size={32} className="text-gray-300" />
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <input 
+                          type="file" 
+                          id="logo-upload"
+                          accept="image/*"
+                          onChange={e => handleImageUpload(e, 'companyLogo')}
+                          className="hidden"
+                        />
+                        <label 
+                          htmlFor="logo-upload"
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-200 cursor-pointer transition-all"
+                        >
+                          <Upload size={14} /> Upload Logo
+                        </label>
+                        <p className="text-[10px] text-gray-400">Recommended: Square or horizontal PNG/JPG under 500KB.</p>
+                        <input 
+                          type="text" 
+                          value={companyInfo.companyLogo} 
+                          onChange={e => setCompanyInfo({...companyInfo, companyLogo: e.target.value})}
+                          placeholder="Or enter Logo URL"
+                          className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-xs focus:bg-white focus:border-gray-200 outline-none transition-all" 
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-2 flex-1">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Company Logo URL</label>
-                    <input 
-                      type="text" 
-                      value={companyInfo.companyLogo} 
-                      onChange={e => setCompanyInfo({...companyInfo, companyLogo: e.target.value})}
-                      placeholder="https://example.com/logo.png"
-                      className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all" 
-                    />
+
+                  <div className="space-y-4">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">Authorized Signature</label>
+                    <div className="flex items-center gap-4">
+                      <div className="w-24 h-24 bg-gray-100 rounded-2xl flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-200">
+                        {companyInfo.signatureImage ? (
+                          <img src={companyInfo.signatureImage} alt="Signature" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                        ) : (
+                          <div className="text-[10px] text-gray-400 font-bold uppercase">No Signature</div>
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <input 
+                          type="file" 
+                          id="signature-upload"
+                          accept="image/*"
+                          onChange={e => handleImageUpload(e, 'signatureImage')}
+                          className="hidden"
+                        />
+                        <label 
+                          htmlFor="signature-upload"
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-200 cursor-pointer transition-all"
+                        >
+                          <Upload size={14} /> Upload Signature
+                        </label>
+                        <p className="text-[10px] text-gray-400">Used in invoices. Transparent PNG recommended.</p>
+                        <input 
+                          type="text" 
+                          value={companyInfo.signatureImage} 
+                          onChange={e => setCompanyInfo({...companyInfo, signatureImage: e.target.value})}
+                          placeholder="Or enter Signature URL"
+                          className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-xs focus:bg-white focus:border-gray-200 outline-none transition-all" 
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Company Name</label>
@@ -359,6 +518,15 @@ export default function Settings() {
                     />
                   </div>
                   <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Email</label>
+                    <input 
+                      type="email" 
+                      value={companyInfo.companyEmail} 
+                      onChange={e => setCompanyInfo({...companyInfo, companyEmail: e.target.value})}
+                      className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all" 
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Mobile</label>
                     <input 
                       type="text" 
@@ -367,12 +535,40 @@ export default function Settings() {
                       className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all" 
                     />
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Phone (Landline)</label>
+                    <input 
+                      type="text" 
+                      value={companyInfo.companyPhone} 
+                      onChange={e => setCompanyInfo({...companyInfo, companyPhone: e.target.value})}
+                      className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">BIN / VAT Number</label>
+                    <input 
+                      type="text" 
+                      value={companyInfo.companyVat} 
+                      onChange={e => setCompanyInfo({...companyInfo, companyVat: e.target.value})}
+                      className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all" 
+                    />
+                  </div>
                   <div className="md:col-span-2 space-y-2">
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Address</label>
                     <textarea 
                       value={companyInfo.companyAddress} 
                       onChange={e => setCompanyInfo({...companyInfo, companyAddress: e.target.value})}
-                      rows={3}
+                      rows={2}
+                      className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all resize-none" 
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Invoice Footer Note</label>
+                    <textarea 
+                      value={companyInfo.invoiceFooterNote} 
+                      onChange={e => setCompanyInfo({...companyInfo, invoiceFooterNote: e.target.value})}
+                      rows={2}
+                      placeholder="e.g., Thank you for your purchase. Please visit again!"
                       className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all resize-none" 
                     />
                   </div>
@@ -383,7 +579,7 @@ export default function Settings() {
             {activeTab === 'Account' && (
               <div className="space-y-6">
                 <h3 className="text-lg font-bold flex items-center gap-2">
-                  <User size={20} /> Account Settings
+                  <UserIcon size={20} /> Account Settings
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
@@ -667,26 +863,105 @@ export default function Settings() {
                       <p className="text-xs text-gray-500">Require FaceID or Fingerprint on mobile devices.</p>
                     </div>
                     <button 
-                      onClick={() => setMobileSettings(prev => ({ ...prev, biometricAuth: !prev.biometricAuth }))}
-                      className={`w-12 h-6 rounded-full transition-all relative ${mobileSettings.biometricAuth ? 'bg-black' : 'bg-gray-300'}`}
-                    >
-                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${mobileSettings.biometricAuth ? 'right-1' : 'left-1'}`} />
-                    </button>
+                    onClick={() => setMobileSettings(prev => ({ ...prev, biometricAuth: !prev.biometricAuth }))}
+                    className={`w-12 h-6 rounded-full transition-all relative ${mobileSettings.biometricAuth ? 'bg-black' : 'bg-gray-300'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${mobileSettings.biometricAuth ? 'right-1' : 'left-1'}`} />
+                  </button>
+                </div>
+                <div className="p-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200 flex flex-col items-center text-center space-y-4">
+                  <div className="w-32 h-32 bg-white rounded-xl shadow-sm flex items-center justify-center">
+                    <Globe size={48} className="text-gray-200" />
                   </div>
-                  <div className="p-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200 flex flex-col items-center text-center space-y-4">
-                    <div className="w-32 h-32 bg-white rounded-xl shadow-sm flex items-center justify-center">
-                      <Globe size={48} className="text-gray-200" />
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">Mobile App QR Code</p>
+                    <p className="text-xs text-gray-500">Scan this code to download the app on your device.</p>
+                  </div>
+                  <button 
+                    onClick={handleDownloadApp}
+                    className="text-xs font-bold text-blue-600 hover:underline"
+                  >
+                    Download App Link
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+            {activeTab === 'Team Permissions' && currentUserRole === 'admin' && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <Users size={20} /> Team Permissions
+                </h3>
+                <p className="text-sm text-gray-500">Select a user to manage their access to specific modules.</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* User List */}
+                  <div className="md:col-span-1 border rounded-xl overflow-hidden">
+                    <div className="bg-gray-50 px-4 py-2 border-b text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Team Members
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-gray-900">Mobile App QR Code</p>
-                      <p className="text-xs text-gray-500">Scan this code to download the app on your device.</p>
+                    <div className="divide-y max-h-[400px] overflow-y-auto">
+                      {users.filter(u => u.role !== 'admin').map((user) => (
+                        <button
+                          key={user.uid}
+                          onClick={() => setSelectedUser(user)}
+                          className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors ${selectedUser?.uid === user.uid ? 'bg-blue-50 border-l-4 border-blue-600' : ''}`}
+                        >
+                          <p className="text-sm font-bold text-gray-900">{user.name}</p>
+                          <p className="text-xs text-gray-500 capitalize">{user.role}</p>
+                        </button>
+                      ))}
+                      {users.filter(u => u.role !== 'admin').length === 0 && (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          No managers or staff found.
+                        </div>
+                      )}
                     </div>
-                    <button 
-                      onClick={handleDownloadApp}
-                      className="text-xs font-bold text-blue-600 hover:underline"
-                    >
-                      Download App Link
-                    </button>
+                  </div>
+
+                  {/* Permissions Toggles */}
+                  <div className="md:col-span-2 border rounded-xl overflow-hidden">
+                    <div className="bg-gray-50 px-4 py-2 border-b text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      {selectedUser ? `Permissions for ${selectedUser.name}` : 'Select a user'}
+                    </div>
+                    <div className="p-4 space-y-4">
+                      {selectedUser ? (
+                        <div className="grid grid-cols-1 gap-3">
+                          {[
+                            { key: 'dashboard', label: 'Dashboard', icon: Globe },
+                            { key: 'orders', label: 'Orders', icon: ShoppingCart },
+                            { key: 'inventory', label: 'Inventory', icon: Database },
+                            { key: 'products', label: 'Products', icon: ShoppingCart },
+                            { key: 'customers', label: 'Customers', icon: UserIcon },
+                            { key: 'reports', label: 'Reports', icon: Shield },
+                            { key: 'team', label: 'Team', icon: Users },
+                            { key: 'settings', label: 'Settings', icon: SettingsIcon },
+                          ].map((module) => (
+                            <div key={module.key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-white rounded-lg shadow-sm">
+                                  <module.icon size={16} className="text-gray-600" />
+                                </div>
+                                <span className="text-sm font-medium text-gray-700">{module.label}</span>
+                              </div>
+                              <button
+                                onClick={() => togglePermission(selectedUser, module.key as keyof UserPermissions)}
+                                disabled={isUpdatingPermissions}
+                                className={`w-12 h-6 rounded-full transition-all relative ${selectedUser.permissions?.[module.key as keyof UserPermissions] ? 'bg-black' : 'bg-gray-300'} ${isUpdatingPermissions ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              >
+                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${selectedUser.permissions?.[module.key as keyof UserPermissions] ? 'right-1' : 'left-1'}`} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                          <Users size={48} className="mb-2 opacity-20" />
+                          <p className="text-sm">Select a team member to manage their permissions</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -708,20 +983,3 @@ export default function Settings() {
     </div>
   );
 }
-
-const Loader2 = ({ className, size }: { className?: string, size?: number }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={size || 24}
-    height={size || 24}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-  </svg>
-);

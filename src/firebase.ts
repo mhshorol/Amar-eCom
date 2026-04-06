@@ -1,5 +1,5 @@
-import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User } from 'firebase/auth';
+import { initializeApp, getApp, getApps, FirebaseApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, onSnapshot, updateDoc, deleteDoc, addDoc, serverTimestamp, Timestamp, getDocFromServer, orderBy, writeBatch, arrayUnion, runTransaction } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
@@ -7,7 +7,7 @@ import firebaseConfig from '../firebase-applet-config.json';
 // Configuration check
 export const isFirebaseConfigured = !!firebaseConfig.apiKey && firebaseConfig.apiKey !== "TODO_KEYHERE";
 
-let app;
+let app: FirebaseApp;
 if (isFirebaseConfigured) {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 } else {
@@ -19,6 +19,14 @@ export const db = isFirebaseConfigured ? getFirestore(app, firebaseConfig.firest
 export const auth = isFirebaseConfigured ? getAuth(app) : null as any;
 export const storage = isFirebaseConfigured ? getStorage(app) : null as any;
 export const googleProvider = new GoogleAuthProvider();
+
+// Secondary app for admin tasks (creating users without logging out)
+export const getSecondaryAuth = () => {
+  if (!isFirebaseConfigured) return null;
+  const secondaryAppName = "SecondaryApp";
+  const secondaryApp = getApps().find(app => app.name === secondaryAppName) || initializeApp(firebaseConfig, secondaryAppName);
+  return getAuth(secondaryApp);
+};
 
 // Test connection to Firestore
 async function testConnection() {
@@ -35,6 +43,9 @@ testConnection();
 
 export {
   signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
   onAuthStateChanged,
   collection,
   doc,

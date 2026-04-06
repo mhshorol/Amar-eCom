@@ -184,6 +184,12 @@ service cloud.firestore {
       return hasRequiredFields(['productId', 'action', 'quantity', 'uid']);
     }
 
+    function isValidSupplierPayment(data) {
+      return hasRequiredFields(['supplierId', 'amount', 'paidAmount', 'uid']) &&
+             data.amount is number && data.amount >= 0 &&
+             data.paidAmount is number && data.paidAmount >= 0;
+    }
+
     function isValidTask(data) {
       return hasRequiredFields(['title', 'assignedTo', 'priority', 'status', 'assignedBy']) &&
              data.priority in ['low', 'medium', 'high'] &&
@@ -344,6 +350,13 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && uidUnchanged();
       allow update: if (isDocOwner() || isStaff()) && uidNotModified();
+      allow delete: if (isDocOwner() || isAdmin());
+    }
+
+    match /supplierPayments/{paymentId} {
+      allow read: if isManager();
+      allow create: if isAuthenticated() && uidUnchanged() && isValidSupplierPayment(request.resource.data);
+      allow update: if (isDocOwner() || isStaff()) && uidNotModified() && isValidSupplierPayment(request.resource.data);
       allow delete: if (isDocOwner() || isAdmin());
     }
 

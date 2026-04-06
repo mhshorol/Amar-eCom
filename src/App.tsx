@@ -1,6 +1,6 @@
 import React, { useEffect, useState, Component, ErrorInfo, ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { onAuthStateChanged, signInWithPopup, googleProvider, auth, isFirebaseConfigured, db, doc, setDoc, getDoc, serverTimestamp } from './firebase';
+import { onAuthStateChanged, signInWithPopup, googleProvider, auth, isFirebaseConfigured, db, doc, setDoc, getDoc, serverTimestamp, signInWithEmailAndPassword } from './firebase';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import Orders from './components/Orders';
@@ -13,8 +13,10 @@ import Finance from './components/Finance';
 import Team from './components/Team';
 import Tasks from './components/Tasks';
 import Settings from './components/Settings';
-import { LogIn, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { LogIn, AlertTriangle, ShieldCheck, Mail, Lock, Loader2 } from 'lucide-react';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { toast, Toaster } from 'sonner';
 
 // Error Boundary Component
 interface ErrorBoundaryProps {
@@ -69,69 +71,43 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
-export default function App() {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+function AppContent() {
+  const { user, loading, hasPermission } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [loginMethod, setLoginMethod] = useState<'google' | 'email'>('google');
 
-  useEffect(() => {
-    if (!isFirebaseConfigured) {
-      setLoading(false);
-      return;
-    }
-
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      try {
-        if (firebaseUser) {
-          // Sync user to Firestore
-          const userRef = doc(db, 'users', firebaseUser.uid);
-          const userSnap = await getDoc(userRef);
-          
-          if (!userSnap.exists()) {
-            await setDoc(userRef, {
-              uid: firebaseUser.uid,
-              name: firebaseUser.displayName,
-              email: firebaseUser.email,
-              photoURL: firebaseUser.photoURL,
-              role: 'staff', // Default role
-              active: true,
-              createdAt: serverTimestamp(),
-              lastLogin: serverTimestamp()
-            });
-          } else {
-            await setDoc(userRef, { lastLogin: serverTimestamp() }, { merge: true });
-          }
-          
-          setUser({
-            ...firebaseUser,
-            role: userSnap.exists() ? userSnap.data().role : 'staff'
-          });
-        } else {
-          setUser(null);
-        }
-      } catch (error) {
-        console.error("Auth state change error:", error);
-      } finally {
-        setLoading(false);
-      }
-    });
-
-    // Safety timeout to clear loading state if Firebase takes too long
-    const timeout = setTimeout(() => {
-      setLoading(false);
-    }, 5000);
-
-    return () => {
-      unsubscribe();
-      clearTimeout(timeout);
-    };
-  }, []);
-
-  const handleLogin = async () => {
+  const handleGoogleLogin = async () => {
     if (!isFirebaseConfigured) return;
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
       console.error("Login failed:", error);
+      toast.error("Google login failed. Please try again.");
+    }
+  };
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      toast.error("Please enter both email and password.");
+      return;
+    }
+    setIsLoggingIn(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error: any) {
+      console.error("Login failed:", error);
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        toast.error("Invalid email or password.");
+      } else if (error.code === 'auth/operation-not-allowed') {
+        toast.error("Email/Password login is not enabled in Firebase Console.");
+      } else {
+        toast.error("Login failed. Please try again.");
+      }
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -160,7 +136,7 @@ export default function App() {
               <ShieldCheck size={40} />
             </div>
             <h2 className="text-xl font-bold text-gray-800">Secure Access</h2>
-            <p className="text-sm text-gray-500">Sign in with your corporate Google account to access your business dashboard.</p>
+            <p className="text-sm text-gray-500">Sign in to access your business dashboard.</p>
           </div>
 
           {!isFirebaseConfigured ? (
@@ -174,13 +150,77 @@ export default function App() {
               </p>
             </div>
           ) : (
-            <button 
-              onClick={handleLogin}
-              className="w-full flex items-center justify-center gap-3 py-4 px-6 bg-[#00AEEF] text-white rounded-2xl font-bold hover:bg-[#0095cc] transition-all shadow-lg shadow-blue-100 group"
-            >
-              <LogIn size={20} className="group-hover:translate-x-1 transition-transform" />
-              Sign in with Google
-            </button>
+            <div className="space-y-6">
+              {loginMethod === 'google' ? (
+                <div className="space-y-4">
+                  <button 
+                    onClick={handleGoogleLogin}
+                    className="w-full flex items-center justify-center gap-3 py-4 px-6 bg-[#00AEEF] text-white rounded-2xl font-bold hover:bg-[#0095cc] transition-all shadow-lg shadow-blue-100 group"
+                  >
+                    <LogIn size={20} className="group-hover:translate-x-1 transition-transform" />
+                    Sign in with Google
+                  </button>
+                  <button 
+                    onClick={() => setLoginMethod('email')}
+                    className="text-xs font-bold text-gray-400 hover:text-[#00AEEF] uppercase tracking-wider transition-colors"
+                  >
+                    Or use Email & Password
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleEmailLogin} className="space-y-4 text-left">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                      <input 
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="admin@amarsupply.com"
+                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-transparent rounded-2xl text-sm focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                      <input 
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-transparent rounded-2xl text-sm focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <button 
+                    type="submit"
+                    disabled={isLoggingIn}
+                    className="w-full flex items-center justify-center gap-3 py-4 px-6 bg-[#141414] text-white rounded-2xl font-bold hover:bg-black transition-all shadow-lg group disabled:opacity-50"
+                  >
+                    {isLoggingIn ? (
+                      <Loader2 size={20} className="animate-spin" />
+                    ) : (
+                      <>
+                        <LogIn size={20} className="group-hover:translate-x-1 transition-transform" />
+                        Sign In
+                      </>
+                    )}
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setLoginMethod('google')}
+                    className="w-full text-xs font-bold text-gray-400 hover:text-[#00AEEF] uppercase tracking-wider transition-colors text-center"
+                  >
+                    Back to Google Login
+                  </button>
+                </form>
+              )}
+            </div>
           )}
 
           <div className="pt-6 border-t border-gray-100">
@@ -192,26 +232,35 @@ export default function App() {
   }
 
   return (
+    <Router>
+      <Layout user={user}>
+        <Routes>
+          <Route path="/" element={hasPermission('dashboard') ? <Dashboard /> : <Navigate to="/tasks" replace />} />
+          <Route path="/pos" element={hasPermission('pos') ? <POS /> : <Navigate to="/" replace />} />
+          <Route path="/orders" element={hasPermission('orders') ? <Orders /> : <Navigate to="/" replace />} />
+          <Route path="/inventory" element={hasPermission('inventory') ? <Inventory /> : <Navigate to="/" replace />} />
+          <Route path="/crm" element={hasPermission('crm') ? <CRM /> : <Navigate to="/" replace />} />
+          <Route path="/suppliers" element={hasPermission('suppliers') ? <Suppliers /> : <Navigate to="/" replace />} />
+          <Route path="/logistics" element={hasPermission('logistics') ? <Logistics /> : <Navigate to="/" replace />} />
+          <Route path="/finance" element={hasPermission('finance') ? <Finance /> : <Navigate to="/" replace />} />
+          <Route path="/team" element={hasPermission('team') ? <Team /> : <Navigate to="/" replace />} />
+          <Route path="/tasks" element={hasPermission('tasks') ? <Tasks /> : <Navigate to="/" replace />} />
+          <Route path="/settings" element={hasPermission('settings') ? <Settings /> : <Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Layout>
+    </Router>
+  );
+}
+
+export default function App() {
+  return (
     <ErrorBoundary>
       <SettingsProvider>
-        <Router>
-          <Layout user={user}>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/orders" element={<Orders />} />
-              <Route path="/inventory" element={<Inventory />} />
-              <Route path="/crm" element={<CRM />} />
-              <Route path="/pos" element={<POS />} />
-              <Route path="/suppliers" element={<Suppliers />} />
-              <Route path="/logistics" element={<Logistics />} />
-              <Route path="/finance" element={<Finance />} />
-              <Route path="/team" element={<Team />} />
-              <Route path="/tasks" element={<Tasks />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Layout>
-        </Router>
+        <AuthProvider>
+          <AppContent />
+          <Toaster position="top-right" richColors />
+        </AuthProvider>
       </SettingsProvider>
     </ErrorBoundary>
   );

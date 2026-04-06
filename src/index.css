@@ -42,11 +42,11 @@
     visibility: visible !important;
     opacity: 1 !important;
     z-index: 99999 !important;
-    background: white !important;
-    color: black !important;
+    background: #ffffff !important;
+    color: #000000 !important;
   }
   body {
-    background: white !important;
+    background: #ffffff !important;
     visibility: hidden !important;
   }
   body * {

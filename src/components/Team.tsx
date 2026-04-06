@@ -15,34 +15,42 @@ import {
   Activity,
   UserCheck,
   Mail,
-  Clock
+  Clock,
+  Plus,
+  X,
+  Lock,
+  Settings,
+  Check
 } from 'lucide-react';
-import { db, auth, collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp, where, getDocs, addDoc } from '../firebase';
-import { User, UserRole, ActivityLog } from '../types';
+import { db, auth, collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp, where, getDocs, addDoc, serverTimestamp, setDoc, getSecondaryAuth, createUserWithEmailAndPassword, signOut } from '../firebase';
+import { User, UserRole, ActivityLog, UserPermissions } from '../types';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { useAuth, defaultPermissions, adminPermissions } from '../contexts/AuthContext';
 
 export default function Team() {
+  const { user: currentUser, role: currentUserRole } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'members' | 'activity'>('members');
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [currentUserRole, setCurrentUserRole] = useState<UserRole>('staff');
+  
+  // Add Member Modal State
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState<UserRole>('staff');
+  const [isCreating, setIsCreating] = useState(false);
+
+  // Permissions Modal State
+  const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [tempPermissions, setTempPermissions] = useState<UserPermissions | null>(null);
+  const [isUpdatingPermissions, setIsUpdatingPermissions] = useState(false);
 
   useEffect(() => {
-    if (!auth.currentUser) return;
-
-    // Get current user's role
-    const fetchCurrentUserRole = async () => {
-      const userDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', auth.currentUser?.uid)));
-      if (!userDoc.empty) {
-        setCurrentUserRole(userDoc.docs[0].data().role as UserRole);
-      }
-    };
-    fetchCurrentUserRole();
-
     // Subscribe to users
     const unsubUsers = onSnapshot(query(collection(db, 'users'), orderBy('name', 'asc')), (snapshot) => {
       setUsers(snapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as any as User)));
@@ -64,6 +72,62 @@ export default function Team() {
     };
   }, []);
 
+  const handleAddMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserName || !newUserEmail || !newUserPassword) {
+      toast.error('Please fill in all fields.');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const secondaryAuth = getSecondaryAuth();
+      if (!secondaryAuth) throw new Error("Auth not configured");
+
+      // Create user in Firebase Auth using secondary app to avoid logging out current user
+      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, newUserEmail, newUserPassword);
+      const newUid = userCredential.user.uid;
+
+      // Sign out from secondary app immediately
+      await signOut(secondaryAuth);
+
+      // Create user document in Firestore
+      const newUser: User = {
+        uid: newUid,
+        name: newUserName,
+        email: newUserEmail,
+        role: newUserRole,
+        active: true,
+        permissions: newUserRole === 'admin' ? adminPermissions : defaultPermissions,
+        createdAt: serverTimestamp(),
+        lastLogin: null
+      };
+
+      await setDoc(doc(db, 'users', newUid), newUser);
+      
+      // Log activity
+      await addActivityLog('Added New Member', 'Team', `Added ${newUserName} (${newUserEmail}) as ${newUserRole}`);
+      
+      toast.success('Team member added successfully.');
+      setIsAddModalOpen(false);
+      setNewUserName('');
+      setNewUserEmail('');
+      setNewUserPassword('');
+      setNewUserRole('staff');
+    } catch (error: any) {
+      console.error('Error adding member:', error);
+      if (error.code === 'auth/email-already-in-use') {
+        toast.error('Email is already in use.');
+      } else if (error.code === 'auth/operation-not-allowed') {
+        toast.error('Email/Password authentication is not enabled in Firebase Console.');
+      } else {
+        toast.error('Failed to add team member.');
+      }
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const handleUpdateRole = async (userId: string, newRole: UserRole) => {
     if (currentUserRole !== 'admin') {
       toast.error('Only administrators can change roles.');
@@ -72,7 +136,14 @@ export default function Team() {
 
     try {
       const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, { role: newRole });
+      const updates: any = { role: newRole };
+      
+      // If promoting to admin, give all permissions
+      if (newRole === 'admin') {
+        updates.permissions = adminPermissions;
+      }
+
+      await updateDoc(userRef, updates);
       
       // Log activity
       await addActivityLog('Updated User Role', 'Team', `Changed role to ${newRole} for user ${userId}`);
@@ -104,11 +175,46 @@ export default function Team() {
     }
   };
 
+  const openPermissionsModal = (user: User) => {
+    setSelectedUser(user);
+    setTempPermissions(user.permissions || defaultPermissions);
+    setIsPermissionsModalOpen(true);
+  };
+
+  const handleUpdatePermissions = async () => {
+    if (!selectedUser || !tempPermissions) return;
+    
+    setIsUpdatingPermissions(true);
+    try {
+      const userRef = doc(db, 'users', selectedUser.uid);
+      await updateDoc(userRef, { permissions: tempPermissions });
+      
+      // Log activity
+      await addActivityLog('Updated Permissions', 'Team', `Updated module permissions for ${selectedUser.name}`);
+      
+      toast.success('Permissions updated successfully.');
+      setIsPermissionsModalOpen(false);
+    } catch (error) {
+      console.error('Error updating permissions:', error);
+      toast.error('Failed to update permissions.');
+    } finally {
+      setIsUpdatingPermissions(false);
+    }
+  };
+
+  const togglePermission = (key: keyof UserPermissions) => {
+    if (!tempPermissions) return;
+    setTempPermissions({
+      ...tempPermissions,
+      [key]: !tempPermissions[key]
+    });
+  };
+
   const addActivityLog = async (action: string, module: string, details: string) => {
     try {
       await addDoc(collection(db, 'activityLogs'), {
-        userId: auth.currentUser?.uid,
-        userName: auth.currentUser?.displayName || auth.currentUser?.email,
+        userId: currentUser?.uid,
+        userName: currentUser?.name || currentUser?.email,
         action,
         module,
         details,
@@ -165,6 +271,15 @@ export default function Team() {
               Activity Logs
             </button>
           </div>
+          {currentUserRole === 'admin' && (
+            <button 
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#00AEEF] text-white rounded-xl text-xs font-bold hover:bg-[#0095cc] transition-all shadow-lg shadow-[#00AEEF]/20"
+            >
+              <UserPlus size={16} />
+              Add Member
+            </button>
+          )}
         </div>
       </div>
 
@@ -237,13 +352,22 @@ export default function Team() {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-1.5 text-xs text-gray-500">
                             <Clock size={14} />
-                            {(user as any).lastLogin?.toDate ? (user as any).lastLogin.toDate().toLocaleString() : ((user as any).lastLogin?.seconds ? new Date((user as any).lastLogin.seconds * 1000).toLocaleString() : 'Never')}
+                            {user.lastLogin?.toDate ? user.lastLogin.toDate().toLocaleString() : (user.lastLogin?.seconds ? new Date(user.lastLogin.seconds * 1000).toLocaleString() : 'Never')}
                           </div>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             {currentUserRole === 'admin' && (
                               <>
+                                {user.role !== 'admin' && (
+                                  <button 
+                                    onClick={() => openPermissionsModal(user)}
+                                    className="p-2 rounded-lg hover:bg-blue-50 text-blue-400 hover:text-blue-600 transition-colors shadow-sm border border-transparent"
+                                    title="Manage Permissions"
+                                  >
+                                    <Settings size={14} />
+                                  </button>
+                                )}
                                 <select 
                                   value={user.role}
                                   onChange={(e) => handleUpdateRole(user.uid, e.target.value as UserRole)}
@@ -309,6 +433,163 @@ export default function Team() {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Member Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+            <div className="p-6 border-b border-gray-50 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-[#00AEEF]">
+                  <UserPlus size={20} />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900">Add Team Member</h3>
+              </div>
+              <button onClick={() => setIsAddModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleAddMember} className="p-6 space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Full Name</label>
+                <input 
+                  type="text"
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                  placeholder="Enter full name"
+                  className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <input 
+                    type="email"
+                    value={newUserEmail}
+                    onChange={(e) => setNewUserEmail(e.target.value)}
+                    placeholder="email@example.com"
+                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Initial Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <input 
+                    type="password"
+                    value={newUserPassword}
+                    onChange={(e) => setNewUserPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-transparent rounded-xl text-sm focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Assign Role</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button 
+                    type="button"
+                    onClick={() => setNewUserRole('staff')}
+                    className={`p-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${newUserRole === 'staff' ? 'bg-[#141414] text-white border-[#141414]' : 'bg-white text-gray-500 border-gray-100 hover:bg-gray-50'}`}
+                  >
+                    <UserCheck size={14} /> Staff
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setNewUserRole('manager')}
+                    className={`p-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${newUserRole === 'manager' ? 'bg-[#00AEEF] text-white border-[#00AEEF]' : 'bg-white text-gray-500 border-gray-100 hover:bg-gray-50'}`}
+                  >
+                    <Shield size={14} /> Manager
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-4 flex gap-3">
+                <button 
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="flex-1 py-3 px-6 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isCreating}
+                  className="flex-1 py-3 px-6 bg-[#00AEEF] text-white rounded-xl font-bold hover:bg-[#0095cc] transition-all shadow-lg shadow-[#00AEEF]/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isCreating ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+                  Create Member
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Permissions Modal */}
+      {isPermissionsModalOpen && selectedUser && tempPermissions && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+            <div className="p-6 border-b border-gray-50 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-[#00AEEF]">
+                  <Settings size={20} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Module Permissions</h3>
+                  <p className="text-xs text-gray-500">Managing access for {selectedUser.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setIsPermissionsModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto">
+              {(Object.keys(tempPermissions) as Array<keyof UserPermissions>).map((key) => (
+                <div 
+                  key={key}
+                  onClick={() => togglePermission(key)}
+                  className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group ${tempPermissions[key] ? 'bg-blue-50 border-[#00AEEF]/20' : 'bg-white border-gray-100 hover:border-gray-200'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${tempPermissions[key] ? 'bg-[#00AEEF] text-white' : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100'}`}>
+                      {tempPermissions[key] ? <Check size={16} /> : <X size={16} />}
+                    </div>
+                    <span className="text-sm font-bold text-gray-700 capitalize">{key}</span>
+                  </div>
+                  <div className={`w-10 h-5 rounded-full transition-colors relative ${tempPermissions[key] ? 'bg-[#00AEEF]' : 'bg-gray-200'}`}>
+                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${tempPermissions[key] ? 'right-1' : 'left-1'}`}></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-6 bg-gray-50 flex gap-3">
+              <button 
+                onClick={() => setIsPermissionsModalOpen(false)}
+                className="flex-1 py-3 px-6 bg-white border border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleUpdatePermissions}
+                disabled={isUpdatingPermissions}
+                className="flex-1 py-3 px-6 bg-[#141414] text-white rounded-xl font-bold hover:bg-black transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isUpdatingPermissions ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
+                Save Permissions
+              </button>
             </div>
           </div>
         </div>

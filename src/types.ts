@@ -1,11 +1,30 @@
 export type UserRole = 'admin' | 'manager' | 'staff';
 
+export interface UserPermissions {
+  dashboard: boolean;
+  pos: boolean;
+  orders: boolean;
+  inventory: boolean;
+  crm: boolean;
+  suppliers: boolean;
+  logistics: boolean;
+  tasks: boolean;
+  finance: boolean;
+  team: boolean;
+  settings: boolean;
+  reports: boolean;
+}
+
 export interface User {
   uid: string;
   name: string;
   email: string;
   role: UserRole;
   active: boolean;
+  permissions?: UserPermissions;
+  photoURL?: string;
+  createdAt?: any;
+  lastLogin?: any;
 }
 
 export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'packed' | 'shipped' | 'out_for_delivery' | 'delivered' | 'partial_delivered' | 'cancelled' | 'returned';
@@ -212,5 +231,21 @@ export interface ReturnRequest {
   type: 'return' | 'exchange';
   exchangeOrderId?: string;
   refundAmount?: number;
+  createdAt: any;
+}
+
+export interface SupplierPayment {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  date: string;
+  voucherNo: string;
+  dueAmount: number;
+  amount: number;
+  total: number;
+  paymentType: string;
+  paidAmount: number;
+  remark?: string;
+  uid: string;
   createdAt: any;
 }

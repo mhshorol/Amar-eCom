@@ -57,8 +57,8 @@ import {
 import { db, auth } from '../firebase';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-
 import { useSettings } from '../contexts/SettingsContext';
+import { Supplier, SupplierPayment } from '../types';
 
 interface Transaction {
   id: string;
@@ -100,12 +100,15 @@ const COA_STRUCTURE = {
 
 function Finance() {
   const { currencySymbol } = useSettings();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'transactions' | 'coa' | 'reports' | 'ar_ap'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'transactions' | 'coa' | 'reports' | 'ar_ap' | 'supplier_payments'>('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [supplierPayments, setSupplierPayments] = useState<SupplierPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSupplierPaymentModalOpen, setIsSupplierPaymentModalOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isPnLModalOpen, setIsPnLModalOpen] = useState(false);
   const [isBalanceSheetModalOpen, setIsBalanceSheetModalOpen] = useState(false);
@@ -135,10 +138,24 @@ function Finance() {
     balance: '',
     accountNumber: ''
   });
+  const [supplierPaymentForm, setSupplierPaymentForm] = useState({
+    supplierId: '',
+    supplierName: '',
+    date: new Date().toISOString().split('T')[0],
+    voucherNo: '',
+    dueAmount: '',
+    amount: '',
+    total: '',
+    paymentType: 'Cash',
+    paidAmount: '',
+    remark: ''
+  });
 
   useEffect(() => {
     const qTxns = query(collection(db, 'transactions'), orderBy('createdAt', 'desc'));
     const qAccounts = query(collection(db, 'accounts'), orderBy('name', 'asc'));
+    const qSuppliers = query(collection(db, 'suppliers'), orderBy('name', 'asc'));
+    const qSupplierPayments = query(collection(db, 'supplierPayments'), orderBy('createdAt', 'desc'));
     
     const unsubTxns = onSnapshot(qTxns, (snapshot) => {
       setTransactions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Transaction[]);
@@ -149,9 +166,19 @@ function Finance() {
       setAccounts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Account[]);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'accounts'));
 
+    const unsubSuppliers = onSnapshot(qSuppliers, (snapshot) => {
+      setSuppliers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Supplier[]);
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'suppliers'));
+
+    const unsubSupplierPayments = onSnapshot(qSupplierPayments, (snapshot) => {
+      setSupplierPayments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as SupplierPayment[]);
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'supplierPayments'));
+
     return () => {
       unsubTxns();
       unsubAccounts();
+      unsubSuppliers();
+      unsubSupplierPayments();
     };
   }, []);
 
@@ -268,6 +295,61 @@ function Finance() {
       setIsModalOpen(false);
     } catch (error) {
       handleFirestoreError(error, editingTransaction ? OperationType.UPDATE : OperationType.CREATE, 'transactions');
+    }
+  };
+
+  const handleSupplierPaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth.currentUser) return;
+
+    try {
+      const selectedSupplier = suppliers.find(s => s.id === supplierPaymentForm.supplierId);
+      const data = {
+        supplierId: supplierPaymentForm.supplierId,
+        supplierName: selectedSupplier?.name || '',
+        date: supplierPaymentForm.date,
+        voucherNo: supplierPaymentForm.voucherNo,
+        dueAmount: Number(supplierPaymentForm.dueAmount),
+        amount: Number(supplierPaymentForm.amount),
+        total: Number(supplierPaymentForm.total),
+        paymentType: supplierPaymentForm.paymentType,
+        paidAmount: Number(supplierPaymentForm.paidAmount),
+        remark: supplierPaymentForm.remark,
+        uid: auth.currentUser.uid,
+        createdAt: serverTimestamp()
+      };
+
+      await addDoc(collection(db, 'supplierPayments'), data);
+
+      // Also create a transaction
+      await addDoc(collection(db, 'transactions'), {
+        type: 'expense',
+        category: 'COGS',
+        subCategory: 'Product Cost',
+        amount: Number(supplierPaymentForm.paidAmount),
+        method: supplierPaymentForm.paymentType,
+        accountId: accounts.find(a => a.name === supplierPaymentForm.paymentType)?.id || accounts[0]?.id || '',
+        date: supplierPaymentForm.date,
+        status: 'Completed',
+        notes: `Supplier Payment: ${selectedSupplier?.name} (Voucher: ${supplierPaymentForm.voucherNo})`,
+        createdAt: serverTimestamp(),
+        uid: auth.currentUser.uid
+      });
+
+      setIsSupplierPaymentModalOpen(false);
+      toast.success('Supplier payment recorded successfully');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'supplierPayments');
+    }
+  };
+
+  const handleDeleteSupplierPayment = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this supplier payment?')) return;
+    try {
+      await deleteDoc(doc(db, 'supplierPayments', id));
+      toast.success('Supplier payment deleted');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `supplierPayments/${id}`);
     }
   };
 
@@ -551,6 +633,15 @@ function Finance() {
         >
           <ArrowRightLeft size={14} />
           A/R & A/P
+        </button>
+        <button
+          onClick={() => setActiveTab('supplier_payments')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+            activeTab === 'supplier_payments' ? 'bg-white text-[#141414] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Building2 size={14} />
+          Supplier Payments
         </button>
       </div>
 
@@ -910,7 +1001,237 @@ function Finance() {
         </div>
       )}
 
-      {/* Balance Sheet Modal */}
+      {activeTab === 'supplier_payments' && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden min-h-[400px]">
+          <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="text-lg font-bold">Supplier Payments</h3>
+            <button 
+              onClick={() => {
+                setSupplierPaymentForm({
+                  supplierId: '',
+                  supplierName: '',
+                  date: new Date().toISOString().split('T')[0],
+                  voucherNo: '',
+                  dueAmount: '',
+                  amount: '',
+                  total: '',
+                  paymentType: 'Cash',
+                  paidAmount: '',
+                  remark: ''
+                });
+                setIsSupplierPaymentModalOpen(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-[#141414] text-white rounded-lg text-xs font-bold hover:bg-black transition-all"
+            >
+              <Plus size={14} />
+              Add Payment
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-gray-50 text-[10px] uppercase tracking-widest text-gray-500">
+                  <th className="px-6 py-4 font-semibold">Date</th>
+                  <th className="px-6 py-4 font-semibold">Supplier</th>
+                  <th className="px-6 py-4 font-semibold">Voucher No</th>
+                  <th className="px-6 py-4 font-semibold">Due Amount</th>
+                  <th className="px-6 py-4 font-semibold">Paid Amount</th>
+                  <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {supplierPayments.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <Building2 className="text-gray-300" size={48} />
+                        <span className="text-sm text-gray-500">No supplier payments found</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  supplierPayments.map((payment) => (
+                    <tr key={payment.id} className="hover:bg-gray-50 transition-colors group">
+                      <td className="px-6 py-4 text-sm text-gray-600">{payment.date}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-[#141414]">{payment.supplierName}</span>
+                          <span className="text-[10px] text-gray-400">{payment.remark}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{payment.voucherNo}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{currencySymbol} {payment.dueAmount.toLocaleString()}</td>
+                      <td className="px-6 py-4">
+                        <span className="text-sm font-bold text-red-600">
+                          {currencySymbol} {payment.paidAmount.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button 
+                          onClick={() => handleDeleteSupplierPayment(payment.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all opacity-0 group-hover:opacity-100"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Supplier Payment Modal */}
+      {isSupplierPaymentModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-[#141414]">Supplier Payment</h3>
+              <button 
+                onClick={() => setIsSupplierPaymentModalOpen(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleSupplierPaymentSubmit} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Date*</label>
+                  <input
+                    required
+                    type="date"
+                    className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all"
+                    value={supplierPaymentForm.date}
+                    onChange={(e) => setSupplierPaymentForm({...supplierPaymentForm, date: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all"
+                    placeholder="Optional notes"
+                    value={supplierPaymentForm.remark}
+                    onChange={(e) => setSupplierPaymentForm({...supplierPaymentForm, remark: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Supplier Name*</label>
+                <select
+                  required
+                  className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all"
+                  value={supplierPaymentForm.supplierId}
+                  onChange={(e) => setSupplierPaymentForm({...supplierPaymentForm, supplierId: e.target.value})}
+                >
+                  <option value="">Select Supplier</option>
+                  {suppliers.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Voucher No</label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all"
+                    placeholder="V-001"
+                    value={supplierPaymentForm.voucherNo}
+                    onChange={(e) => setSupplierPaymentForm({...supplierPaymentForm, voucherNo: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Due Amount</label>
+                  <input
+                    type="number"
+                    className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all"
+                    placeholder="0.00"
+                    value={supplierPaymentForm.dueAmount}
+                    onChange={(e) => setSupplierPaymentForm({...supplierPaymentForm, dueAmount: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Amount*</label>
+                  <input
+                    required
+                    type="number"
+                    className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all"
+                    placeholder="0.00"
+                    value={supplierPaymentForm.amount}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSupplierPaymentForm({
+                        ...supplierPaymentForm, 
+                        amount: val,
+                        total: val,
+                        paidAmount: val
+                      });
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Total</label>
+                  <input
+                    readOnly
+                    type="number"
+                    className="w-full px-4 py-2 bg-gray-100 border border-transparent rounded-lg text-sm outline-none"
+                    value={supplierPaymentForm.total}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Payment Type</label>
+                  <select
+                    className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all"
+                    value={supplierPaymentForm.paymentType}
+                    onChange={(e) => setSupplierPaymentForm({...supplierPaymentForm, paymentType: e.target.value})}
+                  >
+                    <option value="Cash">Cash</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="bKash">bKash</option>
+                    <option value="Nagad">Nagad</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Paid Amount</label>
+                <input
+                  required
+                  type="number"
+                  className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all font-bold text-green-600"
+                  value={supplierPaymentForm.paidAmount}
+                  onChange={(e) => setSupplierPaymentForm({...supplierPaymentForm, paidAmount: e.target.value})}
+                />
+              </div>
+
+              <div className="pt-4 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsSupplierPaymentModalOpen(false)}
+                  className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-[#141414] text-white rounded-lg text-sm font-medium hover:bg-black transition-colors"
+                >
+                  Save Payment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {isBalanceSheetModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">

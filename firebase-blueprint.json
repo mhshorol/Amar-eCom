@@ -313,9 +313,34 @@
         "companyAddress": { "type": "string" },
         "companyMobile": { "type": "string" },
         "companyPhone": { "type": "string" },
+        "companyEmail": { "type": "string" },
         "companyWebsite": { "type": "string" },
+        "companyVat": { "type": "string" },
+        "invoiceFooterNote": { "type": "string" },
+        "signatureImage": { "type": "string" },
         "orderCounter": { "type": "number", "description": "Last used numeric order ID." }
       }
+    },
+    "supplierPayments": {
+      "title": "Supplier Payment",
+      "description": "Represents a payment made to a supplier.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "supplierId": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "voucherNo": { "type": "string" },
+        "dueAmount": { "type": "number" },
+        "amount": { "type": "number" },
+        "total": { "type": "number" },
+        "paymentType": { "type": "string" },
+        "paidAmount": { "type": "number" },
+        "remark": { "type": "string" },
+        "uid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["supplierId", "amount", "paidAmount", "uid"]
     }
   },
   "firestore": {
@@ -334,6 +359,7 @@
     "/couriers/{courierId}": { "schema": "couriers", "description": "Collection of couriers." },
     "/deliveries/{deliveryId}": { "schema": "deliveries", "description": "Collection of deliveries." },
     "/transactions/{transactionId}": { "schema": "transactions", "description": "Collection of financial transactions." },
+    "/supplierPayments/{paymentId}": { "schema": "supplierPayments", "description": "Collection of supplier payments." },
     "/users/{uid}": { "schema": "users", "description": "Collection of system users." },
     "/woocommerce_orders/{orderId}": { "schema": "woocommerce_orders", "description": "Collection of cached WooCommerce orders." },
     "/woocommerce_logs/{logId}": { "schema": "woocommerce_logs", "description": "Collection of WooCommerce sync logs." },

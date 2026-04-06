@@ -23,30 +23,32 @@ import {
   Quote,
   Calculator
 } from 'lucide-react';
-import { auth } from '../firebase';
-import { signOut } from 'firebase/auth';
+import { auth, signOut } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
+import { UserPermissions } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
   user: any;
 }
 
-const navItems = [
-  { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { name: 'POS', path: '/pos', icon: Calculator },
-  { name: 'Orders', path: '/orders', icon: ShoppingCart },
-  { name: 'Inventory', path: '/inventory', icon: Package },
-  { name: 'CRM', path: '/crm', icon: Users },
-  { name: 'Suppliers', path: '/suppliers', icon: UserPlus },
-  { name: 'Logistics', path: '/logistics', icon: Truck },
-  { name: 'Tasks', path: '/tasks', icon: ClipboardList },
-  { name: 'Finance', path: '/finance', icon: CreditCard },
-  { name: 'Team', path: '/team', icon: UserPlus },
-  { name: 'Settings', path: '/settings', icon: Settings },
+const navItems: { name: string; path: string; icon: any; permission: keyof UserPermissions }[] = [
+  { name: 'Dashboard', path: '/', icon: LayoutDashboard, permission: 'dashboard' },
+  { name: 'POS', path: '/pos', icon: Calculator, permission: 'pos' },
+  { name: 'Orders', path: '/orders', icon: ShoppingCart, permission: 'orders' },
+  { name: 'Inventory', path: '/inventory', icon: Package, permission: 'inventory' },
+  { name: 'CRM', path: '/crm', icon: Users, permission: 'crm' },
+  { name: 'Suppliers', path: '/suppliers', icon: UserPlus, permission: 'suppliers' },
+  { name: 'Logistics', path: '/logistics', icon: Truck, permission: 'logistics' },
+  { name: 'Tasks', path: '/tasks', icon: ClipboardList, permission: 'tasks' },
+  { name: 'Finance', path: '/finance', icon: CreditCard, permission: 'finance' },
+  { name: 'Team', path: '/team', icon: UserPlus, permission: 'team' },
+  { name: 'Settings', path: '/settings', icon: Settings, permission: 'settings' },
 ];
 
 export default function Layout({ children, user }: LayoutProps) {
   const location = useLocation();
+  const { hasPermission } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isQuickActionOpen, setIsQuickActionOpen] = React.useState(false);
 
@@ -54,11 +56,7 @@ export default function Layout({ children, user }: LayoutProps) {
     signOut(auth);
   };
 
-  const navigate = React.useMemo(() => {
-    return (path: string) => {
-      window.location.href = path;
-    };
-  }, []);
+  const filteredNavItems = navItems.filter(item => hasPermission(item.permission));
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex font-sans">
@@ -75,7 +73,7 @@ export default function Layout({ children, user }: LayoutProps) {
         </div>
         
         <nav className="flex-1 p-4 space-y-1">
-          {navItems.map((item) => {
+          {filteredNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             return (
@@ -145,31 +143,40 @@ export default function Layout({ children, user }: LayoutProps) {
 
               {isQuickActionOpen && (
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 z-50">
-                  <Link 
-                    to="/pos" 
-                    onClick={() => setIsQuickActionOpen(false)}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors"
-                  >
-                    <Calculator size={16} className="text-[#00AEEF]" /> New POS Sale
-                  </Link>
-                  <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors">
-                    <ClipboardList size={16} className="text-[#00AEEF]" /> Create Task
-                  </button>
-                  <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors">
-                    <Package size={16} className="text-[#00AEEF]" /> Add Product
-                  </button>
-                  <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors">
-                    <UserPlus size={16} className="text-[#00AEEF]" /> Add Customer
-                  </button>
-                  <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors">
-                    <UserPlus size={16} className="text-[#00AEEF]" /> Add Supplier
-                  </button>
-                  <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors">
-                    <FileText size={16} className="text-[#00AEEF]" /> Create Invoice
-                  </button>
-                  <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors">
-                    <Quote size={16} className="text-[#00AEEF]" /> Add Quotation
-                  </button>
+                  {hasPermission('pos') && (
+                    <Link 
+                      to="/pos" 
+                      onClick={() => setIsQuickActionOpen(false)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors"
+                    >
+                      <Calculator size={16} className="text-[#00AEEF]" /> New POS Sale
+                    </Link>
+                  )}
+                  {hasPermission('tasks') && (
+                    <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors">
+                      <ClipboardList size={16} className="text-[#00AEEF]" /> Create Task
+                    </button>
+                  )}
+                  {hasPermission('inventory') && (
+                    <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors">
+                      <Package size={16} className="text-[#00AEEF]" /> Add Product
+                    </button>
+                  )}
+                  {hasPermission('crm') && (
+                    <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors">
+                      <UserPlus size={16} className="text-[#00AEEF]" /> Add Customer
+                    </button>
+                  )}
+                  {hasPermission('suppliers') && (
+                    <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors">
+                      <UserPlus size={16} className="text-[#00AEEF]" /> Add Supplier
+                    </button>
+                  )}
+                  {hasPermission('orders') && (
+                    <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors">
+                      <FileText size={16} className="text-[#00AEEF]" /> Create Invoice
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -183,7 +190,7 @@ export default function Layout({ children, user }: LayoutProps) {
 
             <div className="flex items-center gap-3 pl-2">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-gray-900">{user?.displayName || 'John Doe'}</p>
+                <p className="text-sm font-bold text-gray-900">{user?.name || user?.displayName || 'John Doe'}</p>
                 <p className="text-[10px] font-bold text-[#00AEEF] uppercase tracking-wider">
                   {user?.role === 'admin' ? 'Administrator' : user?.role === 'manager' ? 'Manager' : 'Staff Member'}
                 </p>
@@ -193,7 +200,7 @@ export default function Layout({ children, user }: LayoutProps) {
                   <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-[#00AEEF] text-white font-bold">
-                    {user?.displayName?.[0] || 'J'}
+                    {(user?.name?.[0] || user?.displayName?.[0] || 'J')}
                   </div>
                 )}
               </div>
@@ -220,7 +227,7 @@ export default function Layout({ children, user }: LayoutProps) {
               </button>
             </div>
             <nav className="space-y-2">
-              {navItems.map((item) => {
+              {filteredNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
                 return (
