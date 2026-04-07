@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
   Search, 
   Filter, 
@@ -53,7 +54,7 @@ const ChannelIcon = ({ channel }: { channel: string }) => {
   }
 };
 
-const StatusBadge = ({ status }: { status: string }) => {
+const StatusBadge = ({ status, onClick }: { status: string; onClick?: () => void }) => {
   const colors: Record<string, string> = {
     'pending': 'bg-[#fff7ed] text-[#ea580c] border-[#ffedd5]',
     'confirmed': 'bg-[#eff6ff] text-[#2563eb] border-[#dbeafe]',
@@ -67,13 +68,17 @@ const StatusBadge = ({ status }: { status: string }) => {
     'returned': 'bg-[#f9fafb] text-[#4b5563] border-[#f3f4f6]',
   };
   return (
-    <span className={`text-[10px] font-bold px-2 py-1 rounded-md border ${colors[status] || colors['pending']}`}>
+    <span 
+      onClick={onClick}
+      className={`text-[10px] font-bold px-2 py-1 rounded-md border cursor-pointer hover:opacity-80 transition-opacity ${colors[status] || colors['pending']}`}
+    >
       {status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1)}
     </span>
   );
 };
 
 export default function Orders() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { settings, currencySymbol } = useSettings();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('All');
@@ -82,6 +87,7 @@ export default function Orders() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState<string | null>(null);
   const [editingOrder, setEditingOrder] = useState<any | null>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [variants, setVariants] = useState<any[]>([]);
@@ -93,8 +99,16 @@ export default function Orders() {
   const printRef = React.useRef<HTMLDivElement>(null);
   const bulkPrintRef = React.useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (searchParams.get('new') === 'true') {
+      setIsModalOpen(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const handlePrint = useReactToPrint({
     contentRef: printRef,
+    suppressErrors: true,
     onBeforePrint: () => {
       if (!printType) {
         return Promise.reject("No print type selected");
@@ -121,6 +135,7 @@ export default function Orders() {
 
   const handleBulkPrint = useReactToPrint({
     contentRef: bulkPrintRef,
+    suppressErrors: true,
     onBeforePrint: () => {
       return new Promise((resolve) => {
         setTimeout(resolve, 500);
@@ -552,7 +567,11 @@ export default function Orders() {
       });
 
       // Stock Restoration Logic
-      if ((newStatus === 'Cancelled' || newStatus === 'Returned') && orderData.status !== 'Cancelled' && orderData.status !== 'Returned') {
+      const normalizedNewStatus = newStatus.toLowerCase();
+      const normalizedOldStatus = orderData.status.toLowerCase();
+
+      if ((normalizedNewStatus === 'cancelled' || normalizedNewStatus === 'returned') && 
+          normalizedOldStatus !== 'cancelled' && normalizedOldStatus !== 'returned') {
         for (const item of orderData.items) {
           const invQuery = query(
             collection(db, 'inventory'),
@@ -586,6 +605,7 @@ export default function Orders() {
       }
 
       await batch.commit();
+      toast.success(`Order status updated to ${newStatus.replace(/_/g, ' ').charAt(0).toUpperCase() + newStatus.replace(/_/g, ' ').slice(1)}`);
       await logActivity('Updated Order Status', 'Orders', `Order #${orderId.slice(0, 8)} status changed to ${newStatus}`);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `orders/${orderId}`);
@@ -1045,8 +1065,27 @@ export default function Orders() {
                               {order.dueAmount > 0 && <span className="text-[10px] text-[#f97316] font-bold">Due: {currencySymbol}{order.dueAmount.toLocaleString()}</span>}
                             </div>
                           </td>
-                          <td className="px-6 py-4">
-                            <StatusBadge status={order.status} />
+                          <td className="px-6 py-4 relative">
+                            <StatusBadge 
+                              status={order.status} 
+                              onClick={() => setIsStatusMenuOpen(isStatusMenuOpen === order.id ? null : order.id)}
+                            />
+                            {isStatusMenuOpen === order.id && (
+                              <div className="absolute left-6 mt-2 w-40 bg-white rounded-xl shadow-2xl border border-gray-100 p-2 z-50">
+                                {statuses.map(s => (
+                                  <button
+                                    key={s}
+                                    onClick={() => {
+                                      handleUpdateStatus(order.id, s);
+                                      setIsStatusMenuOpen(null);
+                                    }}
+                                    className="w-full text-left px-3 py-2 hover:bg-gray-50 rounded-lg text-[10px] font-bold text-gray-700 transition-colors"
+                                  >
+                                    {s.replace(/_/g, ' ').charAt(0).toUpperCase() + s.replace(/_/g, ' ').slice(1)}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1457,15 +1496,19 @@ export default function Orders() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Status</label>
+                    <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Order Source</label>
                     <select 
                       className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all"
-                      value={orderForm.status}
-                      onChange={e => setOrderForm({...orderForm, status: e.target.value as any})}
+                      value={orderForm.channel}
+                      onChange={e => setOrderForm({...orderForm, channel: e.target.value})}
                     >
-                      {statuses.map(s => (
-                        <option key={s} value={s}>{s.replace(/_/g, ' ').charAt(0).toUpperCase() + s.replace(/_/g, ' ').slice(1)}</option>
-                      ))}
+                      <option value="whatsapp">WhatsApp</option>
+                      <option value="messenger">Messenger</option>
+                      <option value="instagram">Instagram</option>
+                      <option value="call">Call</option>
+                      <option value="website">Website</option>
+                      <option value="tiktok">TikTok</option>
+                      <option value="others">Others</option>
                     </select>
                   </div>
                 </div>

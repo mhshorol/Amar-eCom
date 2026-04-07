@@ -291,6 +291,7 @@ function ProductsTab({ products, variants, categories, brands, onEdit, onDelete,
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
+    suppressErrors: true,
     onBeforePrint: () => {
       return new Promise((resolve) => {
         setTimeout(resolve, 500);
@@ -872,6 +873,7 @@ function ProductModal({ isOpen, onClose, editingItem, categories, brands, produc
 
   const handlePrintBarcode = useReactToPrint({
     contentRef: barcodeRef,
+    suppressErrors: true,
     onBeforePrint: () => {
       return new Promise((resolve) => {
         setTimeout(resolve, 500);

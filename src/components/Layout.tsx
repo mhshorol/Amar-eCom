@@ -111,8 +111,8 @@ export default function Layout({ children, user }: LayoutProps) {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-8 sticky top-0 z-20 no-print">
-          <div className="flex items-center gap-8 flex-1">
+        <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between gap-4 px-8 sticky top-0 z-20 no-print">
+          <div className="flex items-center gap-4 md:gap-8 flex-1">
             <button 
               onClick={() => setIsMobileMenuOpen(true)}
               className="md:hidden p-2 hover:bg-gray-100 rounded-lg"
@@ -130,9 +130,20 @@ export default function Layout({ children, user }: LayoutProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 md:gap-4">
+            {/* POS Button */}
+            {hasPermission('pos') && (
+              <Link 
+                to="/pos" 
+                className="flex items-center gap-2 px-4 py-2.5 bg-[#00AEEF] hover:bg-[#0095cc] rounded-xl text-sm font-bold text-white transition-all shadow-lg shadow-[#00AEEF]/20 shrink-0"
+              >
+                <Calculator size={18} />
+                <span className="hidden sm:inline">POS</span>
+              </Link>
+            )}
+
             {/* Quick Actions */}
-            <div className="relative">
+            <div className="relative shrink-0">
               <button 
                 onClick={() => setIsQuickActionOpen(!isQuickActionOpen)}
                 className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl text-sm font-bold text-gray-700 transition-all"
@@ -144,13 +155,13 @@ export default function Layout({ children, user }: LayoutProps) {
 
               {isQuickActionOpen && (
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 z-50">
-                  {hasPermission('pos') && (
+                  {hasPermission('orders') && (
                     <Link 
-                      to="/pos" 
+                      to="/orders?new=true" 
                       onClick={() => setIsQuickActionOpen(false)}
                       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors"
                     >
-                      <Calculator size={16} className="text-[#00AEEF]" /> New POS Sale
+                      <ShoppingCart size={16} className="text-[#00AEEF]" /> New Order
                     </Link>
                   )}
                   {hasPermission('tasks') && (

@@ -76,7 +76,15 @@ export default function POS() {
   const printRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({
     contentRef: printRef,
+    suppressErrors: true,
     onAfterPrint: () => setCompletedOrder(null),
+    onPrintError: (errorLocation, error) => {
+      console.error("Print error:", errorLocation, error);
+      toast.error("Standard print failed. Attempting manual print...");
+      setTimeout(() => {
+        window.print();
+      }, 500);
+    }
   });
 
   const barcodeInputRef = useRef<HTMLInputElement>(null);
