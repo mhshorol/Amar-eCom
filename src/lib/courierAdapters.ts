@@ -71,13 +71,20 @@ export class SteadfastAdapter implements CourierInterface {
   }
 
   async checkFraud(phone: string): Promise<any> {
-    const response = await axios.get(`${this.baseUrl}/check_fraud/${phone}`, {
-      headers: {
-        'api-key': this.apiKey,
-        'secret-key': this.secretKey
+    try {
+      const response = await axios.get(`${this.baseUrl}/check_fraud/${phone}`, {
+        headers: {
+          'api-key': this.apiKey,
+          'secret-key': this.secretKey
+        }
+      });
+      return response.data;
+    } catch (error: any) {
+      if (error.response && error.response.status === 404) {
+        return { total_delivered: 0, total_cancelled: 0, message: 'No history found' };
       }
-    });
-    return response.data;
+      throw error;
+    }
   }
 
   async cancelOrder(orderId: string): Promise<any> {

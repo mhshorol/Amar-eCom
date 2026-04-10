@@ -300,10 +300,20 @@ async function startServer() {
       if (!db) return res.status(503).json({ error: 'Firebase Admin not initialized' });
       const { phone } = req.params;
 
-      // Find first active courier with checkFraud capability
-      const snapshot = await db.collection('courier_configs').where('isActive', '==', true).get();
+      let snapshot;
+      try {
+        // Find first active courier with checkFraud capability
+        snapshot = await db.collection('courier_configs').where('isActive', '==', true).get();
+      } catch (dbError: any) {
+        // If the collection or database is not found, treat it as no active couriers
+        if (dbError.code === 5 || dbError.message?.includes('NOT_FOUND')) {
+          console.warn('Courier configs collection or database not found, skipping fraud check.');
+          return res.json({ message: 'No active courier found (collection missing)' });
+        }
+        throw dbError;
+      }
       
-      if (snapshot.empty) {
+      if (!snapshot || snapshot.empty) {
         return res.json({ message: 'No active courier found' });
       }
 
