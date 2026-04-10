@@ -54,6 +54,7 @@ export default function PettyCash() {
   });
 
   useEffect(() => {
+    if (!auth.currentUser) return;
     const q = query(collection(db, 'petty_cash'), orderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setRecords(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as PettyCashRecord[]);

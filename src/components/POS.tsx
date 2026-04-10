@@ -240,7 +240,7 @@ export default function POS() {
         price: variant?.price || product.price,
         quantity: 1,
         stock,
-        image: product.image
+        image: product.images?.[0] || product.image
       }]);
     }
   };
@@ -572,9 +572,9 @@ export default function POS() {
 
                 {/* Product Image */}
                 <div className="h-32 w-full flex items-center justify-center p-3 relative overflow-hidden bg-gray-50/30">
-                  {product.image ? (
+                  {(product.images?.[0] || product.image) ? (
                     <img 
-                      src={product.image} 
+                      src={product.images?.[0] || product.image} 
                       alt={product.name} 
                       className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500 relative z-10" 
                       referrerPolicy="no-referrer" 

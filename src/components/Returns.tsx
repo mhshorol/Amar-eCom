@@ -60,6 +60,7 @@ export default function Returns() {
   });
 
   useEffect(() => {
+    if (!auth.currentUser) return;
     const q = query(collection(db, 'rma_requests'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as RMARequest[]);

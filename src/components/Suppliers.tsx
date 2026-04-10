@@ -18,7 +18,7 @@ import {
   Edit2,
   ExternalLink
 } from 'lucide-react';
-import { db, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy } from '../firebase';
+import { db, auth, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy } from '../firebase';
 import { Supplier, PurchaseOrder } from '../types';
 import { toast } from 'sonner';
 
@@ -42,6 +42,7 @@ export default function Suppliers() {
   });
 
   useEffect(() => {
+    if (!auth.currentUser) return;
     const unsubscribeSuppliers = onSnapshot(
       query(collection(db, 'suppliers'), orderBy('name')),
       (snapshot) => {

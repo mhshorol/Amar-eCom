@@ -51,6 +51,8 @@ export default function Team() {
   const [isUpdatingPermissions, setIsUpdatingPermissions] = useState(false);
 
   useEffect(() => {
+    if (!auth.currentUser) return;
+
     // Subscribe to users
     const unsubUsers = onSnapshot(query(collection(db, 'users'), orderBy('name', 'asc')), (snapshot) => {
       setUsers(snapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as any as User)));

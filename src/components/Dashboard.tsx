@@ -38,7 +38,7 @@ import {
 } from 'recharts';
 import { Link } from 'react-router-dom';
 import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 import { useSettings } from '../contexts/SettingsContext';
@@ -87,6 +87,8 @@ export default function Dashboard() {
   const [bestSellingProducts, setBestSellingProducts] = useState<any[]>([]);
 
   useEffect(() => {
+    if (!auth.currentUser) return;
+
     const unsubOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
       const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       

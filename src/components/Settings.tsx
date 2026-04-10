@@ -34,6 +34,7 @@ function ActivityLogsTab() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth.currentUser) return;
     const q = query(collection(db, 'activityLogs'), orderBy('timestamp', 'desc'), limit(100));
     const unsub = onSnapshot(q, (snapshot) => {
       setLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -177,7 +178,7 @@ export default function Settings() {
     fetchSettings();
 
     // Fetch users for Team Permissions
-    if (currentUserRole === 'admin') {
+    if (currentUserRole === 'admin' && auth.currentUser) {
       const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
         setUsers(snapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as any as User)));
       }, (error) => {

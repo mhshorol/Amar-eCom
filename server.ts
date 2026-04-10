@@ -37,13 +37,16 @@ async function startServer() {
     if (dbId) {
       try {
         console.log(`Attempting to connect to named database: ${dbId}`);
-        db = getFirestore(adminApp, dbId);
+        const namedDb = getFirestore(adminApp, dbId);
         // Verify connection with a simple read
-        const testSnap = await db.collection('health_check').limit(1).get();
-        console.log(`Successfully connected to database: ${dbId}. Read test size: ${testSnap.size}`);
+        await namedDb.collection('health_check').limit(1).get();
+        db = namedDb;
+        console.log(`Successfully connected to database: ${dbId}`);
       } catch (e: any) {
         console.warn(`Connection to database ${dbId} failed: ${e.message}`);
-        if (e.code === 7 || e.message.includes('permission')) {
+        if (e.code === 5 || e.message.includes('NOT_FOUND')) {
+          console.error(`CRITICAL: Database ${dbId} NOT FOUND. Please check your firebase-applet-config.json and ensure the database exists in project ${firebaseConfig.projectId}.`);
+        } else if (e.code === 7 || e.message.includes('permission')) {
           console.error('CRITICAL: Permission denied for named database. This usually means the service account lacks access.');
         }
         console.log('Falling back to (default) database...');
@@ -55,6 +58,7 @@ async function startServer() {
 
     if (db) {
       try {
+        // One final check to ensure the active db instance is working
         await db.collection('health_check').limit(1).get();
         console.log('Successfully verified Firestore connection');
         
@@ -65,6 +69,9 @@ async function startServer() {
         console.log('Successfully wrote to health_check collection');
       } catch (e: any) {
         console.error('Firestore verification failed:', e.message);
+        if (e.code === 5 || e.message.includes('NOT_FOUND')) {
+          console.error('The database was not found. This project might only have named databases or the collection is missing.');
+        }
       }
     }
   } catch (error) {
@@ -190,20 +197,28 @@ async function startServer() {
         return res.status(503).json({ error: 'Firebase Admin not initialized' });
       }
       console.log(`Using project: ${firebaseConfig.projectId}, database: ${firebaseConfig.firestoreDatabaseId || '(default)'}`);
-      const snapshot = await db.collection('courier_configs').get();
-      const configs: any = {};
-      snapshot.forEach(doc => {
-        configs[doc.id] = doc.data();
-      });
-      console.log('Returning courier configs:', Object.keys(configs));
-      res.json(configs);
+      
+      try {
+        const snapshot = await db.collection('courier_configs').get();
+        const configs: any = {};
+        snapshot.forEach(doc => {
+          configs[doc.id] = doc.data();
+        });
+        console.log('Returning courier configs:', Object.keys(configs));
+        res.json(configs);
+      } catch (innerError: any) {
+        // If the collection or database is not found, return empty config instead of error
+        if (innerError.code === 5 || innerError.message.includes('NOT_FOUND')) {
+          console.warn('Courier configs collection or database not found, returning empty object');
+          return res.json({});
+        }
+        throw innerError;
+      }
     } catch (error: any) {
       console.error('Error fetching courier configs:', error);
-      res.status(200).json({ 
+      res.status(500).json({ 
         error: error.message, 
-        code: error.code,
-        details: error.details,
-        stack: error.stack 
+        code: error.code
       });
     }
   });

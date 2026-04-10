@@ -357,8 +357,8 @@ function ProductsTab({ products, variants, categories, brands, onEdit, onDelete,
             <tr key={p.id} className="hover:bg-gray-50 transition-colors group">
               <td className="px-6 py-4">
                 <div className="flex items-center gap-3">
-                  {p.images?.[0] ? (
-                    <img src={p.images[0]} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-100" referrerPolicy="no-referrer" />
+                  {(p.images?.[0] || p.image) ? (
+                    <img src={p.images?.[0] || p.image} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-100" referrerPolicy="no-referrer" />
                   ) : (
                     <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
                       <Package size={20} />
@@ -647,6 +647,11 @@ function ReturnsTab({ products, variants, warehouses }: any) {
     const q = query(collection(db, 'returnRequests'), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
       setReturns(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setLoading(false);
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        handleFirestoreError(error, OperationType.LIST, 'returnRequests');
+      }
       setLoading(false);
     });
     return () => unsub();

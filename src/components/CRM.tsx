@@ -77,6 +77,7 @@ export default function CRM() {
   const [loadingOrders, setLoadingOrders] = useState(false);
 
   useEffect(() => {
+    if (!auth.currentUser) return;
     const q = query(collection(db, 'customers'), orderBy('createdAt', 'desc'));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {

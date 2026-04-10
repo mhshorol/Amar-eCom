@@ -97,6 +97,7 @@ const HR: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
+    if (!auth.currentUser) return;
     const unsubDesignations = onSnapshot(query(collection(db, 'designations'), orderBy('createdAt', 'desc')), (snapshot) => {
       setDesignations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Designation)));
     }, (error) => {

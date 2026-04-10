@@ -120,12 +120,22 @@ export default function NewProduct() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!storage) {
+      toast.error('Firebase Storage is not configured. Please check your setup.');
+      return;
+    }
+
     setUploading(true);
     try {
       const storageRef = ref(storage, `products/${Date.now()}_${file.name}`);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
-      setForm((prev: any) => ({ ...prev, images: [...(prev.images || []), url] }));
+      setForm((prev: any) => ({ 
+        ...prev, 
+        images: [...(prev.images || []), url],
+        // Also set the primary image if it's the first one
+        image: prev.image || url
+      }));
       toast.success('Image uploaded successfully');
     } catch (e) {
       toast.error('Failed to upload image');
@@ -181,6 +191,7 @@ export default function NewProduct() {
       
       const productData = {
         ...form,
+        image: form.images?.[0] || '', // Ensure singular image field is updated for compatibility
         uid: auth.currentUser?.uid,
         updatedAt: serverTimestamp(),
         createdAt: id ? form.createdAt : serverTimestamp()

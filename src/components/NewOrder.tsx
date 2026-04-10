@@ -429,13 +429,13 @@ export default function NewOrder() {
                               type="button"
                               className="w-full text-left px-4 py-3 hover:bg-[#f9fafb] flex items-center gap-3 transition-colors border-b border-[#f3f4f6] last:border-0"
                               onClick={() => {
-                                setNewItem({...newItem, productId: p.id, variantId: '', price: p.price || 0});
+                                setNewItem({...newItem, productId: p.id, variantId: '', price: p.price || 0, image: p.images?.[0] || p.image || ''});
                                 setProductSearch(p.name);
                                 setShowProductDropdown(false);
                               }}
                             >
-                              {p.image && (
-                                <img src={p.image} alt="" className="w-8 h-8 rounded-lg object-cover bg-gray-100" referrerPolicy="no-referrer" />
+                              {(p.images?.[0] || p.image) && (
+                                <img src={p.images?.[0] || p.image} alt="" className="w-8 h-8 rounded-lg object-cover bg-gray-100" referrerPolicy="no-referrer" />
                               )}
                               <div>
                                 <div className="text-xs font-bold text-[#141414]">{p.name}</div>

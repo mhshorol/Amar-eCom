@@ -58,6 +58,7 @@ export default function StockTransfers() {
   });
 
   useEffect(() => {
+    if (!auth.currentUser) return;
     const q = query(collection(db, 'stock_transfers'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setTransfers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockTransfer[]);
@@ -69,6 +70,10 @@ export default function StockTransfers() {
 
     const wUnsubscribe = onSnapshot(collection(db, 'warehouses'), (snapshot) => {
       setWarehouses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        handleFirestoreError(error, OperationType.LIST, 'warehouses');
+      }
     });
 
     return () => {

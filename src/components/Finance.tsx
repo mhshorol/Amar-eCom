@@ -153,6 +153,7 @@ function Finance() {
   });
 
   useEffect(() => {
+    if (!auth.currentUser) return;
     const qTxns = query(collection(db, 'transactions'), orderBy('createdAt', 'desc'));
     const qAccounts = query(collection(db, 'accounts'), orderBy('name', 'asc'));
     const qSuppliers = query(collection(db, 'suppliers'), orderBy('name', 'asc'));
