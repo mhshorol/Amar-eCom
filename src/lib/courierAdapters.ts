@@ -17,6 +17,7 @@ export interface CourierInterface {
   trackOrder(trackingId: string): Promise<any>;
   cancelOrder(orderId: string): Promise<any>;
   getBalance?(): Promise<any>;
+  checkFraud?(phone: string): Promise<any>;
   getCities(): Promise<any>;
   getZones(cityId: string): Promise<any>;
 }
@@ -61,6 +62,16 @@ export class SteadfastAdapter implements CourierInterface {
   
   async getBalance(): Promise<any> {
     const response = await axios.get(`${this.baseUrl}/get_balance`, {
+      headers: {
+        'api-key': this.apiKey,
+        'secret-key': this.secretKey
+      }
+    });
+    return response.data;
+  }
+
+  async checkFraud(phone: string): Promise<any> {
+    const response = await axios.get(`${this.baseUrl}/check_fraud/${phone}`, {
       headers: {
         'api-key': this.apiKey,
         'secret-key': this.secretKey

@@ -12,7 +12,8 @@ import {
   Save,
   Search,
   ChevronDown,
-  Smartphone
+  Smartphone,
+  ShieldCheck
 } from 'lucide-react';
 import { db, auth, collection, query, serverTimestamp, Timestamp, doc, getDocs, where, runTransaction } from '../firebase';
 import { toast } from 'sonner';
@@ -62,6 +63,8 @@ export default function NewOrder() {
   });
 
   const [sendSMS, setSendSMS] = useState(false);
+  const [courierHistory, setCourierHistory] = useState<any>(null);
+  const [isFetchingHistory, setIsFetchingHistory] = useState(false);
   const [newItem, setNewItem] = useState({ productId: '', variantId: '', quantity: 1, price: 0 });
 
   const statuses = ['pending', 'confirmed', 'processing', 'packed', 'shipped', 'out_for_delivery', 'delivered', 'partial_delivered', 'cancelled', 'returned'];
@@ -104,6 +107,7 @@ export default function NewOrder() {
   const handlePhoneChange = async (phone: string) => {
     setOrderForm(prev => ({ ...prev, customerPhone: phone }));
     if (phone.length >= 11) {
+      // Fetch local customer data
       try {
         const q = query(collection(db, 'customers'), where('phone', '==', phone));
         const querySnapshot = await getDocs(q);
@@ -124,6 +128,31 @@ export default function NewOrder() {
       } catch (error) {
         console.error("Error fetching customer data:", error);
       }
+
+      // Fetch courier history
+      fetchCourierHistory(phone);
+    } else {
+      setCourierHistory(null);
+    }
+  };
+
+  const fetchCourierHistory = async (phone: string) => {
+    setIsFetchingHistory(true);
+    try {
+      const response = await fetch(`/api/couriers/check-fraud/${phone}`);
+      if (response.ok) {
+        const result = await response.json();
+        if (result.data) {
+          setCourierHistory({
+            courier: result.courier,
+            ...result.data
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching courier history:", error);
+    } finally {
+      setIsFetchingHistory(false);
     }
   };
 
@@ -355,6 +384,43 @@ export default function NewOrder() {
                   value={orderForm.customerPhone}
                   onChange={e => handlePhoneChange(e.target.value)}
                 />
+                
+                {isFetchingHistory && (
+                  <div className="flex items-center gap-2 mt-1 px-2">
+                    <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-[10px] text-blue-500 font-medium italic">Checking courier history...</span>
+                  </div>
+                )}
+
+                {courierHistory && (
+                  <div className="mt-2 p-3 bg-white border border-gray-100 rounded-2xl shadow-sm animate-in fade-in slide-in-from-top-1 duration-300">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <ShieldCheck size={14} className="text-green-500" />
+                        <span className="text-[10px] font-bold text-gray-900 uppercase tracking-tight">Courier Trust Score</span>
+                      </div>
+                      <span className="text-[9px] font-bold text-gray-400 uppercase bg-gray-50 px-1.5 py-0.5 rounded-md border border-gray-100">{courierHistory.courier}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-green-50/50 p-2 rounded-xl border border-green-100/50">
+                        <p className="text-[8px] font-bold text-green-600 uppercase tracking-wider mb-0.5">Delivered</p>
+                        <p className="text-sm font-black text-green-700">{courierHistory.total_delivered || 0}</p>
+                      </div>
+                      <div className="bg-red-50/50 p-2 rounded-xl border border-red-100/50">
+                        <p className="text-[8px] font-bold text-red-600 uppercase tracking-wider mb-0.5">Canceled</p>
+                        <p className="text-sm font-black text-red-700">{courierHistory.total_cancelled || 0}</p>
+                      </div>
+                      <div className="bg-blue-50/50 p-2 rounded-xl border border-blue-100/50">
+                        <p className="text-[8px] font-bold text-blue-600 uppercase tracking-wider mb-0.5">Success Rate</p>
+                        <p className="text-sm font-black text-blue-700">
+                          {courierHistory.total_delivered + courierHistory.total_cancelled > 0 
+                            ? Math.round((courierHistory.total_delivered / (courierHistory.total_delivered + courierHistory.total_cancelled)) * 100)
+                            : 0}%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             <div className="space-y-2">

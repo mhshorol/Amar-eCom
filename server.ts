@@ -295,6 +295,39 @@ async function startServer() {
     }
   });
 
+  app.get('/api/couriers/check-fraud/:phone', async (req, res) => {
+    try {
+      if (!db) return res.status(503).json({ error: 'Firebase Admin not initialized' });
+      const { phone } = req.params;
+
+      // Find first active courier with checkFraud capability
+      const snapshot = await db.collection('courier_configs').where('isActive', '==', true).get();
+      
+      if (snapshot.empty) {
+        return res.json({ message: 'No active courier found' });
+      }
+
+      for (const doc of snapshot.docs) {
+        const config = doc.data();
+        const courierName = doc.id;
+        const adapter = CourierFactory.getAdapter(courierName, config);
+
+        if (adapter.checkFraud) {
+          const result = await adapter.checkFraud(phone);
+          return res.json({
+            courier: courierName,
+            data: result
+          });
+        }
+      }
+
+      res.status(400).json({ error: 'No active courier supports fraud check' });
+    } catch (error: any) {
+      console.error('Fraud Check Error:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // 404 for API routes
   app.all('/api/*', (req, res) => {
     res.status(404).json({ error: `API route ${req.method} ${req.url} not found` });
@@ -302,12 +335,14 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
+    console.log('Starting server in DEVELOPMENT mode');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
   } else {
+    console.log('Starting server in PRODUCTION mode');
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
