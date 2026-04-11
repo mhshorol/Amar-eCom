@@ -17,6 +17,38 @@ const firebaseConfig = JSON.parse(fs.readFileSync(path.join(__dirname, 'firebase
 
 // Initialize Firebase Admin
 let db: admin.firestore.Firestore | null = null;
+let activeDbId: string | null = null;
+
+async function getDb() {
+  if (db) return db;
+  
+  const adminApp = admin.app();
+  const dbId = firebaseConfig.firestoreDatabaseId;
+  const projectId = firebaseConfig.projectId;
+  
+  if (dbId) {
+    try {
+      console.log(`Attempting to connect to named database: ${dbId} in project: ${projectId}`);
+      const namedDb = getFirestore(adminApp, dbId);
+      // Verify connection with a simple read
+      await namedDb.collection('health_check').limit(1).get();
+      db = namedDb;
+      activeDbId = dbId;
+      console.log(`Successfully connected to database: ${dbId}`);
+      return db;
+    } catch (e: any) {
+      console.error(`Connection to database ${dbId} failed: ${e.message}`);
+      if (e.code === 5 || e.message?.includes('NOT_FOUND') || e.message?.includes('not found')) {
+        console.error(`Database ${dbId} NOT FOUND. Falling back to (default).`);
+      }
+    }
+  }
+  
+  console.log(`Connecting to (default) database in project: ${projectId}`);
+  db = getFirestore(adminApp);
+  activeDbId = '(default)';
+  return db;
+}
 
 async function startServer() {
   try {
@@ -28,69 +60,28 @@ async function startServer() {
         projectId: firebaseConfig.projectId
       });
     }
-    const adminApp = admin.app();
-    console.log('Firebase Admin initialized. App name:', adminApp.name);
     
-    const dbId = firebaseConfig.firestoreDatabaseId;
-    console.log('Target Firestore database ID:', dbId || '(default)');
+    // Initial DB connection
+    await getDb();
     
-    if (dbId) {
-      try {
-        console.log(`Attempting to connect to named database: ${dbId}`);
-        const namedDb = getFirestore(adminApp, dbId);
-        // Verify connection with a simple read
-        await namedDb.collection('health_check').limit(1).get();
-        db = namedDb;
-        console.log(`Successfully connected to database: ${dbId}`);
-      } catch (e: any) {
-        console.warn(`Connection to database ${dbId} failed: ${e.message}`);
-        if (e.code === 5 || e.message?.includes('NOT_FOUND') || e.message?.includes('not found')) {
-          console.error(`CRITICAL: Database ${dbId} NOT FOUND. Falling back to (default) database.`);
-          const defaultDb = getFirestore(adminApp);
-          try {
-            // Verify default database
-            await defaultDb.collection('health_check').limit(1).get();
-            db = defaultDb;
-            console.log('Successfully connected to (default) database');
-          } catch (defaultError: any) {
-            console.error('CRITICAL: (default) database also failed:', defaultError.message);
-            // If both fail, we might need to run setup again
-            db = defaultDb; // Fallback to default anyway
-          }
-        } else {
-          console.log('Falling back to (default) database due to other error...');
-          db = getFirestore(adminApp);
-        }
-      }
-    } else {
-      db = getFirestore(adminApp);
-    }
-
     if (db) {
       try {
-        // One final check to ensure the active db instance is working
-        await db.collection('health_check').limit(1).get();
-        console.log('Successfully verified Firestore connection');
-        
         await db.collection('health_check').doc('startup').set({
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
           message: 'Server started'
-        });
-        console.log('Successfully wrote to health_check collection');
+        }, { merge: true });
+        console.log(`Successfully verified Firestore connection to ${activeDbId} and wrote startup log`);
       } catch (e: any) {
-        console.error('Firestore verification failed:', e.message);
-        if (e.code === 5 || e.message?.includes('NOT_FOUND')) {
-          console.error('The database was not found. Falling back to (default) if not already there.');
-          if (dbId && db !== getFirestore(adminApp)) {
-            db = getFirestore(adminApp);
-            console.log('Now using (default) database.');
-          }
+        console.error(`Initial Firestore verification failed for ${activeDbId}:`, e.message);
+        // If it failed and we were using a named DB, clear it so next request tries fallback
+        if (activeDbId !== '(default)') {
+          db = null;
+          activeDbId = null;
         }
       }
     }
   } catch (error) {
     console.error('Firebase Admin initialization failed:', error);
-    console.log('Server will continue without Firebase Admin features (WooCommerce sync will be disabled)');
   }
 
   const app = express();
@@ -135,10 +126,11 @@ async function startServer() {
   // WooCommerce API Proxy
   app.get('/api/woocommerce/orders', async (req, res) => {
     try {
-      if (!db) {
+      const database = await getDb();
+      if (!database) {
         return res.status(503).json({ error: 'Firebase Admin not initialized' });
       }
-      const companySettings = await db.collection('settings').doc('company').get();
+      const companySettings = await database.collection('settings').doc('company').get();
       const settings = companySettings.data();
 
       if (!settings?.wooUrl || !settings?.wooConsumerKey || !settings?.wooConsumerSecret) {
@@ -172,8 +164,9 @@ async function startServer() {
 
   app.get('/api/woocommerce/products', async (req, res) => {
     try {
-      if (!db) return res.status(503).json({ error: 'Firebase Admin not initialized' });
-      const companySettings = await db.collection('settings').doc('company').get();
+      const database = await getDb();
+      if (!database) return res.status(503).json({ error: 'Firebase Admin not initialized' });
+      const companySettings = await database.collection('settings').doc('company').get();
       const settings = companySettings.data();
 
       if (!settings?.wooUrl || !settings?.wooConsumerKey || !settings?.wooConsumerSecret) {
@@ -206,12 +199,13 @@ async function startServer() {
   // Webhook endpoint for WooCommerce
   app.post('/api/webhooks/woocommerce/order-updated', async (req, res) => {
     try {
-      if (!db) return res.status(503).json({ error: 'Firebase Admin not initialized' });
+      const database = await getDb();
+      if (!database) return res.status(503).json({ error: 'Firebase Admin not initialized' });
       const order = req.body;
       console.log('WooCommerce Webhook received for order:', order.id);
 
       // Log the webhook
-      await db.collection('woocommerce_logs').add({
+      await database.collection('woocommerce_logs').add({
         type: 'webhook',
         orderId: order.id.toString(),
         status: order.status,
@@ -229,12 +223,33 @@ async function startServer() {
   app.get('/api/couriers/configs', async (req, res) => {
     console.log('GET /api/couriers/configs hit');
     try {
-      if (!db) {
+      const database = await getDb();
+      if (!database) {
         console.error('Firebase Admin not initialized');
         return res.status(503).json({ error: 'Firebase Admin not initialized' });
       }
       
-      const snapshot = await db.collection('courier_configs').get();
+      let snapshot;
+      try {
+        snapshot = await database.collection('courier_configs').get();
+      } catch (e: any) {
+        // If we get a NOT_FOUND error here, it means the database instance we have is invalid
+        console.error(`Fetch failed on ${activeDbId}. Code: ${e.code}, Message: ${e.message}`);
+        if (e.code === 5 || e.message?.includes('NOT_FOUND')) {
+          console.error(`Database ${activeDbId} not found during fetch, attempting fallback to (default)`);
+          db = getFirestore(admin.app());
+          activeDbId = '(default)';
+          try {
+            snapshot = await db.collection('courier_configs').get();
+          } catch (fallbackErr: any) {
+            console.error(`Fallback to (default) also failed. Code: ${fallbackErr.code}, Message: ${fallbackErr.message}`);
+            throw fallbackErr;
+          }
+        } else {
+          throw e;
+        }
+      }
+
       const configs: any = {};
       snapshot.forEach(doc => {
         const data = doc.data();
@@ -244,19 +259,19 @@ async function startServer() {
         configs[doc.id] = data;
       });
       
-      console.log('Returning all courier configs');
+      console.log(`Returning all courier configs from ${activeDbId}`);
       res.json(configs);
     } catch (error: any) {
-      const dbId = firebaseConfig.firestoreDatabaseId;
-      console.error(`Error fetching courier configs (DB: ${dbId || '(default)'}):`, error);
-      res.status(500).json({ error: `Firestore Error (DB: ${dbId || '(default)'}): ${error.message}` });
+      console.error(`Error fetching courier configs (DB: ${activeDbId || 'Unknown'}):`, error);
+      res.status(500).json({ error: `Firestore Error (DB: ${activeDbId || 'Unknown'}): ${error.message}` });
     }
   });
 
   app.post('/api/couriers/configs/:courier', async (req, res) => {
     console.log(`POST /api/couriers/configs/${req.params.courier} hit`);
     try {
-      if (!db) {
+      const database = await getDb();
+      if (!database) {
         console.error('Firebase Admin not initialized');
         return res.status(503).json({ error: 'Firebase Admin not initialized' });
       }
@@ -264,27 +279,41 @@ async function startServer() {
       const config = req.body;
       console.log(`Saving config for ${courier}:`, { ...config, apiKey: '***', secretKey: '***', clientSecret: '***', password: '***' });
       
-      await db.collection('courier_configs').doc(courier.toLowerCase()).set({
-        ...config,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
+      try {
+        await database.collection('courier_configs').doc(courier.toLowerCase()).set({
+          ...config,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } catch (e: any) {
+        if (e.code === 5 || e.message?.includes('NOT_FOUND')) {
+          console.error(`Database ${activeDbId} not found during save, attempting fallback to (default)`);
+          db = getFirestore(admin.app());
+          activeDbId = '(default)';
+          await db.collection('courier_configs').doc(courier.toLowerCase()).set({
+            ...config,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        } else {
+          throw e;
+        }
+      }
       
-      console.log(`Successfully saved config for ${courier}`);
+      console.log(`Successfully saved config for ${courier} to ${activeDbId}`);
       res.json({ success: true });
     } catch (error: any) {
-      const dbId = firebaseConfig.firestoreDatabaseId;
-      console.error(`Error saving config for ${req.params.courier} (DB: ${dbId || '(default)'}):`, error);
-      res.status(500).json({ error: `Firestore Error (DB: ${dbId || '(default)'}): ${error.message}` });
+      console.error(`Error saving config for ${req.params.courier} (DB: ${activeDbId || 'Unknown'}):`, error);
+      res.status(500).json({ error: `Firestore Error (DB: ${activeDbId || 'Unknown'}): ${error.message}` });
     }
   });
 
   app.post('/api/couriers/order', async (req, res) => {
     try {
-      if (!db) return res.status(503).json({ error: 'Firebase Admin not initialized' });
+      const database = await getDb();
+      if (!database) return res.status(503).json({ error: 'Firebase Admin not initialized' });
       const { courier, orderData } = req.body;
 
       // Get courier config
-      const configDoc = await db.collection('courier_configs').doc(courier.toLowerCase()).get();
+      const configDoc = await database.collection('courier_configs').doc(courier.toLowerCase()).get();
       if (!configDoc.exists || !configDoc.data()?.isActive) {
         return res.status(400).json({ error: `Courier ${courier} is not active or configured.` });
       }
@@ -295,7 +324,7 @@ async function startServer() {
       const result = await adapter.createOrder(orderData);
 
       // Log the request
-      await db.collection('courier_logs').add({
+      await database.collection('courier_logs').add({
         courier,
         orderId: orderData.invoice,
         request: orderData,
@@ -314,12 +343,13 @@ async function startServer() {
   app.post('/api/couriers/send-order/:courier', async (req, res) => {
     console.log(`POST /api/couriers/send-order/${req.params.courier} hit`);
     try {
-      if (!db) return res.status(503).json({ error: 'Firebase Admin not initialized' });
+      const database = await getDb();
+      if (!database) return res.status(503).json({ error: 'Firebase Admin not initialized' });
       const { courier } = req.params;
       const orderData = req.body;
 
       // Get courier config
-      const configDoc = await db.collection('courier_configs').doc(courier.toLowerCase()).get();
+      const configDoc = await database.collection('courier_configs').doc(courier.toLowerCase()).get();
       if (!configDoc.exists || !configDoc.data()?.isActive) {
         return res.status(400).json({ error: `Courier ${courier} is not active or configured.` });
       }
@@ -343,7 +373,7 @@ async function startServer() {
       const result = await adapter.createOrder(mappedData);
 
       // Log the request
-      await db.collection('courier_logs').add({
+      await database.collection('courier_logs').add({
         courier,
         orderId: orderData.invoice,
         request: orderData,
@@ -361,10 +391,11 @@ async function startServer() {
 
   app.get('/api/couriers/balance/:courier', async (req, res) => {
     try {
-      if (!db) return res.status(503).json({ error: 'Firebase Admin not initialized' });
+      const database = await getDb();
+      if (!database) return res.status(503).json({ error: 'Firebase Admin not initialized' });
       const { courier } = req.params;
       
-      const configDoc = await db.collection('courier_configs').doc(courier.toLowerCase()).get();
+      const configDoc = await database.collection('courier_configs').doc(courier.toLowerCase()).get();
       if (!configDoc.exists || !configDoc.data()?.isActive) {
         return res.status(400).json({ error: `Courier ${courier} is not active or configured.` });
       }
@@ -385,9 +416,10 @@ async function startServer() {
 
   app.get('/api/couriers/cities/:courier', async (req, res) => {
     try {
-      if (!db) return res.status(503).json({ error: 'Firebase Admin not initialized' });
+      const database = await getDb();
+      if (!database) return res.status(503).json({ error: 'Firebase Admin not initialized' });
       const { courier } = req.params;
-      const configDoc = await db.collection('courier_configs').doc(courier.toLowerCase()).get();
+      const configDoc = await database.collection('courier_configs').doc(courier.toLowerCase()).get();
       if (!configDoc.exists || !configDoc.data()?.isActive) {
         return res.status(400).json({ error: `Courier ${courier} is not active.` });
       }
@@ -401,9 +433,10 @@ async function startServer() {
 
   app.get('/api/couriers/zones/:courier/:cityId', async (req, res) => {
     try {
-      if (!db) return res.status(503).json({ error: 'Firebase Admin not initialized' });
+      const database = await getDb();
+      if (!database) return res.status(503).json({ error: 'Firebase Admin not initialized' });
       const { courier, cityId } = req.params;
-      const configDoc = await db.collection('courier_configs').doc(courier.toLowerCase()).get();
+      const configDoc = await database.collection('courier_configs').doc(courier.toLowerCase()).get();
       const adapter = CourierFactory.getAdapter(courier, configDoc.data());
       const result = await adapter.getZones(cityId);
       res.json(result);
@@ -414,9 +447,10 @@ async function startServer() {
 
   app.get('/api/couriers/areas/:courier/:zoneId', async (req, res) => {
     try {
-      if (!db) return res.status(503).json({ error: 'Firebase Admin not initialized' });
+      const database = await getDb();
+      if (!database) return res.status(503).json({ error: 'Firebase Admin not initialized' });
       const { courier, zoneId } = req.params;
-      const configDoc = await db.collection('courier_configs').doc(courier.toLowerCase()).get();
+      const configDoc = await database.collection('courier_configs').doc(courier.toLowerCase()).get();
       const adapter = CourierFactory.getAdapter(courier, configDoc.data());
       if ((adapter as any).getAreas) {
         const result = await (adapter as any).getAreas(zoneId);
@@ -431,7 +465,8 @@ async function startServer() {
 
   app.get('/api/couriers/check-fraud/:phone', async (req, res) => {
     try {
-      if (!db) {
+      const database = await getDb();
+      if (!database) {
         console.error('Fraud Check: Firebase Admin not initialized');
         return res.status(503).json({ error: 'Firebase Admin not initialized' });
       }
@@ -442,7 +477,7 @@ async function startServer() {
       let snapshot;
       try {
         // Find first active courier with checkFraud capability
-        snapshot = await db.collection('courier_configs').where('isActive', '==', true).get();
+        snapshot = await database.collection('courier_configs').where('isActive', '==', true).get();
       } catch (dbError: any) {
         console.error('Fraud Check DB Error:', dbError.message);
         // If the collection or database is not found, treat it as no active couriers

@@ -729,56 +729,90 @@ export default function Orders() {
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
     try {
       const orderRef = doc(db, 'orders', orderId);
-      const orderSnap = await getDoc(orderRef);
-      const orderData = orderSnap.data();
+      
+      await runTransaction(db, async (transaction) => {
+        const orderSnap = await transaction.get(orderRef);
+        if (!orderSnap.exists()) return;
+        
+        const orderData = orderSnap.data();
+        const normalizedOldStatus = orderData.status.toLowerCase();
+        const normalizedNewStatus = newStatus.toLowerCase();
 
-      if (!orderData) return;
+        if (normalizedOldStatus === normalizedNewStatus) return;
 
-      const batch = writeBatch(db);
-      batch.update(orderRef, {
-        status: newStatus,
-        updatedAt: serverTimestamp()
-      });
+        // 1. Update Order Status
+        transaction.update(orderRef, {
+          status: newStatus,
+          updatedAt: serverTimestamp()
+        });
 
-      // Stock Restoration Logic
-      const normalizedNewStatus = newStatus.toLowerCase();
-      const normalizedOldStatus = orderData.status.toLowerCase();
-
-      if ((normalizedNewStatus === 'cancelled' || normalizedNewStatus === 'returned') && 
-          normalizedOldStatus !== 'cancelled' && normalizedOldStatus !== 'returned') {
-        for (const item of orderData.items) {
-          const invQuery = query(
-            collection(db, 'inventory'),
-            where('productId', '==', item.productId),
-            where('variantId', '==', item.variantId || ''),
-            where('warehouseId', '==', orderData.warehouseId)
-          );
-          const invSnap = await getDocs(invQuery);
-          
-          if (!invSnap.empty) {
-            const invDoc = invSnap.docs[0];
-            const currentQty = invDoc.data().quantity;
-            const newQty = currentQty + item.quantity;
-            batch.update(invDoc.ref, { quantity: newQty, updatedAt: serverTimestamp() });
-
-            // Log
-            const logRef = doc(collection(db, 'inventoryLogs'));
-            batch.set(logRef, {
-              productId: item.productId,
-              variantId: item.variantId || '',
-              warehouseId: orderData.warehouseId,
-              type: 'in',
-              quantityChange: item.quantity,
-              newQuantity: newQty,
-              reason: `Order #${orderId.slice(0, 8)} ${newStatus}`,
-              uid: auth.currentUser?.uid,
-              createdAt: serverTimestamp()
-            });
+        // 2. Stock Management Logic
+        const isActiveStatus = (status: string) => status !== 'cancelled' && status !== 'returned';
+        
+        // If moving FROM active TO inactive -> Restore Stock
+        if (isActiveStatus(normalizedOldStatus) && !isActiveStatus(normalizedNewStatus)) {
+          for (const item of orderData.items) {
+            const invQuery = query(
+              collection(db, 'inventory'),
+              where('productId', '==', item.productId),
+              where('variantId', '==', item.variantId || ''),
+              where('warehouseId', '==', orderData.warehouseId)
+            );
+            const invSnap = await getDocs(invQuery);
+            if (!invSnap.empty) {
+              const invDoc = invSnap.docs[0];
+              const currentQty = invDoc.data().quantity || 0;
+              const newQty = currentQty + item.quantity;
+              transaction.update(invDoc.ref, { quantity: newQty, updatedAt: serverTimestamp() });
+              
+              const logRef = doc(collection(db, 'inventoryLogs'));
+              transaction.set(logRef, {
+                productId: item.productId,
+                variantId: item.variantId || '',
+                warehouseId: orderData.warehouseId,
+                type: 'in',
+                quantityChange: item.quantity,
+                newQuantity: newQty,
+                reason: `Order #${orderId.slice(0, 8)} ${newStatus} (Stock Restored)`,
+                uid: auth.currentUser?.uid,
+                createdAt: serverTimestamp()
+              });
+            }
           }
         }
-      }
+        // If moving FROM inactive TO active -> Deduct Stock
+        else if (!isActiveStatus(normalizedOldStatus) && isActiveStatus(normalizedNewStatus)) {
+          for (const item of orderData.items) {
+            const invQuery = query(
+              collection(db, 'inventory'),
+              where('productId', '==', item.productId),
+              where('variantId', '==', item.variantId || ''),
+              where('warehouseId', '==', orderData.warehouseId)
+            );
+            const invSnap = await getDocs(invQuery);
+            if (!invSnap.empty) {
+              const invDoc = invSnap.docs[0];
+              const currentQty = invDoc.data().quantity || 0;
+              const newQty = currentQty - item.quantity;
+              transaction.update(invDoc.ref, { quantity: newQty, updatedAt: serverTimestamp() });
+              
+              const logRef = doc(collection(db, 'inventoryLogs'));
+              transaction.set(logRef, {
+                productId: item.productId,
+                variantId: item.variantId || '',
+                warehouseId: orderData.warehouseId,
+                type: 'out',
+                quantityChange: -item.quantity,
+                newQuantity: newQty,
+                reason: `Order #${orderId.slice(0, 8)} ${newStatus} (Stock Re-deducted)`,
+                uid: auth.currentUser?.uid,
+                createdAt: serverTimestamp()
+              });
+            }
+          }
+        }
+      });
 
-      await batch.commit();
       toast.success(`Order status updated to ${newStatus.replace(/_/g, ' ').charAt(0).toUpperCase() + newStatus.replace(/_/g, ' ').slice(1)}`);
       await logActivity('Updated Order Status', 'Orders', `Order #${orderId.slice(0, 8)} status changed to ${newStatus}`);
     } catch (error) {

@@ -215,7 +215,7 @@ export default function Settings() {
     setIsUpdatingPermissions(true);
     try {
       const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, { permissions });
+      await setDoc(userRef, { permissions }, { merge: true });
       
       // Log activity
       await addDoc(collection(db, 'activityLogs'), {
