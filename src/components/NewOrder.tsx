@@ -23,6 +23,9 @@ import { sendOrderConfirmationSMS } from '../services/smsService';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { useSettings } from '../contexts/SettingsContext';
 import ConfirmModal from './ConfirmModal';
+import { districts, upazilas, LocationNode } from '../data/bangladesh-locations';
+import { locationService } from '../services/locationService';
+import { CourierFactory } from '../lib/courierAdapters';
 
 export default function NewOrder() {
   const navigate = useNavigate();
@@ -60,8 +63,17 @@ export default function NewOrder() {
     tags: '',
     courierId: '',
     courierName: '',
-    trackingNumber: ''
+    trackingNumber: '',
+    pathao_city_id: '',
+    pathao_zone_id: '',
+    pathao_area_id: '',
   });
+
+  const [cities, setCities] = useState<any[]>([]);
+  const [zones, setZones] = useState<any[]>([]);
+  const [areas, setAreas] = useState<any[]>([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+  const [courierConfigs, setCourierConfigs] = useState<Record<string, any>>({});
 
   const [sendSMS, setSendSMS] = useState(false);
   const [courierHistory, setCourierHistory] = useState<any>(null);
@@ -79,6 +91,8 @@ export default function NewOrder() {
     onConfirm: () => {},
   });
   const [newItem, setNewItem] = useState({ productId: '', variantId: '', quantity: 1, price: 0 });
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationNode[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const statuses = ['pending', 'confirmed', 'processing', 'packed', 'shipped', 'out_for_delivery', 'delivered', 'partial_delivered', 'cancelled', 'returned'];
 
@@ -99,6 +113,196 @@ export default function NewOrder() {
     };
     fetchData();
   }, []);
+
+  useEffect(() => {
+    const fetchConfigs = async () => {
+      try {
+        const response = await fetch('/api/couriers/configs');
+        if (response.ok) {
+          const data = await response.json();
+          setCourierConfigs(data);
+        }
+      } catch (error) {
+        console.error("Error fetching courier configs:", error);
+      }
+    };
+    fetchConfigs();
+  }, []);
+
+  useEffect(() => {
+    if (courierConfigs.pathao?.isActive) {
+      fetchCities();
+    }
+  }, [courierConfigs.pathao?.isActive]);
+
+  const fetchCities = async () => {
+    setLoadingLocations(true);
+    try {
+      const response = await fetch('/api/couriers/cities/pathao');
+      if (response.ok) {
+        const data = await response.json();
+        setCities(data.data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching cities:", error);
+    } finally {
+      setLoadingLocations(false);
+    }
+  };
+
+  const handleAddressChange = (address: string) => {
+    setOrderForm(prev => ({ ...prev, customerAddress: address }));
+    
+    // Smart Parsing
+    const parsed = locationService.parseAddress(address);
+    if (parsed.district || parsed.upazila) {
+      const district = parsed.district?.nameEn || orderForm.district;
+      const division = parsed.division?.nameEn || orderForm.division;
+      const charge = locationService.getDeliveryCharge(district, division);
+      
+      setOrderForm(prev => ({
+        ...prev,
+        district,
+        area: parsed.upazila?.nameEn || prev.area,
+        division,
+        deliveryCharge: charge
+      }));
+
+      // Auto-fetch Pathao IDs if Pathao is active
+      if (courierConfigs.pathao?.isActive) {
+        autoMatchPathao(district, parsed.upazila?.nameEn || orderForm.area);
+      }
+    }
+
+    // Suggestions based on the last part of the address
+    const parts = address.split(/[,।\s]+/);
+    const lastPart = parts[parts.length - 1];
+    if (lastPart.length > 1) {
+      const suggestions = locationService.searchLocations(lastPart);
+      setLocationSuggestions(suggestions);
+      setShowSuggestions(suggestions.length > 0);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSelectLocation = (loc: LocationNode) => {
+    const hierarchy = locationService.getLocationHierarchy(loc.id);
+    if (hierarchy) {
+      const district = hierarchy.district?.nameEn || '';
+      const division = hierarchy.division?.nameEn || '';
+      const charge = locationService.getDeliveryCharge(district, division);
+      
+      setOrderForm(prev => ({
+        ...prev,
+        district,
+        area: hierarchy.upazila?.nameEn || prev.area,
+        division,
+        deliveryCharge: charge
+      }));
+
+      if (courierConfigs.pathao?.isActive) {
+        autoMatchPathao(district, hierarchy.upazila?.nameEn || orderForm.area);
+      }
+    }
+    setShowSuggestions(false);
+  };
+
+  const autoMatchPathao = async (districtName: string, areaName: string) => {
+    if (!courierConfigs.pathao || !districtName) return;
+    try {
+      const citiesRes = await fetch('/api/couriers/cities/pathao');
+      if (!citiesRes.ok) {
+        const errData = await citiesRes.json();
+        throw new Error(errData.error || 'Failed to fetch Pathao cities');
+      }
+      const pathaoCities = await citiesRes.json();
+      
+      // Find matching city
+      const city = pathaoCities.data.find((c: any) => 
+        c.city_name.toLowerCase().includes(districtName.toLowerCase()) || 
+        districtName.toLowerCase().includes(c.city_name.toLowerCase())
+      );
+
+      if (city) {
+        setOrderForm(prev => ({ ...prev, pathao_city_id: city.city_id.toString() }));
+        
+        const zonesRes = await fetch(`/api/couriers/zones/pathao/${city.city_id}`);
+        if (!zonesRes.ok) {
+          const errData = await zonesRes.json();
+          throw new Error(errData.error || 'Failed to fetch Pathao zones');
+        }
+        const pathaoZones = await zonesRes.json();
+        
+        // Find matching zone
+        const zone = pathaoZones.data.find((z: any) => 
+          z.zone_name.toLowerCase().includes(areaName.toLowerCase()) || 
+          areaName.toLowerCase().includes(z.zone_name.toLowerCase())
+        );
+
+        if (zone) {
+          setOrderForm(prev => ({ ...prev, pathao_zone_id: zone.zone_id.toString() }));
+          
+          const areasRes = await fetch(`/api/couriers/areas/pathao/${zone.zone_id}`);
+          if (!areasRes.ok) {
+            const errData = await areasRes.json();
+            throw new Error(errData.error || 'Failed to fetch Pathao areas');
+          }
+          const pathaoAreas = await areasRes.json();
+          
+          const area = pathaoAreas.data.find((a: any) => 
+            a.area_name.toLowerCase().includes(areaName.toLowerCase()) || 
+            areaName.toLowerCase().includes(a.area_name.toLowerCase())
+          ) || pathaoAreas.data[0];
+
+          if (area) {
+            setOrderForm(prev => ({ ...prev, pathao_area_id: area.area_id.toString() }));
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error("Error auto-matching Pathao locations:", error.message);
+    }
+  };
+
+  const fetchZones = async (cityId: string) => {
+    setLoadingLocations(true);
+    setZones([]);
+    setAreas([]);
+    try {
+      const response = await fetch(`/api/couriers/zones/pathao/${cityId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setZones(data.data || []);
+      } else {
+        const errData = await response.json();
+        console.error("Error fetching Pathao zones:", errData.error);
+      }
+    } catch (error: any) {
+      console.error("Error fetching Pathao zones:", error.message);
+    } finally {
+      setLoadingLocations(false);
+    }
+  };
+
+  const fetchAreas = async (zoneId: string) => {
+    setLoadingLocations(true);
+    setAreas([]);
+    try {
+      const response = await fetch(`/api/couriers/areas/pathao/${zoneId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setAreas(data.data || []);
+      } else {
+        const errData = await response.json();
+        console.error("Error fetching Pathao areas:", errData.error);
+      }
+    } catch (error: any) {
+      console.error("Error fetching Pathao areas:", error.message);
+    } finally {
+      setLoadingLocations(false);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -459,39 +663,70 @@ export default function NewOrder() {
                 )}
               </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 relative">
               <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Full Address</label>
               <textarea 
                 className="w-full px-4 py-2.5 sm:py-3 bg-[#f9fafb] border border-transparent rounded-xl text-sm focus:bg-[#ffffff] focus:border-[#00AEEF]/20 outline-none transition-all resize-none"
                 rows={2}
+                placeholder="Type or paste full address (e.g. House 10, Dhanmondi, Dhaka)"
                 value={orderForm.customerAddress}
-                onChange={e => setOrderForm({...orderForm, customerAddress: e.target.value})}
+                onChange={e => handleAddressChange(e.target.value)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
               />
+              {showSuggestions && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-2xl max-h-48 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
+                  {locationSuggestions.map((loc) => (
+                    <button
+                      key={loc.id}
+                      type="button"
+                      onClick={() => handleSelectLocation(loc)}
+                      className="w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold text-gray-800">{loc.nameEn} / {loc.nameBn}</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{loc.type}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 gap-4 sm:gap-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">District</label>
-                <input 
+                <select 
                   className="w-full px-4 py-2.5 sm:py-3 bg-[#f9fafb] border border-transparent rounded-xl text-sm focus:bg-[#ffffff] focus:border-[#00AEEF]/20 outline-none transition-all"
                   value={orderForm.district}
-                  onChange={e => setOrderForm({...orderForm, district: e.target.value})}
-                />
+                  onChange={e => {
+                    setOrderForm({...orderForm, district: e.target.value, area: ''});
+                    if (courierConfigs.pathao?.isActive) autoMatchPathao(e.target.value, '');
+                  }}
+                >
+                  <option value="">Select District</option>
+                  {districts.map(d => (
+                    <option key={d.id} value={d.nameEn}>{d.nameEn}</option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Area</label>
-                <input 
+                <select 
                   className="w-full px-4 py-2.5 sm:py-3 bg-[#f9fafb] border border-transparent rounded-xl text-sm focus:bg-[#ffffff] focus:border-[#00AEEF]/20 outline-none transition-all"
                   value={orderForm.area}
-                  onChange={e => setOrderForm({...orderForm, area: e.target.value})}
-                />
-              </div>
-              <div className="col-span-2 sm:col-span-1 space-y-2">
-                <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Landmark</label>
-                <input 
-                  className="w-full px-4 py-2.5 sm:py-3 bg-[#f9fafb] border border-transparent rounded-xl text-sm focus:bg-[#ffffff] focus:border-[#00AEEF]/20 outline-none transition-all"
-                  value={orderForm.landmark}
-                  onChange={e => setOrderForm({...orderForm, landmark: e.target.value})}
-                />
+                  onChange={e => {
+                    setOrderForm({...orderForm, area: e.target.value});
+                    if (courierConfigs.pathao?.isActive) autoMatchPathao(orderForm.district, e.target.value);
+                  }}
+                  disabled={!orderForm.district}
+                >
+                  <option value="">Select Area</option>
+                  {upazilas
+                    .filter(u => orderForm.district && districts.find(d => d.nameEn === orderForm.district)?.id === u.districtId)
+                    .map(u => (
+                      <option key={u.id} value={u.nameEn}>{u.nameEn}</option>
+                    ))
+                  }
+                </select>
               </div>
             </div>
           </div>

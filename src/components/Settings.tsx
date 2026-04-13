@@ -310,10 +310,10 @@ export default function Settings() {
 
   const [courierConfigs, setCourierConfigs] = useState<Record<string, any>>({
     steadfast: { apiKey: '', secretKey: '', isActive: false },
-    pathao: { clientId: '', clientSecret: '', username: '', password: '', isActive: false },
+    pathao: { clientId: '', clientSecret: '', username: '', password: '', storeId: '', isSandbox: false, isActive: false },
     redx: { apiKey: '', isActive: false },
     paperfly: { apiKey: '', isActive: false },
-    carrybee: { apiKey: '', isActive: false }
+    carrybee: { clientId: '', clientSecret: '', clientContext: '', isSandbox: false, isActive: false }
   });
 
   const handleExportData = async () => {
@@ -1176,27 +1176,68 @@ export default function Settings() {
                           <p className="text-[10px] text-gray-500">Fast and secure delivery</p>
                         </div>
                       </div>
-                      <button 
-                        onClick={() => setCourierConfigs(prev => ({ 
-                          ...prev, 
-                          carrybee: { ...prev.carrybee, isActive: !prev.carrybee.isActive } 
-                        }))}
-                        className={`w-12 h-6 rounded-full transition-all relative ${courierConfigs.carrybee.isActive ? 'bg-yellow-500' : 'bg-gray-300'}`}
-                      >
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${courierConfigs.carrybee.isActive ? 'right-1' : 'left-1'}`} />
-                      </button>
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="carrybee-sandbox"
+                            className="w-4 h-4 rounded border-gray-300 text-yellow-500 focus:ring-yellow-500"
+                            checked={courierConfigs.carrybee.isSandbox}
+                            onChange={e => setCourierConfigs(prev => ({ 
+                              ...prev, 
+                              carrybee: { ...prev.carrybee, isSandbox: e.target.checked } 
+                            }))}
+                          />
+                          <label htmlFor="carrybee-sandbox" className="text-[10px] font-bold text-gray-500 uppercase">Sandbox</label>
+                        </div>
+                        <button 
+                          onClick={() => setCourierConfigs(prev => ({ 
+                            ...prev, 
+                            carrybee: { ...prev.carrybee, isActive: !prev.carrybee.isActive } 
+                          }))}
+                          className={`w-12 h-6 rounded-full transition-all relative ${courierConfigs.carrybee.isActive ? 'bg-yellow-500' : 'bg-gray-300'}`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${courierConfigs.carrybee.isActive ? 'right-1' : 'left-1'}`} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase">API Key</label>
-                      <input 
-                        type="text" 
-                        value={courierConfigs.carrybee.apiKey} 
-                        onChange={e => setCourierConfigs(prev => ({ 
-                          ...prev, 
-                          carrybee: { ...prev.carrybee, apiKey: e.target.value } 
-                        }))}
-                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:border-yellow-500 outline-none transition-all" 
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase">Client ID</label>
+                        <input 
+                          type="text" 
+                          value={courierConfigs.carrybee.clientId} 
+                          onChange={e => setCourierConfigs(prev => ({ 
+                            ...prev, 
+                            carrybee: { ...prev.carrybee, clientId: e.target.value } 
+                          }))}
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:border-yellow-500 outline-none transition-all" 
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase">Client Secret</label>
+                        <input 
+                          type="password" 
+                          value={courierConfigs.carrybee.clientSecret} 
+                          onChange={e => setCourierConfigs(prev => ({ 
+                            ...prev, 
+                            carrybee: { ...prev.carrybee, clientSecret: e.target.value } 
+                          }))}
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:border-yellow-500 outline-none transition-all" 
+                        />
+                      </div>
+                      <div className="space-y-1 md:col-span-2">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase">Client Context</label>
+                        <input 
+                          type="text" 
+                          value={courierConfigs.carrybee.clientContext} 
+                          onChange={e => setCourierConfigs(prev => ({ 
+                            ...prev, 
+                            carrybee: { ...prev.carrybee, clientContext: e.target.value } 
+                          }))}
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:border-yellow-500 outline-none transition-all" 
+                        />
+                      </div>
                     </div>
                   </div>
 

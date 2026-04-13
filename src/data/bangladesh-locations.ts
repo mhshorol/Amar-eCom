@@ -158,6 +158,55 @@ export const upazilas: LocationNode[] = [
   { id: '20109', nameEn: 'Bayazid', nameBn: 'বায়েজিদ', type: 'upazila', districtId: '201', divisionId: '2' },
   { id: '20110', nameEn: 'Halishahar', nameBn: 'হালিশহর', type: 'upazila', districtId: '201', divisionId: '2' },
 
+  // Rajshahi Major
+  { id: '30101', nameEn: 'Boalia', nameBn: 'বোয়ালিয়া', type: 'upazila', districtId: '301', divisionId: '3' },
+  { id: '30102', nameEn: 'Motihar', nameBn: 'মতিহার', type: 'upazila', districtId: '301', divisionId: '3' },
+  { id: '30103', nameEn: 'Rajpara', nameBn: 'রাজপাড়া', type: 'upazila', districtId: '301', divisionId: '3' },
+  { id: '30104', nameEn: 'Shah Mokhdum', nameBn: 'শাহ মখদুম', type: 'upazila', districtId: '301', divisionId: '3' },
+
+  // Khulna Major
+  { id: '40101', nameEn: 'Khulna Sadar', nameBn: 'খুলনা সদর', type: 'upazila', districtId: '401', divisionId: '4' },
+  { id: '40102', nameEn: 'Daulatpur', nameBn: 'দৌলতপুর', type: 'upazila', districtId: '401', divisionId: '4' },
+  { id: '40103', nameEn: 'Khalishpur', nameBn: 'খালিশপুর', type: 'upazila', districtId: '401', divisionId: '4' },
+  { id: '40104', nameEn: 'Khan Jahan Ali', nameBn: 'খান জাহান আলী', type: 'upazila', districtId: '401', divisionId: '4' },
+
+  // Barishal Major
+  { id: '50101', nameEn: 'Barishal Sadar', nameBn: 'বরিশাল সদর', type: 'upazila', districtId: '501', divisionId: '5' },
+  { id: '50102', nameEn: 'Bakerganj', nameBn: 'বাকেরগঞ্জ', type: 'upazila', districtId: '501', divisionId: '5' },
+
+  // Sylhet Major
+  { id: '60101', nameEn: 'Sylhet Sadar', nameBn: 'সিলেট সদর', type: 'upazila', districtId: '601', divisionId: '6' },
+  { id: '60102', nameEn: 'Dakshin Surma', nameBn: 'দক্ষিণ সুরমা', type: 'upazila', districtId: '601', divisionId: '6' },
+
+  // Rangpur Major
+  { id: '70101', nameEn: 'Rangpur Sadar', nameBn: 'রংপুর সদর', type: 'upazila', districtId: '701', divisionId: '7' },
+  { id: '70102', nameEn: 'Mithapukur', nameBn: 'মিঠাপুকুর', type: 'upazila', districtId: '701', divisionId: '7' },
+
+  // Mymensingh Major
+  { id: '80101', nameEn: 'Mymensingh Sadar', nameBn: 'ময়মনসিংহ সদর', type: 'upazila', districtId: '801', divisionId: '8' },
+  { id: '80102', nameEn: 'Muktagacha', nameBn: 'মুক্তাগাছা', type: 'upazila', districtId: '801', divisionId: '8' },
+
+  // Gazipur
+  { id: '10201', nameEn: 'Gazipur Sadar', nameBn: 'গাজীপুর সদর', type: 'upazila', districtId: '102', divisionId: '1' },
+  { id: '10202', nameEn: 'Kaliakair', nameBn: 'কালিয়াকৈর', type: 'upazila', districtId: '102', divisionId: '1' },
+  { id: '10203', nameEn: 'Sreepur', nameBn: 'শ্রীপুর', type: 'upazila', districtId: '102', divisionId: '1' },
+
+  // Narayanganj
+  { id: '10301', nameEn: 'Narayanganj Sadar', nameBn: 'নারায়ণগঞ্জ সদর', type: 'upazila', districtId: '103', divisionId: '1' },
+  { id: '10302', nameEn: 'Bandar', nameBn: 'বন্দর', type: 'upazila', districtId: '103', divisionId: '1' },
+  { id: '10303', nameEn: 'Fatullah', nameBn: 'ফতুল্লা', type: 'upazila', districtId: '103', divisionId: '1' },
+  { id: '10304', nameEn: 'Siddhirganj', nameBn: 'সিদ্ধিরগঞ্জ', type: 'upazila', districtId: '103', divisionId: '1' },
+  { id: '10305', nameEn: 'Rupganj', nameBn: 'রূপগঞ্জ', type: 'upazila', districtId: '103', divisionId: '1' },
+  { id: '10306', nameEn: 'Araihazar', nameBn: 'আড়াইহাজার', type: 'upazila', districtId: '103', divisionId: '1' },
+
+  // Bogura
+  { id: '30201', nameEn: 'Bogura Sadar', nameBn: 'বগুড়া সদর', type: 'upazila', districtId: '302', divisionId: '3' },
+  { id: '30202', nameEn: 'Sherpur', nameBn: 'শেরপুর', type: 'upazila', districtId: '302', divisionId: '3' },
+
+  // Cumilla
+  { id: '20301', nameEn: 'Cumilla Sadar', nameBn: 'কুমিল্লা সদর', type: 'upazila', districtId: '203', divisionId: '2' },
+  { id: '20302', nameEn: 'Laksam', nameBn: 'লাকসাম', type: 'upazila', districtId: '203', divisionId: '2' },
+
   // Add more as needed, but this covers major urban areas for now.
 ];
 

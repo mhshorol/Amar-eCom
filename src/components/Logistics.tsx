@@ -99,12 +99,7 @@ export default function Logistics() {
     };
     fetchCourierData();
   }, [activeSubTab]);
-  const [steadfastBalance, setSteadfastBalance] = useState<number | null>(null);
-  const [pathaoBalance, setPathaoBalance] = useState<number | null>(null);
-  const [redxBalance, setRedxBalance] = useState<number | null>(null);
-  const [carrybeeBalance, setCarrybeeBalance] = useState<number | null>(null);
-  const [paperflyBalance, setPaperflyBalance] = useState<number | null>(null);
-  const [fetchingBalance, setFetchingBalance] = useState(false);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
   const [editingCourier, setEditingCourier] = useState<Courier | null>(null);
@@ -142,8 +137,8 @@ export default function Logistics() {
   const [loadingLocations, setLoadingLocations] = useState(false);
 
   useEffect(() => {
-    if (isDeliveryModalOpen && deliveryForm.courier === 'Pathao') {
-      fetchCities('Pathao');
+    if (isDeliveryModalOpen && (deliveryForm.courier === 'Pathao' || deliveryForm.courier === 'Carrybee')) {
+      fetchCities(deliveryForm.courier);
     }
   }, [isDeliveryModalOpen, deliveryForm.courier]);
 
@@ -153,10 +148,15 @@ export default function Logistics() {
       const response = await fetch(`/api/couriers/cities/${courier.toLowerCase()}`);
       if (response.ok) {
         const data = await response.json();
-        setCities(data.data || []);
+        // Pathao returns { data: [...] }, Carrybee returns { data: { cities: [...] } }
+        const cityList = data.data?.cities || data.data || [];
+        setCities(cityList);
+      } else {
+        const errData = await response.json();
+        console.error(`Error fetching ${courier} cities:`, errData.error);
       }
-    } catch (error) {
-      console.error("Error fetching cities:", error);
+    } catch (error: any) {
+      console.error(`Error fetching ${courier} cities:`, error.message);
     } finally {
       setLoadingLocations(false);
     }
@@ -166,14 +166,19 @@ export default function Logistics() {
     setLoadingLocations(true);
     setZones([]);
     setAreas([]);
+    const courier = deliveryForm.courier.toLowerCase();
     try {
-      const response = await fetch(`/api/couriers/zones/pathao/${cityId}`);
+      const response = await fetch(`/api/couriers/zones/${courier}/${cityId}`);
       if (response.ok) {
         const data = await response.json();
-        setZones(data.data || []);
+        const zoneList = data.data?.zones || data.data || [];
+        setZones(zoneList);
+      } else {
+        const errData = await response.json();
+        console.error(`Error fetching ${courier} zones:`, errData.error);
       }
-    } catch (error) {
-      console.error("Error fetching zones:", error);
+    } catch (error: any) {
+      console.error(`Error fetching ${courier} zones:`, error.message);
     } finally {
       setLoadingLocations(false);
     }
@@ -182,14 +187,28 @@ export default function Logistics() {
   const fetchAreas = async (zoneId: string) => {
     setLoadingLocations(true);
     setAreas([]);
+    const courier = deliveryForm.courier.toLowerCase();
+    // Carrybee needs cityId too, but our API proxy handles it if we pass it or if the adapter knows it.
+    // Actually, the Carrybee adapter's getAreas(zoneId, cityId) needs both.
+    // Let's check how the server route is defined.
+    // app.get('/api/couriers/areas/:courier/:zoneId', ...)
+    
     try {
-      const response = await fetch(`/api/couriers/areas/pathao/${zoneId}`);
+      const url = courier === 'carrybee' 
+        ? `/api/couriers/areas/${courier}/${zoneId}?cityId=${deliveryForm.city_id}`
+        : `/api/couriers/areas/${courier}/${zoneId}`;
+        
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
-        setAreas(data.data || []);
+        const areaList = data.data?.areas || data.data || [];
+        setAreas(areaList);
+      } else {
+        const errData = await response.json();
+        console.error(`Error fetching ${courier} areas:`, errData.error);
       }
-    } catch (error) {
-      console.error("Error fetching areas:", error);
+    } catch (error: any) {
+      console.error(`Error fetching ${courier} areas:`, error.message);
     } finally {
       setLoadingLocations(false);
     }
@@ -249,37 +268,6 @@ export default function Logistics() {
       unsubscribePending();
     };
   }, []);
-
-  useEffect(() => {
-    if (courierConfigs.steadfast?.isActive) fetchBalance('steadfast');
-    if (courierConfigs.pathao?.isActive) fetchBalance('pathao');
-    if (courierConfigs.redx?.isActive) fetchBalance('redx');
-    if (courierConfigs.carrybee?.isActive) fetchBalance('carrybee');
-    if (courierConfigs.paperfly?.isActive) fetchBalance('paperfly');
-  }, [courierConfigs]);
-
-  const fetchBalance = async (courier: string) => {
-    setFetchingBalance(true);
-    try {
-      const response = await fetch(`/api/couriers/balance/${courier.toLowerCase()}`);
-      const data = await response.json();
-      if (response.ok) {
-        if (courier.toLowerCase() === 'steadfast') setSteadfastBalance(data.balance);
-        if (courier.toLowerCase() === 'pathao') setPathaoBalance(data.balance);
-        if (courier.toLowerCase() === 'redx') setRedxBalance(data.balance);
-        if (courier.toLowerCase() === 'carrybee') setCarrybeeBalance(data.balance);
-        if (courier.toLowerCase() === 'paperfly') setPaperflyBalance(data.balance);
-        toast.success(`${courier} balance updated.`);
-      } else {
-        throw new Error(data.error || 'Failed to fetch balance');
-      }
-    } catch (error: any) {
-      console.error(`Error fetching ${courier} balance:`, error);
-      toast.error(error.message || `Failed to fetch ${courier} balance.`);
-    } finally {
-      setFetchingBalance(false);
-    }
-  };
 
   const handleBulkBook = async () => {
     const activeCouriers = Object.entries(courierConfigs)
@@ -667,7 +655,7 @@ export default function Logistics() {
         </button>
       </div>
 
-      {activeSubTab === 'couriers' && (
+       {activeSubTab === 'couriers' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Steadfast */}
           <div className={`p-6 rounded-xl border shadow-lg text-white relative overflow-hidden transition-all ${courierConfigs.steadfast?.isActive ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500' : 'bg-gray-400 border-gray-300 opacity-75'}`}>
@@ -679,22 +667,9 @@ export default function Logistics() {
                 <CheckCircle2 size={16} className={courierConfigs.steadfast?.apiKey ? 'text-green-300' : 'text-blue-300'} />
                 Steadfast
               </h4>
-              <button 
-                onClick={() => fetchBalance('steadfast')}
-                disabled={fetchingBalance}
-                className="p-1 hover:bg-white/10 rounded-md transition-all"
-              >
-                <RefreshCw size={14} className={fetchingBalance ? 'animate-spin' : ''} />
-              </button>
             </div>
             <div className="flex justify-between items-end">
               <div>
-                <p className="text-[10px] uppercase font-bold text-blue-100 tracking-wider">Balance</p>
-                <p className="text-xl font-bold">
-                  {fetchingBalance ? '...' : (typeof steadfastBalance === 'number') ? `৳${(steadfastBalance || 0).toLocaleString()}` : 'N/A'}
-                </p>
-              </div>
-              <div className="text-right">
                 <p className="text-[10px] uppercase font-bold text-blue-100 tracking-wider">Status</p>
                 <p className="text-xs font-bold">{courierConfigs.steadfast?.isActive ? 'Active' : 'Inactive'}</p>
               </div>
@@ -711,22 +686,9 @@ export default function Logistics() {
                 <CheckCircle2 size={16} className="text-orange-200" />
                 Pathao
               </h4>
-              <button 
-                onClick={() => fetchBalance('pathao')}
-                disabled={fetchingBalance}
-                className="p-1 hover:bg-white/10 rounded-md transition-all"
-              >
-                <RefreshCw size={14} className={fetchingBalance ? 'animate-spin' : ''} />
-              </button>
             </div>
             <div className="flex justify-between items-end">
               <div>
-                <p className="text-[10px] uppercase font-bold text-orange-100 tracking-wider">Balance</p>
-                <p className="text-xl font-bold">
-                  {fetchingBalance ? '...' : (typeof pathaoBalance === 'number') ? `৳${(pathaoBalance || 0).toLocaleString()}` : 'N/A'}
-                </p>
-              </div>
-              <div className="text-right">
                 <p className="text-[10px] uppercase font-bold text-orange-100 tracking-wider">Status</p>
                 <p className="text-xs font-bold">{courierConfigs.pathao?.isActive ? 'Active' : 'Inactive'}</p>
               </div>
@@ -743,22 +705,9 @@ export default function Logistics() {
                 <CheckCircle2 size={16} className="text-red-200" />
                 RedX
               </h4>
-              <button 
-                onClick={() => fetchBalance('redx')}
-                disabled={fetchingBalance}
-                className="p-1 hover:bg-white/10 rounded-md transition-all"
-              >
-                <RefreshCw size={14} className={fetchingBalance ? 'animate-spin' : ''} />
-              </button>
             </div>
             <div className="flex justify-between items-end">
               <div>
-                <p className="text-[10px] uppercase font-bold text-red-100 tracking-wider">Balance</p>
-                <p className="text-xl font-bold">
-                  {fetchingBalance ? '...' : (typeof redxBalance === 'number') ? `৳${(redxBalance || 0).toLocaleString()}` : 'N/A'}
-                </p>
-              </div>
-              <div className="text-right">
                 <p className="text-[10px] uppercase font-bold text-red-100 tracking-wider">Status</p>
                 <p className="text-xs font-bold">{courierConfigs.redx?.isActive ? 'Active' : 'Inactive'}</p>
               </div>
@@ -775,22 +724,9 @@ export default function Logistics() {
                 <CheckCircle2 size={16} className="text-yellow-200" />
                 Carrybee
               </h4>
-              <button 
-                onClick={() => fetchBalance('carrybee')}
-                disabled={fetchingBalance}
-                className="p-1 hover:bg-white/10 rounded-md transition-all"
-              >
-                <RefreshCw size={14} className={fetchingBalance ? 'animate-spin' : ''} />
-              </button>
             </div>
             <div className="flex justify-between items-end">
               <div>
-                <p className="text-[10px] uppercase font-bold text-yellow-100 tracking-wider">Balance</p>
-                <p className="text-xl font-bold">
-                  {fetchingBalance ? '...' : (typeof carrybeeBalance === 'number') ? `৳${(carrybeeBalance || 0).toLocaleString()}` : 'N/A'}
-                </p>
-              </div>
-              <div className="text-right">
                 <p className="text-[10px] uppercase font-bold text-yellow-100 tracking-wider">Status</p>
                 <p className="text-xs font-bold">{courierConfigs.carrybee?.isActive ? 'Active' : 'Inactive'}</p>
               </div>
@@ -807,22 +743,9 @@ export default function Logistics() {
                 <CheckCircle2 size={16} className="text-indigo-200" />
                 Paperfly
               </h4>
-              <button 
-                onClick={() => fetchBalance('paperfly')}
-                disabled={fetchingBalance}
-                className="p-1 hover:bg-white/10 rounded-md transition-all"
-              >
-                <RefreshCw size={14} className={fetchingBalance ? 'animate-spin' : ''} />
-              </button>
             </div>
             <div className="flex justify-between items-end">
               <div>
-                <p className="text-[10px] uppercase font-bold text-indigo-100 tracking-wider">Balance</p>
-                <p className="text-xl font-bold">
-                  {fetchingBalance ? '...' : (typeof paperflyBalance === 'number') ? `৳${(paperflyBalance || 0).toLocaleString()}` : 'N/A'}
-                </p>
-              </div>
-              <div className="text-right">
                 <p className="text-[10px] uppercase font-bold text-indigo-100 tracking-wider">Status</p>
                 <p className="text-xs font-bold">{courierConfigs.paperfly?.isActive ? 'Active' : 'Inactive'}</p>
               </div>
@@ -1285,13 +1208,13 @@ export default function Logistics() {
                     value={deliveryForm.courier}
                     onChange={(e) => setDeliveryForm({...deliveryForm, courier: e.target.value})}
                   >
-                    <option value="Steadfast">Steadfast</option>
-                    <option value="Pathao">Pathao</option>
-                    <option value="RedX">RedX</option>
-                    {couriers
-                      .filter(c => !['Steadfast', 'Pathao', 'RedX'].includes(c.name))
-                      .map(c => (
-                        <option key={c.id} value={c.name}>{c.name}</option>
+                    <option value="">Select Courier</option>
+                    {Object.entries(courierConfigs)
+                      .filter(([_, config]: [string, any]) => config.isActive)
+                      .map(([name]) => (
+                        <option key={name} value={name.charAt(0).toUpperCase() + name.slice(1)}>
+                          {name.charAt(0).toUpperCase() + name.slice(1)}
+                        </option>
                       ))}
                   </select>
                 </div>
@@ -1333,14 +1256,16 @@ export default function Logistics() {
                 />
               </div>
 
-              {deliveryForm.courier === 'Pathao' && (
+              {(deliveryForm.courier === 'Pathao' || deliveryForm.courier === 'Carrybee') && (
                 <div className="space-y-4 pt-2 border-t border-gray-50">
-                  <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest">Pathao Location Details</p>
+                  <p className={`text-[10px] font-bold uppercase tracking-widest ${deliveryForm.courier === 'Pathao' ? 'text-orange-500' : 'text-yellow-600'}`}>
+                    {deliveryForm.courier} Location Details
+                  </p>
                   <div className="grid grid-cols-1 gap-4">
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-400 uppercase">City</label>
                       <select
-                        required={deliveryForm.courier === 'Pathao'}
+                        required={deliveryForm.courier === 'Pathao' || deliveryForm.courier === 'Carrybee'}
                         className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all"
                         value={deliveryForm.city_id}
                         onChange={(e) => {
@@ -1350,7 +1275,7 @@ export default function Logistics() {
                       >
                         <option value="">Select City</option>
                         {cities.map(city => (
-                          <option key={city.city_id} value={city.city_id}>{city.city_name}</option>
+                          <option key={city.city_id || city.id} value={city.city_id || city.id}>{city.city_name || city.name}</option>
                         ))}
                       </select>
                     </div>
@@ -1358,7 +1283,7 @@ export default function Logistics() {
                       <div className="space-y-1">
                         <label className="text-[10px] font-bold text-gray-400 uppercase">Zone</label>
                         <select
-                          required={deliveryForm.courier === 'Pathao'}
+                          required={deliveryForm.courier === 'Pathao' || deliveryForm.courier === 'Carrybee'}
                           disabled={!deliveryForm.city_id || loadingLocations}
                           className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all disabled:opacity-50"
                           value={deliveryForm.zone_id}
@@ -1369,14 +1294,14 @@ export default function Logistics() {
                         >
                           <option value="">Select Zone</option>
                           {zones.map(zone => (
-                            <option key={zone.zone_id} value={zone.zone_id}>{zone.zone_name}</option>
+                            <option key={zone.zone_id || zone.id} value={zone.zone_id || zone.id}>{zone.zone_name || zone.name}</option>
                           ))}
                         </select>
                       </div>
                       <div className="space-y-1">
                         <label className="text-[10px] font-bold text-gray-400 uppercase">Area</label>
                         <select
-                          required={deliveryForm.courier === 'Pathao'}
+                          required={deliveryForm.courier === 'Pathao' || deliveryForm.courier === 'Carrybee'}
                           disabled={!deliveryForm.zone_id || loadingLocations}
                           className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all disabled:opacity-50"
                           value={deliveryForm.area_id}
@@ -1384,7 +1309,7 @@ export default function Logistics() {
                         >
                           <option value="">Select Area</option>
                           {areas.map(area => (
-                            <option key={area.area_id} value={area.area_id}>{area.area_name}</option>
+                            <option key={area.area_id || area.id} value={area.area_id || area.id}>{area.area_name || area.name}</option>
                           ))}
                         </select>
                       </div>

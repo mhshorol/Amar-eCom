@@ -93,6 +93,23 @@ async function getDb() {
               }
             };
           },
+          get: async () => {
+            const snap = await getDocs(colRef);
+            return {
+              size: snap.size,
+              empty: snap.empty,
+              docs: snap.docs.map(d => ({
+                id: d.id,
+                data: () => d.data(),
+                get: (f: string) => d.get(f)
+              })),
+              forEach: (cb: any) => snap.docs.forEach(d => cb({
+                id: d.id,
+                data: () => d.data(),
+                get: (f: string) => d.get(f)
+              }))
+            };
+          },
           where: (field: string, op: any, value: any) => {
             let q = query(colRef, where(field, op, value));
             const queryWrapper = (currentQ: any) => ({
@@ -167,23 +184,6 @@ async function getDb() {
               }
             });
             return queryWrapper(q);
-          },
-          get: async () => {
-            const snap = await getDocs(colRef);
-            return {
-              size: snap.size,
-              empty: snap.empty,
-              docs: snap.docs.map(d => ({
-                id: d.id,
-                data: () => d.data(),
-                get: (f: string) => d.get(f)
-              })),
-              forEach: (cb: any) => snap.docs.forEach(d => cb({
-                id: d.id,
-                data: () => d.data(),
-                get: (f: string) => d.get(f)
-              }))
-            };
           }
         };
       }
@@ -408,19 +408,53 @@ async function startServer() {
       const { id } = req.params;
       const { status } = req.body;
 
-      const response = await axios.put(`${wooUrl}/wp-json/wc/v3/orders/${id}`, {
-        status
-      }, {
-        params: {
-          consumer_key: wooConsumerKey,
-          consumer_secret: wooConsumerSecret
+      // Try standard REST API first
+      try {
+        const response = await axios.put(`${wooUrl}/wp-json/wc/v3/orders/${id}`, {
+          status
+        }, {
+          params: {
+            consumer_key: wooConsumerKey,
+            consumer_secret: wooConsumerSecret
+          }
+        });
+        return res.json(response.data);
+      } catch (error: any) {
+        // If it's an HTML response, it might be a permalink issue
+        const isHtml = typeof error.response?.data === 'string' && error.response.data.includes('<!DOCTYPE html>');
+        
+        if (isHtml || error.response?.status === 404) {
+          // Try fallback for non-pretty permalinks
+          try {
+            const fallbackResponse = await axios.put(`${wooUrl}/index.php`, {
+              status
+            }, {
+              params: {
+                rest_route: `/wc/v3/orders/${id}`,
+                consumer_key: wooConsumerKey,
+                consumer_secret: wooConsumerSecret
+              }
+            });
+            return res.json(fallbackResponse.data);
+          } catch (fallbackError: any) {
+            const fallbackIsHtml = typeof fallbackError.response?.data === 'string' && fallbackError.response.data.includes('<!DOCTYPE html>');
+            if (fallbackIsHtml) {
+              throw new Error('WooCommerce returned an HTML response. Please ensure REST API is enabled and your URL is correct.');
+            }
+            throw fallbackError;
+          }
         }
-      });
-
-      res.json(response.data);
+        throw error;
+      }
     } catch (error: any) {
-      console.error('WooCommerce Status Update Error:', error.response?.data || error.message);
-      res.status(error.response?.status || 500).json({ error: error.response?.data?.message || error.message });
+      const errorMessage = error.response?.data?.message || error.message;
+      console.error('WooCommerce Status Update Error:', errorMessage);
+      res.status(error.response?.status || 500).json({ 
+        error: errorMessage,
+        details: typeof error.response?.data === 'string' && error.response.data.includes('<!DOCTYPE html>') 
+          ? 'Received HTML instead of JSON. Check WooCommerce permalink settings.' 
+          : undefined
+      });
     }
   });
 
@@ -595,8 +629,12 @@ async function startServer() {
         cod_amount: orderData.cod_amount,
         note: orderData.note,
         weight: orderData.weight,
-        invoice: orderData.invoice
-      };
+        invoice: orderData.invoice,
+        // Include location IDs for Pathao/Carrybee
+        recipient_city: orderData.recipient_city,
+        recipient_zone: orderData.recipient_zone,
+        recipient_area: orderData.recipient_area
+      } as any;
 
       const result = await adapter.createOrder(mappedData);
 
@@ -678,10 +716,11 @@ async function startServer() {
       const database = await getDb();
       if (!database) return res.status(503).json({ error: 'Firebase Admin not initialized' });
       const { courier, zoneId } = req.params;
+      const { cityId } = req.query;
       const configDoc = await database.collection('courier_configs').doc(courier.toLowerCase()).get();
       const adapter = CourierFactory.getAdapter(courier, configDoc.data());
       if ((adapter as any).getAreas) {
-        const result = await (adapter as any).getAreas(zoneId);
+        const result = await (adapter as any).getAreas(zoneId, cityId);
         res.json(result);
       } else {
         res.status(400).json({ error: 'Areas not supported for this courier' });
@@ -759,6 +798,28 @@ async function startServer() {
         error: error.message,
         data: { total_delivered: 0, total_cancelled: 0, courier: 'Error' }
       });
+    }
+  });
+
+  app.get('/api/couriers/track/:courier/:trackingCode', async (req, res) => {
+    try {
+      const database = await getDb();
+      if (!database) return res.status(503).json({ error: 'Firebase Admin not initialized' });
+      const { courier, trackingCode } = req.params;
+      
+      const configDoc = await database.collection('courier_configs').doc(courier.toLowerCase()).get();
+      if (!configDoc.exists || !configDoc.data()?.isActive) {
+        return res.status(400).json({ error: `Courier ${courier} is not active or configured.` });
+      }
+
+      const config = configDoc.data();
+      const adapter = CourierFactory.getAdapter(courier, config);
+      
+      const result = await adapter.trackOrder(trackingCode);
+      res.json(result);
+    } catch (error: any) {
+      console.error(`Courier Track Error (${req.params.courier}):`, error.message);
+      res.status(500).json({ error: error.message });
     }
   });
 

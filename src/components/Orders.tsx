@@ -29,6 +29,7 @@ import {
   AlertCircle,
   Edit,
   Printer,
+  Eye,
   ChevronDown,
   ShieldCheck,
   Smartphone
@@ -46,10 +47,12 @@ import { logActivity } from '../services/activityService';
 import { checkDuplicateOrder } from '../services/orderService';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { locationService } from '../services/locationService';
-import { LocationNode } from '../data/bangladesh-locations';
+import { LocationNode, districts, upazilas } from '../data/bangladesh-locations';
+import { CourierFactory } from '../lib/courierAdapters';
 
 import { useSettings } from '../contexts/SettingsContext';
 import ConfirmModal from './ConfirmModal';
+import OrderDetailsModal from './OrderDetailsModal';
 
 const ChannelIcon = ({ channel }: { channel: string }) => {
   switch (channel) {
@@ -99,6 +102,7 @@ export default function Orders() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState<string | null>(null);
   const [editingOrder, setEditingOrder] = useState<any | null>(null);
+  const [viewingOrder, setViewingOrder] = useState<any | null>(null);
   const [locationSuggestions, setLocationSuggestions] = useState<LocationNode[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -122,6 +126,17 @@ export default function Orders() {
   const [printType, setPrintType] = useState<'a5' | 'pos' | null>(null);
   const [courierHistory, setCourierHistory] = useState<any>(null);
   const [isFetchingHistory, setIsFetchingHistory] = useState(false);
+  const [courierSelection, setCourierSelection] = useState<{
+    isOpen: boolean;
+    order: any;
+    activeCouriers: [string, any][];
+  }>({
+    isOpen: false,
+    order: null,
+    activeCouriers: [],
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
   const printRef = React.useRef<HTMLDivElement>(null);
   const bulkPrintRef = React.useRef<HTMLDivElement>(null);
 
@@ -284,6 +299,9 @@ export default function Orders() {
     pathao_city_id: '',
     pathao_zone_id: '',
     pathao_area_id: '',
+    carrybee_city_id: '',
+    carrybee_zone_id: '',
+    carrybee_area_id: '',
   });
 
   const [cities, setCities] = useState<any[]>([]);
@@ -456,6 +474,10 @@ export default function Orders() {
     fetchWooOrders();
   }, [companySettings?.wooUrl, companySettings?.wooConsumerKey, companySettings?.wooConsumerSecret]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, activeTab]);
+
   const handleZoneChange = (zone: string) => {
     let charge = 80;
     if (zone === 'Outside Dhaka') charge = 150;
@@ -533,6 +555,15 @@ export default function Orders() {
         division,
         deliveryCharge: charge
       }));
+
+      // Auto-fetch Pathao IDs if Pathao is active
+      if (courierConfigs.pathao?.isActive) {
+        autoMatchPathao(district, parsed.upazila?.nameEn || orderForm.area);
+      }
+      // Auto-fetch Carrybee IDs if Carrybee is active
+      if (courierConfigs.carrybee?.isActive) {
+        autoMatchCarrybee(district, parsed.upazila?.nameEn || orderForm.area);
+      }
     }
 
     // Suggestions based on the last part of the address
@@ -561,8 +592,118 @@ export default function Orders() {
         division,
         deliveryCharge: charge
       }));
+
+      if (courierConfigs.pathao?.isActive) {
+        autoMatchPathao(district, hierarchy.upazila?.nameEn || orderForm.area);
+      }
+      if (courierConfigs.carrybee?.isActive) {
+        autoMatchCarrybee(district, hierarchy.upazila?.nameEn || orderForm.area);
+      }
     }
     setShowSuggestions(false);
+  };
+
+  const autoMatchPathao = async (districtName: string, areaName: string) => {
+    if (!courierConfigs.pathao || !districtName) return;
+    try {
+      const citiesRes = await fetch('/api/couriers/cities/pathao');
+      if (!citiesRes.ok) {
+        const errData = await citiesRes.json();
+        throw new Error(errData.error || 'Failed to fetch Pathao cities');
+      }
+      const pathaoCities = await citiesRes.json();
+      
+      // Find matching city
+      const city = pathaoCities.data.find((c: any) => 
+        c.city_name.toLowerCase().includes(districtName.toLowerCase()) || 
+        districtName.toLowerCase().includes(c.city_name.toLowerCase())
+      );
+
+      if (city) {
+        setOrderForm(prev => ({ ...prev, pathao_city_id: city.city_id.toString() }));
+        
+        const zonesRes = await fetch(`/api/couriers/zones/pathao/${city.city_id}`);
+        if (!zonesRes.ok) {
+          const errData = await zonesRes.json();
+          throw new Error(errData.error || 'Failed to fetch Pathao zones');
+        }
+        const pathaoZones = await zonesRes.json();
+        
+        // Find matching zone
+        const zone = pathaoZones.data.find((z: any) => 
+          z.zone_name.toLowerCase().includes(areaName.toLowerCase()) || 
+          areaName.toLowerCase().includes(z.zone_name.toLowerCase())
+        );
+
+        if (zone) {
+          setOrderForm(prev => ({ ...prev, pathao_zone_id: zone.zone_id.toString() }));
+          
+          const areasRes = await fetch(`/api/couriers/areas/pathao/${zone.zone_id}`);
+          if (!areasRes.ok) {
+            const errData = await areasRes.json();
+            throw new Error(errData.error || 'Failed to fetch Pathao areas');
+          }
+          const pathaoAreas = await areasRes.json();
+          
+          const area = pathaoAreas.data.find((a: any) => 
+            a.area_name.toLowerCase().includes(areaName.toLowerCase()) || 
+            areaName.toLowerCase().includes(a.area_name.toLowerCase())
+          ) || pathaoAreas.data[0];
+
+          if (area) {
+            setOrderForm(prev => ({ ...prev, pathao_area_id: area.area_id.toString() }));
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error("Error auto-matching Pathao locations:", error.message);
+    }
+  };
+
+  const autoMatchCarrybee = async (districtName: string, areaName: string) => {
+    if (!courierConfigs.carrybee || !districtName) return;
+    try {
+      const citiesRes = await fetch('/api/couriers/cities/carrybee');
+      if (!citiesRes.ok) return;
+      const carrybeeCities = await citiesRes.json();
+      
+      const city = carrybeeCities.data?.cities?.find((c: any) => 
+        c.name.toLowerCase().includes(districtName.toLowerCase()) || 
+        districtName.toLowerCase().includes(c.name.toLowerCase())
+      );
+
+      if (city) {
+        setOrderForm(prev => ({ ...prev, carrybee_city_id: city.id.toString() }));
+        
+        const zonesRes = await fetch(`/api/couriers/zones/carrybee/${city.id}`);
+        if (!zonesRes.ok) return;
+        const carrybeeZones = await zonesRes.json();
+        
+        const zone = carrybeeZones.data?.zones?.find((z: any) => 
+          z.name.toLowerCase().includes(areaName.toLowerCase()) || 
+          areaName.toLowerCase().includes(z.name.toLowerCase())
+        );
+
+        if (zone) {
+          setOrderForm(prev => ({ ...prev, carrybee_zone_id: zone.id.toString() }));
+          
+          const areasRes = await fetch(`/api/couriers/areas/carrybee/${zone.id}?cityId=${city.id}`);
+          if (!areasRes.ok) return;
+          const carrybeeAreas = await areasRes.json();
+          
+          const area = carrybeeAreas.data?.areas?.find((a: any) => 
+            a.name.toLowerCase().includes(areaName.toLowerCase()) || 
+            areaName.toLowerCase().includes(a.name.toLowerCase())
+          ) || carrybeeAreas.data?.areas?.[0];
+
+          if (area) {
+            setOrderForm(prev => ({ ...prev, carrybee_area_id: area.id.toString() }));
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error("Error auto-matching Carrybee locations:", error.message);
+    }
   };
 
   const handleOpenAddModal = () => {
@@ -997,17 +1138,22 @@ export default function Orders() {
     // Determine which courier to use
     const activeCouriers = Object.entries(courierConfigs).filter(([_, config]: [string, any]) => config.isActive);
     
+    if (activeCouriers.length === 0) {
+      toast.error('No courier is active. Please go to Settings > Logistics to activate one.');
+      return;
+    }
+
     let targetCourier = courierName;
     if (!targetCourier) {
-      if (activeCouriers.length === 0) {
-        toast.error('No courier is active. Please go to Settings > Logistics to activate one.');
+      if (activeCouriers.length > 1) {
+        setCourierSelection({
+          isOpen: true,
+          order,
+          activeCouriers,
+        });
         return;
       }
-      if (activeCouriers.length === 1) {
-        targetCourier = activeCouriers[0][0];
-      } else {
-        targetCourier = activeCouriers[0][0];
-      }
+      targetCourier = activeCouriers[0][0];
     }
 
     if (['shipped', 'delivered', 'cancelled', 'returned'].includes(order.status)) {
@@ -1024,6 +1170,22 @@ export default function Orders() {
 
       const phone = sanitizePhone(order.customerPhone);
       
+      if (targetCourier === 'pathao') {
+        if (!order.pathao_city_id || !order.pathao_zone_id || !order.pathao_area_id) {
+          toast.error('Please select Pathao City, Zone, and Area first by editing the order.');
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (targetCourier === 'carrybee') {
+        if (!order.carrybee_city_id || !order.carrybee_zone_id || !order.carrybee_area_id) {
+          toast.error('Please select Carrybee City, Zone, and Area first by editing the order.');
+          setLoading(false);
+          return;
+        }
+      }
+      
       const orderData = {
         invoice: order.orderNumber?.toString() || order.id.slice(0, 8),
         customer_name: order.customerName,
@@ -1033,9 +1195,9 @@ export default function Orders() {
         cod_amount: Math.round(order.dueAmount || 0),
         note: order.notes || '',
         weight: 0.5,
-        recipient_city: order.pathao_city_id,
-        recipient_zone: order.pathao_zone_id,
-        recipient_area: order.pathao_area_id,
+        recipient_city: targetCourier === 'carrybee' ? order.carrybee_city_id : order.pathao_city_id,
+        recipient_zone: targetCourier === 'carrybee' ? order.carrybee_zone_id : order.pathao_zone_id,
+        recipient_area: targetCourier === 'carrybee' ? order.carrybee_area_id : order.pathao_area_id,
       };
 
       const response = await fetch('/api/couriers/order', {
@@ -1143,6 +1305,13 @@ export default function Orders() {
         };
 
         const phone = sanitizePhone(order.customerPhone);
+        
+        if (targetCourier === 'pathao') {
+          if (!order.pathao_city_id || !order.pathao_zone_id || !order.pathao_area_id) {
+            failCount++;
+            continue;
+          }
+        }
         
         const orderData = {
           invoice: order.orderNumber?.toString() || order.id.slice(0, 8),
@@ -1271,6 +1440,12 @@ export default function Orders() {
     const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
     return dateB.getTime() - dateA.getTime();
   });
+
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const paginatedOrders = filteredOrders.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-8 max-w-7xl mx-auto no-print">
@@ -1458,7 +1633,7 @@ export default function Orders() {
                         </td>
                       </tr>
                     ) : (
-                      filteredOrders.map((order) => (
+                      paginatedOrders.map((order) => (
                         <tr key={order.id} className="hover:bg-[#f9fafb]/50 transition-colors group">
                           <td className="px-6 py-4">
                             <input 
@@ -1541,6 +1716,13 @@ export default function Orders() {
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button 
+                                onClick={() => setViewingOrder(order)}
+                                className="p-2 hover:bg-[#ffffff] rounded-lg text-[#9ca3af] hover:text-[#00AEEF] transition-colors shadow-sm border border-transparent hover:border-[#f3f4f6]"
+                                title="View Order"
+                              >
+                                <Eye size={14} />
+                              </button>
+                              <button 
                                 onClick={() => {
                                   setSelectedOrderForPrint(order);
                                   setPrintType('a5');
@@ -1577,6 +1759,60 @@ export default function Orders() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-6 py-4 bg-white border-t border-[#f3f4f6]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-[#6b7280]">
+                      Showing <span className="font-bold text-[#141414]">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-bold text-[#141414]">{Math.min(currentPage * itemsPerPage, filteredOrders.length)}</span> of <span className="font-bold text-[#141414]">{filteredOrders.length}</span> orders
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="p-2 rounded-lg hover:bg-[#f9fafb] text-[#9ca3af] disabled:opacity-50 transition-colors"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(page => {
+                        if (totalPages <= 7) return true;
+                        if (page === 1 || page === totalPages) return true;
+                        if (page >= currentPage - 1 && page <= currentPage + 1) return true;
+                        return false;
+                      })
+                      .map((page, index, array) => {
+                        const showEllipsis = index > 0 && page - array[index - 1] > 1;
+                        return (
+                          <React.Fragment key={page}>
+                            {showEllipsis && <span className="text-[#9ca3af] px-1">...</span>}
+                            <button
+                              onClick={() => setCurrentPage(page)}
+                              className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
+                                currentPage === page 
+                                  ? 'bg-[#00AEEF] text-white shadow-md shadow-[#00AEEF]/20' 
+                                  : 'text-[#6b7280] hover:bg-[#f9fafb]'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          </React.Fragment>
+                        );
+                      })}
+
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="p-2 rounded-lg hover:bg-[#f9fafb] text-[#9ca3af] disabled:opacity-50 transition-colors"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ) : (
@@ -1673,6 +1909,16 @@ export default function Orders() {
                                     <p className="text-xs text-[#6b7280] mb-3">{order.customerPhone}</p>
                                     <div className="flex justify-between items-center pt-3 border-t border-[#f9fafb]">
                                       <div className="flex items-center gap-1">
+                                        <button 
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setViewingOrder(order);
+                                          }}
+                                          className="p-1 hover:bg-[#e5e7eb] rounded transition-colors text-[#6b7280]"
+                                          title="View Order"
+                                        >
+                                          <Eye size={12} />
+                                        </button>
                                         <button 
                                           onClick={(e) => {
                                             e.stopPropagation();
@@ -1845,97 +2091,44 @@ export default function Orders() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Division</label>
-                    <input 
-                      className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all"
-                      value={orderForm.division}
-                      onChange={e => setOrderForm({...orderForm, division: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-1">
                     <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">District</label>
-                    <input 
+                    <select 
                       className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all"
                       value={orderForm.district}
-                      onChange={e => setOrderForm({...orderForm, district: e.target.value})}
-                    />
+                      onChange={e => {
+                        setOrderForm({...orderForm, district: e.target.value, area: ''});
+                        if (courierConfigs.pathao?.isActive) autoMatchPathao(e.target.value, '');
+                        if (courierConfigs.carrybee?.isActive) autoMatchCarrybee(e.target.value, '');
+                      }}
+                    >
+                      <option value="">Select District</option>
+                      {districts.map(d => (
+                        <option key={d.id} value={d.nameEn}>{d.nameEn}</option>
+                      ))}
+                    </select>
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Area / Thana</label>
-                    <input 
+                    <select 
                       className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all"
                       value={orderForm.area}
-                      onChange={e => setOrderForm({...orderForm, area: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Landmark</label>
-                    <input 
-                      className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all"
-                      value={orderForm.landmark}
-                      onChange={e => setOrderForm({...orderForm, landmark: e.target.value})}
-                    />
+                      onChange={e => {
+                        setOrderForm({...orderForm, area: e.target.value});
+                        if (courierConfigs.pathao?.isActive) autoMatchPathao(orderForm.district, e.target.value);
+                        if (courierConfigs.carrybee?.isActive) autoMatchCarrybee(orderForm.district, e.target.value);
+                      }}
+                      disabled={!orderForm.district}
+                    >
+                      <option value="">Select Area</option>
+                      {upazilas
+                        .filter(u => orderForm.district && districts.find(d => d.nameEn === orderForm.district)?.id === u.districtId)
+                        .map(u => (
+                          <option key={u.id} value={u.nameEn}>{u.nameEn}</option>
+                        ))
+                      }
+                    </select>
                   </div>
                 </div>
-
-                {courierConfigs.pathao?.isActive && (
-                  <div className="space-y-4 pt-2 border-t border-gray-50 bg-orange-50/30 p-4 rounded-xl">
-                    <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest">Pathao Courier Selection</p>
-                    <div className="grid grid-cols-1 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase">City</label>
-                        <select
-                          className="w-full px-4 py-2 bg-white border border-gray-100 rounded-lg text-sm focus:border-orange-200 outline-none transition-all"
-                          value={orderForm.pathao_city_id}
-                          onChange={(e) => {
-                            setOrderForm({...orderForm, pathao_city_id: e.target.value, pathao_zone_id: '', pathao_area_id: ''});
-                            if (e.target.value) fetchZones(e.target.value);
-                          }}
-                        >
-                          <option value="">Select City</option>
-                          {cities.map(city => (
-                            <option key={city.city_id} value={city.city_id}>{city.city_name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-gray-400 uppercase">Zone</label>
-                          <select
-                            disabled={!orderForm.pathao_city_id || loadingLocations}
-                            className="w-full px-4 py-2 bg-white border border-gray-100 rounded-lg text-sm focus:border-orange-200 outline-none transition-all disabled:opacity-50"
-                            value={orderForm.pathao_zone_id}
-                            onChange={(e) => {
-                              setOrderForm({...orderForm, pathao_zone_id: e.target.value, pathao_area_id: ''});
-                              if (e.target.value) fetchAreas(e.target.value);
-                            }}
-                          >
-                            <option value="">Select Zone</option>
-                            {zones.map(zone => (
-                              <option key={zone.zone_id} value={zone.zone_id}>{zone.zone_name}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-gray-400 uppercase">Area</label>
-                          <select
-                            disabled={!orderForm.pathao_zone_id || loadingLocations}
-                            className="w-full px-4 py-2 bg-white border border-gray-100 rounded-lg text-sm focus:border-orange-200 outline-none transition-all disabled:opacity-50"
-                            value={orderForm.pathao_area_id}
-                            onChange={(e) => setOrderForm({...orderForm, pathao_area_id: e.target.value})}
-                          >
-                            <option value="">Select Area</option>
-                            {areas.map(area => (
-                              <option key={area.area_id} value={area.area_id}>{area.area_name}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Items Section */}
@@ -2257,6 +2450,41 @@ export default function Orders() {
           </div>
         </div>
       )}
+      {/* Courier Selection Modal */}
+      {courierSelection.isOpen && (
+        <div className="fixed inset-0 bg-[#00000080] backdrop-blur-sm z-[70] flex items-center justify-center p-6 no-print">
+          <div className="bg-[#ffffff] w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="px-6 py-4 border-b border-[#f3f4f6] flex items-center justify-between bg-[#f9fafb]/50">
+              <h3 className="text-lg font-bold text-[#141414]">Select Courier</h3>
+              <button 
+                onClick={() => setCourierSelection(prev => ({ ...prev, isOpen: false }))}
+                className="p-2 hover:bg-[#f3f4f6] rounded-full transition-colors text-[#9ca3af]"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              <p className="text-xs text-gray-500 mb-4">Multiple couriers are active. Please choose which one to use for this order.</p>
+              {courierSelection.activeCouriers.map(([name]) => (
+                <button
+                  key={name}
+                  onClick={() => {
+                    handleSendToCourier(courierSelection.order, name);
+                    setCourierSelection(prev => ({ ...prev, isOpen: false }));
+                  }}
+                  className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-[#f3f4f6] hover:border-[#00AEEF] hover:bg-[#00AEEF]/5 transition-all group"
+                >
+                  <span className="font-bold text-gray-700 group-hover:text-[#00AEEF]">
+                    {name.charAt(0).toUpperCase() + name.slice(1)}
+                  </span>
+                  <ChevronRight size={16} className="text-gray-400 group-hover:text-[#00AEEF]" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Print Modal */}
       {selectedOrderForPrint && (
         <div className="fixed inset-0 bg-[#00000080] backdrop-blur-sm z-[60] flex items-center justify-center p-6 no-print">
@@ -2401,6 +2629,21 @@ export default function Orders() {
         onConfirm={confirmConfig.onConfirm}
         onCancel={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
       />
+
+      {viewingOrder && (
+        <OrderDetailsModal 
+          order={viewingOrder}
+          onClose={() => setViewingOrder(null)}
+          products={products}
+          variants={variants}
+          currencySymbol={currencySymbol}
+          onPrintInvoice={(order) => {
+            setSelectedOrderForPrint(order);
+            setPrintType('a5');
+          }}
+          onSendToCourier={handleSendToCourier}
+        />
+      )}
 
       {/* Hidden Print Containers - Moved outside conditional blocks to ensure refs are always attached and accessible */}
       <div className="print-only">

@@ -65,8 +65,6 @@ export const A5Invoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ order
               <p className="text-xs font-bold text-[#000000]">{order.customerPhone}</p>
               <p className="text-[10px] text-[#333333] leading-relaxed max-w-[350px]">
                 {order.customerAddress}
-                {order.area && `, ${order.area}`}
-                {order.district && `, ${order.district}`}
               </p>
             </div>
           </div>
