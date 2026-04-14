@@ -477,10 +477,53 @@ async function startServer() {
       // Log the webhook
       await database.collection('woocommerce_logs').add({
         type: 'webhook',
-        orderId: order.id.toString(),
-        status: order.status,
+        orderId: order.id?.toString() || 'unknown',
+        status: order.status || 'unknown',
         timestamp: serverTimestamp()
       });
+
+      // Sync customer data to CRM
+      if (order.billing && order.billing.phone) {
+        const phone = order.billing.phone;
+        const name = `${order.billing.first_name || ''} ${order.billing.last_name || ''}`.trim();
+        const email = order.billing.email || '';
+        const address = `${order.billing.address_1 || ''}, ${order.billing.city || ''}`.trim();
+        const total = parseFloat(order.total || '0');
+
+        const customersRef = database.collection('customers');
+        const querySnapshot = await customersRef.where('phone', '==', phone).get();
+
+        if (querySnapshot.empty) {
+          // Create new customer
+          await customersRef.add({
+            name: name || 'Unknown',
+            phone,
+            email,
+            address,
+            source: 'WooCommerce',
+            totalOrders: 1,
+            totalSpent: total,
+            lastOrderDate: serverTimestamp(),
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+          console.log(`Created new CRM customer from WooCommerce order: ${phone}`);
+        } else {
+          // Update existing customer
+          const customerDoc = querySnapshot.docs[0];
+          const existingData = customerDoc.data();
+          await customerDoc.ref.update({
+            name: existingData.name || name,
+            email: existingData.email || email,
+            address: existingData.address || address,
+            totalOrders: (existingData.totalOrders || 0) + 1,
+            totalSpent: (existingData.totalSpent || 0) + total,
+            lastOrderDate: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+          console.log(`Updated existing CRM customer from WooCommerce order: ${phone}`);
+        }
+      }
 
       res.status(200).send('Webhook processed');
     } catch (error: any) {

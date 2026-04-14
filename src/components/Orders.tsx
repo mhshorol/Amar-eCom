@@ -443,6 +443,7 @@ export default function Orders() {
             orderNumber: order.number,
             customerName: `${order.billing.first_name} ${order.billing.last_name}`,
             customerPhone: order.billing.phone,
+            customerEmail: order.billing.email,
             customerAddress: `${order.billing.address_1}, ${order.billing.city}`,
             totalAmount: parseFloat(order.total),
             dueAmount: parseFloat(order.total),
@@ -457,6 +458,76 @@ export default function Orders() {
             paymentMethod: order.payment_method_title
           }));
           setWooOrders(mappedWooOrders);
+
+          // Sync customers to CRM
+          try {
+            const customersSnap = await getDocs(collection(db, 'customers'));
+            const existingCustomers = new Map();
+            customersSnap.forEach(doc => {
+              const data = doc.data();
+              if (data.phone) {
+                existingCustomers.set(data.phone, { id: doc.id, ...data });
+              }
+            });
+
+            const batch = writeBatch(db);
+            let batchCount = 0;
+
+            for (const order of mappedWooOrders) {
+              if (!order.customerPhone) continue;
+              
+              const existing = existingCustomers.get(order.customerPhone);
+              const wooOrderId = String(order.wooId);
+
+              if (!existing) {
+                // Create new customer
+                const newCustomerRef = doc(collection(db, 'customers'));
+                const newCustomer = {
+                  name: order.customerName || 'Unknown',
+                  phone: order.customerPhone,
+                  email: order.customerEmail || '',
+                  address: order.customerAddress || '',
+                  orderCount: 1,
+                  totalSpent: order.totalAmount || 0,
+                  lastOrderDate: order.createdAt?.toDate ? order.createdAt.toDate() : new Date(),
+                  wooOrderIds: [wooOrderId],
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp()
+                };
+                batch.set(newCustomerRef, newCustomer);
+                existingCustomers.set(order.customerPhone, { id: newCustomerRef.id, ...newCustomer });
+                batchCount++;
+              } else {
+                // Update existing customer if this order hasn't been counted
+                const wooOrderIds = existing.wooOrderIds || [];
+                if (!wooOrderIds.includes(wooOrderId)) {
+                  const customerRef = doc(db, 'customers', existing.id);
+                  batch.update(customerRef, {
+                    orderCount: (existing.orderCount || 0) + 1,
+                    totalSpent: (existing.totalSpent || 0) + (order.totalAmount || 0),
+                    lastOrderDate: order.createdAt?.toDate ? order.createdAt.toDate() : new Date(),
+                    wooOrderIds: arrayUnion(wooOrderId),
+                    updatedAt: serverTimestamp()
+                  });
+                  existing.wooOrderIds = [...wooOrderIds, wooOrderId];
+                  existing.orderCount = (existing.orderCount || 0) + 1;
+                  existing.totalSpent = (existing.totalSpent || 0) + (order.totalAmount || 0);
+                  batchCount++;
+                }
+              }
+
+              if (batchCount >= 450) {
+                await batch.commit();
+                batchCount = 0;
+              }
+            }
+
+            if (batchCount > 0) {
+              await batch.commit();
+            }
+          } catch (syncError) {
+            console.error("Error syncing woo customers:", syncError);
+          }
         } else {
           console.error("WooCommerce Fetch Error:", data.error, data.details);
           // Only show toast if we actually have settings but they failed

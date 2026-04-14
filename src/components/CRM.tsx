@@ -257,10 +257,10 @@ export default function CRM() {
   };
 
   const filteredCustomers = customers.filter(customer => 
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.phone.includes(searchTerm) ||
-    customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.address.toLowerCase().includes(searchTerm.toLowerCase())
+    (customer.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (customer.phone || '').includes(searchTerm) ||
+    (customer.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (customer.address || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalSpentAll = customers.reduce((sum, c) => sum + (c.totalSpent || 0), 0);

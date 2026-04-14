@@ -403,6 +403,11 @@ function ProductsTab({ products, variants, categories, brands, onEdit, onDelete,
                   <div className="flex flex-col">
                     <span className="text-sm font-bold text-[#141414]">{p.name}</span>
                     <span className="text-[10px] text-gray-400">{p.barcode || 'No Barcode'}</span>
+                    {(p.size || p.color) && (
+                      <span className="text-[10px] text-gray-500 mt-0.5">
+                        {p.size && `Size: ${p.size}`} {p.size && p.color && ' | '} {p.color && `Color: ${p.color}`}
+                      </span>
+                    )}
                   </div>
                 </div>
               </td>

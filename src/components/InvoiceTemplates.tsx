@@ -24,17 +24,17 @@ export const A5Invoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ order
               <img src={company.companyLogo} alt="Logo" className="h-10 object-contain grayscale" referrerPolicy="no-referrer" />
             ) : (
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-[#000000] rounded-lg flex items-center justify-center text-white font-black text-base shadow-lg">
+                <div className="w-10 h-10 bg-[#000000] rounded-lg flex items-center justify-center text-white font-black text-xl shadow-lg">
                   {company.companyName?.[0] || 'K'}
                 </div>
-                <span className="text-lg font-black tracking-tighter text-[#000000]">
+                <span className="text-2xl font-black tracking-tighter text-[#000000]">
                   {company.companyName || 'KARUKARJO'}
                 </span>
               </div>
             )}
             <div className="space-y-0">
-              <h1 className="text-xl font-black text-[#000000] tracking-tight uppercase leading-none">Invoice</h1>
-              <div className="flex items-center gap-2 text-[9px] font-bold text-[#666666] uppercase tracking-widest">
+              <h1 className="text-2xl font-black text-[#000000] tracking-tight uppercase leading-none">Invoice</h1>
+              <div className="flex items-center gap-2 text-xs font-bold text-[#666666] uppercase tracking-widest mt-1">
                 <span>No:</span>
                 <span className="text-[#000000]">#{order.orderNumber || order.id.slice(0, 8)}</span>
               </div>
@@ -42,8 +42,8 @@ export const A5Invoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ order
           </div>
 
           <div className="text-right space-y-1">
-            <h2 className="text-xs font-black text-[#000000] uppercase tracking-wide">{company.companyName || 'KARUKARJO LTD'}</h2>
-            <div className="text-[8px] font-medium text-[#444444] space-y-0 max-w-[220px] ml-auto leading-tight">
+            <h2 className="text-sm font-black text-[#000000] uppercase tracking-wide">{company.companyName || 'KARUKARJO LTD'}</h2>
+            <div className="text-xs font-medium text-[#444444] space-y-0.5 max-w-[250px] ml-auto leading-tight">
               <p>{company.companyAddress || '44 PEACE TOWER, L# 01&06, NEW MODEL TOWN, HAZARIBAG, DHAKA'}</p>
               <p className="text-[#000000] font-bold">
                 {company.companyMobile || '01932626364'} {company.companyPhone && `| ${company.companyPhone}`}
@@ -51,7 +51,7 @@ export const A5Invoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ order
               <p>{company.companyEmail && `Email: ${company.companyEmail}`}</p>
               <p>{company.companyWebsite && `Web: ${company.companyWebsite}`}</p>
               {company.companyVat && (
-                <p className="text-[#000000] font-black mt-0.5 border-t border-gray-100 pt-0.5">BIN/VAT: {company.companyVat}</p>
+                <p className="text-[#000000] font-black mt-1 border-t border-gray-100 pt-1">BIN/VAT: {company.companyVat}</p>
               )}
             </div>
           </div>
@@ -61,9 +61,9 @@ export const A5Invoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ order
         <div className="grid grid-cols-2 gap-6 mb-4">
           <div className="space-y-1">
             <div className="space-y-0.5">
-              <p className="text-base font-black text-[#000000] leading-tight">{order.customerName}</p>
-              <p className="text-xs font-bold text-[#000000]">{order.customerPhone}</p>
-              <p className="text-[10px] text-[#333333] leading-relaxed max-w-[350px]">
+              <p className="text-lg font-black text-[#000000] leading-tight">{order.customerName}</p>
+              <p className="text-sm font-bold text-[#000000]">{order.customerPhone}</p>
+              <p className="text-sm text-[#333333] leading-relaxed max-w-[350px]">
                 {order.customerAddress}
               </p>
             </div>
@@ -72,8 +72,8 @@ export const A5Invoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ order
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-0">
-                <p className="text-[7px] font-black text-[#666666] uppercase tracking-widest">Date Issued</p>
-                <p className="text-[9px] font-bold text-[#000000]">
+                <p className="text-[10px] font-black text-[#666666] uppercase tracking-widest">Date Issued</p>
+                <p className="text-xs font-bold text-[#000000]">
                   {order.createdAt?.toDate 
                     ? order.createdAt.toDate().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
                     : (order.createdAt?.seconds 
@@ -84,19 +84,19 @@ export const A5Invoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ order
                 </p>
               </div>
               <div className="space-y-0">
-                <p className="text-[7px] font-black text-[#666666] uppercase tracking-widest">Payment Method</p>
-                <p className="text-[9px] font-bold text-[#000000] uppercase">{order.paymentMethod || 'Cash on Delivery'}</p>
+                <p className="text-[10px] font-black text-[#666666] uppercase tracking-widest">Payment Method</p>
+                <p className="text-xs font-bold text-[#000000] uppercase">{order.paymentMethod || 'Cash on Delivery'}</p>
               </div>
             </div>
-            <div className="p-1.5 bg-[#f9f9f9] rounded border border-[#eeeeee] flex items-center justify-between">
+            <div className="p-2 bg-[#f9f9f9] rounded border border-[#eeeeee] flex items-center justify-between">
               <div className="space-y-0">
-                <p className="text-[6px] font-black text-[#666666] uppercase tracking-widest">Status</p>
-                <p className="text-[8px] font-black text-[#000000] uppercase">{order.status || 'Pending'}</p>
+                <p className="text-[9px] font-black text-[#666666] uppercase tracking-widest">Status</p>
+                <p className="text-[10px] font-black text-[#000000] uppercase">{order.status || 'Pending'}</p>
               </div>
-              <div className="h-4 w-[1px] bg-[#dddddd]"></div>
+              <div className="h-5 w-[1px] bg-[#dddddd]"></div>
               <div className="text-right space-y-0">
-                <p className="text-[6px] font-black text-[#666666] uppercase tracking-widest">Channel</p>
-                <p className="text-[8px] font-black text-[#000000] uppercase">{order.channel || 'Direct'}</p>
+                <p className="text-[9px] font-black text-[#666666] uppercase tracking-widest">Channel</p>
+                <p className="text-[10px] font-black text-[#000000] uppercase">{order.channel || 'Direct'}</p>
               </div>
             </div>
           </div>
@@ -106,25 +106,25 @@ export const A5Invoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ order
         <div className="flex-grow rounded border border-[#eeeeee] overflow-hidden mb-3 shadow-sm">
           <table className="w-full border-collapse">
             <thead>
-              <tr className="text-[8px] font-black text-[#000000] uppercase tracking-wider" style={{ backgroundColor: '#f3f3f3' }}>
-                <th className="text-left py-1.5 px-3 w-8">#</th>
-                <th className="text-left py-1.5 px-2">Item Description</th>
-                <th className="text-center py-1.5 px-2 w-12">Qty</th>
-                <th className="text-right py-1.5 px-2 w-24">Unit Price</th>
-                <th className="text-right py-1.5 px-3 w-24">Total</th>
+              <tr className="text-xs font-black text-[#000000] uppercase tracking-wider" style={{ backgroundColor: '#f3f3f3' }}>
+                <th className="text-left py-2 px-3 w-8">#</th>
+                <th className="text-left py-2 px-2">Item Description</th>
+                <th className="text-center py-2 px-2 w-12">Qty</th>
+                <th className="text-right py-2 px-2 w-24">Unit Price</th>
+                <th className="text-right py-2 px-3 w-24">Total</th>
               </tr>
             </thead>
-            <tbody className="text-[9px]">
+            <tbody className="text-xs">
               {order.items?.map((item: any, idx: number) => (
                 <tr key={idx} className="border-t border-[#f9f9f9]">
-                  <td className="py-1.5 px-3 text-[#666666] font-bold">{String(idx + 1).padStart(2, '0')}</td>
-                  <td className="py-1.5 px-2">
+                  <td className="py-2 px-3 text-[#666666] font-bold">{String(idx + 1).padStart(2, '0')}</td>
+                  <td className="py-2 px-2">
                     <p className="font-black text-[#000000] leading-tight">{item.name || item.productName || 'N/A'}</p>
-                    {item.variantName && <p className="text-[7px] font-bold text-[#444444] uppercase">{item.variantName}</p>}
+                    {item.variantName && <p className="text-[10px] font-bold text-[#444444] uppercase mt-0.5">{item.variantName}</p>}
                   </td>
-                  <td className="text-center py-1.5 px-2 font-bold text-[#000000]">{item.quantity}</td>
-                  <td className="text-right py-1.5 px-2 font-bold text-[#333333]">{currencySymbol}{(item.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                  <td className="text-right py-1.5 px-3 font-black text-[#000000]">{currencySymbol}{(item.quantity * item.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                  <td className="text-center py-2 px-2 font-bold text-[#000000]">{item.quantity}</td>
+                  <td className="text-right py-2 px-2 font-bold text-[#333333]">{currencySymbol}{(item.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                  <td className="text-right py-2 px-3 font-black text-[#000000]">{currencySymbol}{(item.quantity * item.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                 </tr>
               ))}
             </tbody>
@@ -135,67 +135,67 @@ export const A5Invoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ order
         <div className="flex justify-between items-end gap-4 mt-auto">
           <div className="flex-1 space-y-3">
             <div className="space-y-1">
-              <h4 className="text-[7px] font-black text-[#666666] uppercase tracking-widest">Notes</h4>
-              <p className="text-[8px] text-[#333333] italic leading-tight bg-[#f9f9f9] p-2 rounded border border-[#eeeeee] min-h-[30px]">
+              <h4 className="text-[10px] font-black text-[#666666] uppercase tracking-widest">Notes</h4>
+              <p className="text-xs text-[#333333] italic leading-tight bg-[#f9f9f9] p-2.5 rounded border border-[#eeeeee] min-h-[40px]">
                 {order.notes || company.invoiceFooterNote || 'Thank you for your business!'}
               </p>
             </div>
             <div className="flex items-center gap-2">
               <div className="p-1 rounded border border-[#dddddd]">
-                <div className="w-5 h-5 bg-[#000000] rounded flex items-center justify-center text-white font-bold text-[8px]">QR</div>
+                <div className="w-6 h-6 bg-[#000000] rounded flex items-center justify-center text-white font-bold text-[10px]">QR</div>
               </div>
               <div className="space-y-0">
-                <p className="text-[6px] font-black text-[#666666] uppercase tracking-widest">Verify</p>
-                <p className="text-[7px] font-bold text-[#000000] uppercase tracking-tight">{company.companyWebsite || 'WWW.KARUKARJO.COM.BD'}</p>
+                <p className="text-[9px] font-black text-[#666666] uppercase tracking-widest">Verify</p>
+                <p className="text-[10px] font-bold text-[#000000] uppercase tracking-tight">{company.companyWebsite || 'WWW.KARUKARJO.COM.BD'}</p>
               </div>
             </div>
           </div>
 
-          <div className="w-56 space-y-1.5">
-            <div className="space-y-1 px-2">
-              <div className="flex justify-between text-[9px]">
+          <div className="w-64 space-y-2">
+            <div className="space-y-1.5 px-2">
+              <div className="flex justify-between text-xs">
                 <span className="font-bold text-[#666666] uppercase tracking-wider">Subtotal</span>
                 <span className="font-black text-[#000000]">{currencySymbol}{(order.subtotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
               </div>
-              <div className="flex justify-between text-[9px]">
+              <div className="flex justify-between text-xs">
                 <span className="font-bold text-[#666666] uppercase tracking-wider">Delivery</span>
                 <span className="font-black text-[#000000]">{currencySymbol}{(order.deliveryCharge || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
               </div>
               {order.discount > 0 && (
-                <div className="flex justify-between text-[9px]">
+                <div className="flex justify-between text-xs">
                   <span className="font-bold text-[#666666] uppercase tracking-wider">Discount</span>
                   <span className="font-black text-[#000000]">-{currencySymbol}{(order.discount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
               )}
-              <div className="flex justify-between text-[9px] pt-0.5 border-t border-[#eeeeee]">
+              <div className="flex justify-between text-xs pt-1 border-t border-[#eeeeee]">
                 <span className="font-bold text-[#666666] uppercase tracking-wider">Total Amount</span>
                 <span className="font-black text-[#000000]">{currencySymbol}{(order.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
               </div>
-              <div className="flex justify-between text-[9px]">
+              <div className="flex justify-between text-xs">
                 <span className="font-bold text-[#666666] uppercase tracking-wider">Paid Amount</span>
                 <span className="font-black text-[#000000]">{currencySymbol}{(order.paidAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
             
-            <div className="bg-[#000000] rounded p-2 text-white shadow-md">
+            <div className="bg-[#000000] rounded p-2.5 text-white shadow-md">
               <div className="flex justify-between items-center">
-                <span className="text-[9px] font-black uppercase tracking-widest opacity-80">Due Amount</span>
-                <span className="text-base font-black">{currencySymbol}{(order.dueAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                <span className="text-xs font-black uppercase tracking-widest opacity-80">Due Amount</span>
+                <span className="text-xl font-black">{currencySymbol}{(order.dueAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
 
             {company.signatureImage && (
-              <div className="pt-1 flex flex-col items-center">
-                <img src={company.signatureImage} alt="Signature" className="h-8 object-contain grayscale" referrerPolicy="no-referrer" />
+              <div className="pt-2 flex flex-col items-center">
+                <img src={company.signatureImage} alt="Signature" className="h-10 object-contain grayscale" referrerPolicy="no-referrer" />
                 <div className="w-full border-t border-[#eeeeee]"></div>
-                <p className="text-[6px] font-black text-[#666666] uppercase tracking-widest">Authorized Signature</p>
+                <p className="text-[8px] font-black text-[#666666] uppercase tracking-widest mt-0.5">Authorized Signature</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Footer Disclaimer */}
-        <div className="mt-3 pt-1.5 border-t border-[#eeeeee] flex justify-between items-center text-[6px] font-black text-[#999999] uppercase tracking-[0.2em]">
+        <div className="mt-4 pt-2 border-t border-[#eeeeee] flex justify-between items-center text-[8px] font-black text-[#999999] uppercase tracking-[0.2em]">
           <span>Computer generated invoice</span>
           <span>Date: {new Date().toLocaleDateString()}</span>
           <span>Page 01 of 01</span>

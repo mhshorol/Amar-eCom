@@ -280,7 +280,7 @@ export default function Dashboard() {
     <div className="space-y-4 sm:space-y-8 pb-12">
       {/* Quick Actions Bar */}
       <div className="flex flex-wrap items-center gap-3">
-        <Link to="/new-order" className="flex items-center gap-2 px-4 py-2.5 bg-[#141414] text-white rounded-xl text-xs font-bold hover:bg-black transition-all shadow-lg shadow-gray-200">
+        <Link to="/orders/new" className="flex items-center gap-2 px-4 py-2.5 bg-[#141414] text-white rounded-xl text-xs font-bold hover:bg-black transition-all shadow-lg shadow-gray-200">
           <Plus size={16} />
           New Order
         </Link>

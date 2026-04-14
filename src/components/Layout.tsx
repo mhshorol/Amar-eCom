@@ -81,6 +81,18 @@ export default function Layout({ children, user }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isQuickActionOpen, setIsQuickActionOpen] = React.useState(false);
   const [expandedItems, setExpandedItems] = React.useState<string[]>(['Orders']);
+  const quickActionRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (quickActionRef.current && !quickActionRef.current.contains(event.target as Node)) {
+        setIsQuickActionOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const toggleExpand = (name: string) => {
     setExpandedItems(prev => 
@@ -221,7 +233,7 @@ export default function Layout({ children, user }: LayoutProps) {
             )}
 
             {/* Quick Actions */}
-            <div className="relative shrink-0">
+            <div className="relative shrink-0" ref={quickActionRef}>
               <button 
                 onClick={() => setIsQuickActionOpen(!isQuickActionOpen)}
                 className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl text-sm font-bold text-gray-700 transition-all"
@@ -243,29 +255,49 @@ export default function Layout({ children, user }: LayoutProps) {
                     </Link>
                   )}
                   {hasPermission('tasks') && (
-                    <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors">
+                    <Link 
+                      to="/tasks"
+                      onClick={() => setIsQuickActionOpen(false)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors"
+                    >
                       <ClipboardList size={16} className="text-[#00AEEF]" /> Create Task
-                    </button>
+                    </Link>
                   )}
                   {hasPermission('inventory') && (
-                    <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors">
+                    <Link 
+                      to="/inventory/new"
+                      onClick={() => setIsQuickActionOpen(false)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors"
+                    >
                       <Package size={16} className="text-[#00AEEF]" /> Add Product
-                    </button>
+                    </Link>
                   )}
                   {hasPermission('crm') && (
-                    <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors">
+                    <Link 
+                      to="/crm"
+                      onClick={() => setIsQuickActionOpen(false)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors"
+                    >
                       <UserPlus size={16} className="text-[#00AEEF]" /> Add Customer
-                    </button>
+                    </Link>
                   )}
                   {hasPermission('suppliers') && (
-                    <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors">
+                    <Link 
+                      to="/suppliers"
+                      onClick={() => setIsQuickActionOpen(false)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors"
+                    >
                       <UserPlus size={16} className="text-[#00AEEF]" /> Add Supplier
-                    </button>
+                    </Link>
                   )}
                   {hasPermission('orders') && (
-                    <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors">
+                    <Link 
+                      to="/orders/new"
+                      onClick={() => setIsQuickActionOpen(false)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-xl text-sm text-gray-700 transition-colors"
+                    >
                       <FileText size={16} className="text-[#00AEEF]" /> Create Invoice
-                    </button>
+                    </Link>
                   )}
                 </div>
               )}

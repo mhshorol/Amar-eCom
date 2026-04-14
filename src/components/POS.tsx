@@ -252,7 +252,7 @@ export default function POS() {
         productId: product.id,
         variantId: variant?.id,
         name: product.name,
-        variantName: variant?.name,
+        variantName: variant?.name || (product.size || product.color ? `${product.size || ''} ${product.size && product.color ? '/' : ''} ${product.color || ''}`.trim() : undefined),
         price: variant?.price || product.price,
         quantity: 1,
         stock,
@@ -606,7 +606,7 @@ export default function POS() {
                 }}
               >
                 {/* Status Badge */}
-                <div className="absolute top-2 right-2 z-10">
+                <div className="absolute top-2 right-2 z-20">
                   {totalStock <= 0 ? (
                     <span className="bg-red-500 text-white text-[7px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider">Out of Stock</span>
                   ) : totalStock <= 5 ? (
@@ -622,7 +622,7 @@ export default function POS() {
                     <img 
                       src={product.images?.[0] || product.image} 
                       alt={product.name} 
-                      className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500 relative z-10" 
+                      className="w-full h-full object-cover rounded-lg group-hover:scale-110 transition-transform duration-500 relative z-10" 
                       referrerPolicy="no-referrer" 
                     />
                   ) : (
@@ -634,9 +634,16 @@ export default function POS() {
 
                 {/* Product Info */}
                 <div className="p-3 bg-white border-t border-gray-50 flex-1 flex flex-col justify-between">
-                  <h3 className="text-[11px] font-bold text-gray-900 line-clamp-2 group-hover:text-[#00AEEF] transition-colors uppercase tracking-tight leading-tight mb-1">
-                    {product.name}
-                  </h3>
+                  <div>
+                    <h3 className="text-[11px] font-bold text-gray-900 line-clamp-2 group-hover:text-[#00AEEF] transition-colors uppercase tracking-tight leading-tight mb-1">
+                      {product.name}
+                    </h3>
+                    {(product.size || product.color) && (
+                      <p className="text-[9px] text-gray-400 font-medium mb-1">
+                        {product.size && `Size: ${product.size}`} {product.size && product.color && ' | '} {product.color && `Color: ${product.color}`}
+                      </p>
+                    )}
+                  </div>
                   <div className="flex items-center justify-between mt-1">
                     <p className="text-xs font-black text-[#00AEEF]">
                       {currencySymbol}{(product.price || 0).toLocaleString()}
@@ -1116,7 +1123,7 @@ export default function POS() {
                     <img 
                       src={selectedProductForVariants.product.images?.[0] || selectedProductForVariants.product.image} 
                       alt={selectedProductForVariants.product.name} 
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-cover"
                     />
                   ) : (
                     <Package size={24} className="text-gray-300" />

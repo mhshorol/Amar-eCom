@@ -789,7 +789,10 @@ export default function NewOrder() {
                               )}
                               <div>
                                 <div className="text-xs font-bold text-[#141414]">{p.name}</div>
-                                <div className="text-[10px] text-[#9ca3af]">{p.sku || 'No SKU'} • {currencySymbol}{p.price}</div>
+                                <div className="text-[10px] text-[#9ca3af]">
+                                  {p.sku || 'No SKU'} • {currencySymbol}{p.price}
+                                  {(p.size || p.color) && ` • ${p.size ? `Size: ${p.size}` : ''}${p.size && p.color ? ' | ' : ''}${p.color ? `Color: ${p.color}` : ''}`}
+                                </div>
                               </div>
                             </button>
                           ))
@@ -861,7 +864,7 @@ export default function NewOrder() {
                       const itemWithInfo = {
                         ...newItem,
                         name: p?.name || 'Unknown Product',
-                        variant: v ? `${v.size} / ${v.color}` : '',
+                        variant: v ? `${v.size} / ${v.color}` : (p?.size || p?.color ? `${p.size || ''} ${p.size && p.color ? '/' : ''} ${p.color || ''}`.trim() : ''),
                         image: p?.image || ''
                       };
                       setOrderForm({...orderForm, items: [...orderForm.items, itemWithInfo]});

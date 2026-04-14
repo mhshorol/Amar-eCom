@@ -72,6 +72,8 @@ export default function NewProduct() {
     costPrice: 0, 
     categoryId: '', 
     brandId: '', 
+    size: '',
+    color: '',
     barcode: '', 
     minStock: 10, 
     description: '', 
@@ -133,28 +135,67 @@ export default function NewProduct() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!storage) {
-      toast.error('Firebase Storage is not configured. Please check your setup.');
-      return;
-    }
-
     setUploading(true);
     try {
-      const storageRef = ref(storage, `products/${Date.now()}_${file.name}`);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
-      setForm((prev: any) => ({ 
-        ...prev, 
-        images: [...(prev.images || []), url],
-        // Also set the primary image if it's the first one
-        image: prev.image || url
-      }));
-      toast.success('Image uploaded successfully');
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Compress to JPEG with 0.7 quality
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          
+          setForm((prev: any) => ({ 
+            ...prev, 
+            images: [...(prev.images || []), dataUrl],
+            // Also set the primary image if it's the first one
+            image: prev.image || dataUrl
+          }));
+          
+          setUploading(false);
+          toast.success('Image uploaded successfully');
+        };
+        
+        img.onerror = () => {
+          setUploading(false);
+          toast.error('Failed to process image');
+        };
+      };
+      
+      reader.onerror = () => {
+        setUploading(false);
+        toast.error('Failed to read file');
+      };
     } catch (e) {
+      setUploading(false);
       toast.error('Failed to upload image');
       console.error(e);
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -374,6 +415,26 @@ export default function NewProduct() {
                     <option value="">Select Brand</option>
                     {brands.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Size</label>
+                  <input 
+                    className="w-full p-4 bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[#00AEEF]/20 focus:bg-white transition-all text-sm" 
+                    placeholder="e.g. XL, 42, Free Size"
+                    value={form.size || ''} 
+                    onChange={e => setForm({...form, size: e.target.value})} 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Color</label>
+                  <input 
+                    className="w-full p-4 bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[#00AEEF]/20 focus:bg-white transition-all text-sm" 
+                    placeholder="e.g. Red, Blue, Black"
+                    value={form.color || ''} 
+                    onChange={e => setForm({...form, color: e.target.value})} 
+                  />
                 </div>
               </div>
               <div className="space-y-1">
