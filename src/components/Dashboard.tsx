@@ -93,7 +93,25 @@ export default function Dashboard() {
   const [bestSellingProducts, setBestSellingProducts] = useState<any[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<any[]>([]);
   const [returnRate, setReturnRate] = useState(0);
-  const [courierPerformance, setCourierPerformance] = useState<any[]>([]);
+  const [teamPerformance, setTeamPerformance] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{ [key: string]: string }>({});
+
+  useEffect(() => {
+    // Fetch users for mapping names
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const usersMap: { [key: string]: string } = {};
+      snapshot.docs.forEach(doc => {
+        usersMap[doc.id] = doc.data().name || doc.data().displayName || doc.id;
+      });
+      setTeamMembers(usersMap);
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        handleFirestoreError(error, OperationType.LIST, 'users');
+      }
+    });
+
+    return () => unsubUsers();
+  }, []);
 
   useEffect(() => {
     if (!authUser) return;
@@ -148,22 +166,23 @@ export default function Dashboard() {
         .slice(0, 5);
       setBestSellingProducts(bestSelling);
 
-      // Courier Performance
-      const courierStats: { [key: string]: { name: string, total: number, delivered: number } } = {};
+      // Team Performance
+      const teamStats: { [key: string]: { name: string, total: number, processed: number } } = {};
       orders.forEach((order: any) => {
-        if (order.courier) {
-          if (!courierStats[order.courier]) {
-            courierStats[order.courier] = { name: order.courier, total: 0, delivered: 0 };
+        if (order.uid) {
+          if (!teamStats[order.uid]) {
+            teamStats[order.uid] = { name: order.uid, total: 0, processed: 0 };
           }
-          courierStats[order.courier].total++;
-          if (order.status?.toLowerCase() === 'delivered') {
-            courierStats[order.courier].delivered++;
+          teamStats[order.uid].total++;
+          if (order.status?.toLowerCase() !== 'pending' && order.status?.toLowerCase() !== 'cancelled') {
+            teamStats[order.uid].processed++;
           }
         }
       });
-      setCourierPerformance(Object.values(courierStats).map(c => ({
+      setTeamPerformance(Object.values(teamStats).map(c => ({
         ...c,
-        rate: Math.round((c.delivered / c.total) * 100)
+        name: teamMembers[c.name] || 'Team Member',
+        rate: Math.round((c.processed / c.total) * 100)
       })));
 
       // Daily Revenue for last 7 days
@@ -218,7 +237,7 @@ export default function Dashboard() {
       unsubCustomers();
       unsubProducts();
     };
-  }, [authUser]);
+  }, [authUser, teamMembers]);
 
   const barData = dailyRevenue;
 
@@ -343,10 +362,10 @@ export default function Dashboard() {
         </div>
 
         <div className="bg-white p-4 sm:p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col">
-          <SectionHeader title="Courier Performance" />
+          <SectionHeader title="Team Performance" />
           <div className="flex-1 space-y-4">
-            {courierPerformance.length > 0 ? (
-              courierPerformance.map((c, i) => (
+            {teamPerformance.length > 0 ? (
+              teamPerformance.map((c, i) => (
                 <div key={i} className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-bold text-gray-700 uppercase">{c.name}</span>
@@ -358,19 +377,19 @@ export default function Dashboard() {
                       style={{ width: `${c.rate}%` }}
                     />
                   </div>
-                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">{c.delivered} Delivered / {c.total} Total</p>
+                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">{c.processed} Processed / {c.total} Assigned</p>
                 </div>
               ))
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-gray-300 gap-2">
-                <Truck size={48} strokeWidth={1} />
-                <p className="text-xs font-medium">No courier data yet</p>
+                <Users size={48} strokeWidth={1} />
+                <p className="text-xs font-medium">No team data yet</p>
               </div>
             )}
           </div>
           <div className="mt-6 pt-6 border-t border-gray-50">
-            <Link to="/logistics" className="text-xs font-bold text-[#00AEEF] hover:underline flex items-center gap-1">
-              Manage Logistics <ArrowUpRight size={14} />
+            <Link to="/team" className="text-xs font-bold text-[#00AEEF] hover:underline flex items-center gap-1">
+              Manage Team <ArrowUpRight size={14} />
             </Link>
           </div>
         </div>

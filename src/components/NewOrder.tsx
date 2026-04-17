@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { logActivity } from '../services/activityService';
 import { checkDuplicateOrder } from '../services/orderService';
 import { sendOrderConfirmationSMS } from '../services/smsService';
+import { createNotification } from '../services/notificationService';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { useSettings } from '../contexts/SettingsContext';
 import ConfirmModal from './ConfirmModal';
@@ -91,10 +92,8 @@ export default function NewOrder() {
     onConfirm: () => {},
   });
   const [newItem, setNewItem] = useState({ productId: '', variantId: '', quantity: 1, price: 0 });
-  const [locationSuggestions, setLocationSuggestions] = useState<LocationNode[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
 
-  const statuses = ['pending', 'confirmed', 'processing', 'packed', 'shipped', 'out_for_delivery', 'delivered', 'partial_delivered', 'cancelled', 'returned'];
+  const statuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'partial_delivered', 'cancelled', 'returned'];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -173,39 +172,6 @@ export default function NewOrder() {
         autoMatchPathao(district, parsed.upazila?.nameEn || orderForm.area);
       }
     }
-
-    // Suggestions based on the last part of the address
-    const parts = address.split(/[,।\s]+/);
-    const lastPart = parts[parts.length - 1];
-    if (lastPart.length > 1) {
-      const suggestions = locationService.searchLocations(lastPart);
-      setLocationSuggestions(suggestions);
-      setShowSuggestions(suggestions.length > 0);
-    } else {
-      setShowSuggestions(false);
-    }
-  };
-
-  const handleSelectLocation = (loc: LocationNode) => {
-    const hierarchy = locationService.getLocationHierarchy(loc.id);
-    if (hierarchy) {
-      const district = hierarchy.district?.nameEn || '';
-      const division = hierarchy.division?.nameEn || '';
-      const charge = locationService.getDeliveryCharge(district, division);
-      
-      setOrderForm(prev => ({
-        ...prev,
-        district,
-        area: hierarchy.upazila?.nameEn || prev.area,
-        division,
-        deliveryCharge: charge
-      }));
-
-      if (courierConfigs.pathao?.isActive) {
-        autoMatchPathao(district, hierarchy.upazila?.nameEn || orderForm.area);
-      }
-    }
-    setShowSuggestions(false);
   };
 
   const autoMatchPathao = async (districtName: string, areaName: string) => {
@@ -218,11 +184,7 @@ export default function NewOrder() {
       }
       const pathaoCities = await citiesRes.json();
       
-      // Find matching city
-      const city = pathaoCities.data.find((c: any) => 
-        c.city_name.toLowerCase().includes(districtName.toLowerCase()) || 
-        districtName.toLowerCase().includes(c.city_name.toLowerCase())
-      );
+      const city = locationService.matchCourierLocation(districtName, pathaoCities.data || [], 'city_name');
 
       if (city) {
         setOrderForm(prev => ({ ...prev, pathao_city_id: city.city_id.toString() }));
@@ -234,11 +196,7 @@ export default function NewOrder() {
         }
         const pathaoZones = await zonesRes.json();
         
-        // Find matching zone
-        const zone = pathaoZones.data.find((z: any) => 
-          z.zone_name.toLowerCase().includes(areaName.toLowerCase()) || 
-          areaName.toLowerCase().includes(z.zone_name.toLowerCase())
-        );
+        const zone = locationService.matchCourierLocation(areaName, pathaoZones.data || [], 'zone_name');
 
         if (zone) {
           setOrderForm(prev => ({ ...prev, pathao_zone_id: zone.zone_id.toString() }));
@@ -250,10 +208,7 @@ export default function NewOrder() {
           }
           const pathaoAreas = await areasRes.json();
           
-          const area = pathaoAreas.data.find((a: any) => 
-            a.area_name.toLowerCase().includes(areaName.toLowerCase()) || 
-            areaName.toLowerCase().includes(a.area_name.toLowerCase())
-          ) || pathaoAreas.data[0];
+          const area = locationService.matchCourierLocation(areaName, pathaoAreas.data || [], 'area_name') || pathaoAreas.data?.[0];
 
           if (area) {
             setOrderForm(prev => ({ ...prev, pathao_area_id: area.area_id.toString() }));
@@ -585,6 +540,14 @@ export default function NewOrder() {
         `New Order for ${orderForm.customerName}`
       );
 
+      await createNotification({
+        title: 'New Order',
+        message: `A new order has been created for ${orderForm.customerName}.`,
+        type: 'order',
+        link: '/orders',
+        forRole: 'admin'
+      });
+
       toast.success("Order created successfully!");
       navigate('/orders');
     } catch (error) {
@@ -713,25 +676,7 @@ export default function NewOrder() {
                 placeholder="Type or paste full address (e.g. House 10, Dhanmondi, Dhaka)"
                 value={orderForm.customerAddress}
                 onChange={e => handleAddressChange(e.target.value)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
               />
-              {showSuggestions && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-2xl max-h-48 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
-                  {locationSuggestions.map((loc) => (
-                    <button
-                      key={loc.id}
-                      type="button"
-                      onClick={() => handleSelectLocation(loc)}
-                      className="w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-bold text-gray-800">{loc.nameEn} / {loc.nameBn}</span>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{loc.type}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
             <div className="grid grid-cols-2 gap-4 sm:gap-6">
               <div className="space-y-2">

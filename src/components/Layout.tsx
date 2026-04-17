@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -23,11 +23,16 @@ import {
   Quote,
   Calculator,
   BarChart3,
-  RotateCcw
+  RotateCcw,
+  Mail,
+  Check,
+  Circle
 } from 'lucide-react';
-import { auth, signOut } from '../firebase';
+import { db, auth, signOut, collection, query, where, orderBy, onSnapshot, limit } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { UserPermissions } from '../types';
+import { formatDistanceToNow } from 'date-fns';
+import { markNotificationAsRead } from '../services/notificationService';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -78,15 +83,41 @@ const navItems: {
 export default function Layout({ children, user }: LayoutProps) {
   const location = useLocation();
   const { hasPermission } = useAuth();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
-  const [isQuickActionOpen, setIsQuickActionOpen] = React.useState(false);
-  const [expandedItems, setExpandedItems] = React.useState<string[]>(['Orders']);
-  const quickActionRef = React.useRef<HTMLDivElement>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['Orders']);
+  const quickActionRef = useRef<HTMLDivElement>(null);
+  const notificationsRef = useRef<HTMLDivElement>(null);
 
-  React.useEffect(() => {
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const unreadCount = notifications.filter(n => !n.readBy.includes(user?.uid)).length;
+
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    // Fetch notifications where recipients includes current user
+    const q = query(
+      collection(db, 'notifications'),
+      where('recipients', 'array-contains', user.uid),
+      orderBy('createdAt', 'desc'),
+      limit(20)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (quickActionRef.current && !quickActionRef.current.contains(event.target as Node)) {
         setIsQuickActionOpen(false);
+      }
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setIsNotificationsOpen(false);
       }
     };
 
@@ -303,28 +334,88 @@ export default function Layout({ children, user }: LayoutProps) {
               )}
             </div>
 
-            <button className="p-2.5 text-gray-400 hover:text-[#00AEEF] hover:bg-[#00AEEF]/5 rounded-xl transition-all relative">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
+            <div className="flex items-center gap-5 pl-2">
+              <button className="relative flex items-center justify-center w-10 h-10 rounded-full hover:bg-gray-50 text-gray-400 hover:text-gray-600 transition-colors hidden sm:flex">
+                <Mail size={20} className="fill-gray-400" />
+                <span className="absolute top-2 right-2 w-2 h-2 bg-[#FF5A5F] rounded-full border-2 border-white hidden"></span>
+              </button>
 
-            <div className="h-8 w-px bg-gray-100 mx-2 hidden sm:block"></div>
+              <div className="relative" ref={notificationsRef}>
+                <button 
+                  onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                  className="relative flex items-center justify-center w-10 h-10 rounded-full hover:bg-gray-50 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <Bell size={20} className="fill-gray-400" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-[#FF5A5F] rounded-full border-2 border-white"></span>
+                  )}
+                </button>
 
-            <div className="flex items-center gap-3 pl-2">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-gray-900">{user?.name || user?.displayName || 'John Doe'}</p>
-                <p className="text-[10px] font-bold text-[#00AEEF] uppercase tracking-wider">
-                  {user?.role === 'admin' ? 'Administrator' : user?.role === 'manager' ? 'Manager' : 'Staff Member'}
-                </p>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-gray-100 border border-gray-200 overflow-hidden shadow-sm">
-                {user?.photoURL ? (
-                  <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-[#00AEEF] text-white font-bold">
-                    {(user?.name?.[0] || user?.displayName?.[0] || 'J')}
+                {isNotificationsOpen && (
+                  <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50">
+                    <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                      <h3 className="font-bold text-gray-900">Notifications</h3>
+                      {unreadCount > 0 && (
+                         <span className="bg-[#00AEEF]/10 text-[#00AEEF] text-xs font-bold px-2 py-0.5 rounded-full">
+                           {unreadCount} new
+                         </span>
+                      )}
+                    </div>
+                    <div className="max-h-[400px] overflow-y-auto">
+                      {notifications.length > 0 ? (
+                        <div className="divide-y divide-gray-50">
+                          {notifications.map((notification) => {
+                            const isRead = notification.readBy.includes(user?.uid);
+                            return (
+                              <div 
+                                key={notification.id} 
+                                className={`p-4 transition-colors hover:bg-gray-50 cursor-pointer ${!isRead ? 'bg-blue-50/30' : ''}`}
+                                onClick={() => {
+                                  if (!isRead && user?.uid) {
+                                    markNotificationAsRead(notification.id, user.uid);
+                                  }
+                                  setIsNotificationsOpen(false);
+                                }}
+                              >
+                                <div className="flex gap-3">
+                                  <div className={`mt-1 flex-shrink-0 w-2 h-2 rounded-full ${!isRead ? 'bg-[#00AEEF]' : 'bg-transparent'}`} />
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`text-sm ${!isRead ? 'font-semibold text-gray-900' : 'text-gray-800'}`}>
+                                      {notification.title}
+                                    </p>
+                                    <p className="text-sm text-gray-500 mt-0.5">{notification.message}</p>
+                                    <p className="text-xs text-gray-400 mt-2 font-medium">
+                                      {notification.createdAt ? formatDistanceToNow(new Date(notification.createdAt.seconds * 1000), { addSuffix: true }) : 'Just now'}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="p-8 text-center text-gray-500">
+                          <Bell size={32} className="mx-auto text-gray-300 mb-3" />
+                          <p className="font-medium text-gray-900">All caught up!</p>
+                          <p className="text-sm mt-1">No new notifications</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
+              </div>
+
+              <div className="flex items-center gap-2 cursor-pointer group">
+                <div className="w-[42px] h-[42px] rounded-full bg-purple-500 overflow-hidden shadow-sm flex-shrink-0 border border-transparent group-hover:border-gray-200 transition-colors">
+                  {user?.photoURL ? (
+                    <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-[#00AEEF] text-white font-bold text-lg">
+                      {(user?.name?.[0] || user?.displayName?.[0] || 'J')}
+                    </div>
+                  )}
+                </div>
+                <ChevronDown size={20} className="text-gray-800" strokeWidth={2.5} />
               </div>
             </div>
           </div>

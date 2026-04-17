@@ -103,24 +103,32 @@ export class SteadfastAdapter implements CourierInterface {
       
       const response = await axios.get(`${this.baseUrl}/check_client/${sanitizedPhone}`, {
         headers: {
-          'api-key': this.apiKey,
-          'secret-key': this.secretKey
+          'Api-Key': this.apiKey,
+          'Secret-Key': this.secretKey
         }
       });
       
-      const data = response.data;
-      console.log(`Steadfast check_client response for ${sanitizedPhone}:`, data);
+      const resData = response.data;
+      console.log(`Steadfast check_client response for ${sanitizedPhone}:`, resData);
 
-      if (Number(data.status) === 200) {
+      // Extract the actual payload, sometimes wrapped in a "data" object or just returned directly.
+      const data = resData.user || resData.data || resData;
+      const status = resData.status || response.status;
+
+      if (Number(status) === 200 || status === 'success') {
+        const delivered = data.total_delivery ?? data.total_delivered ?? data.delivered ?? data.delivered_parcel ?? 0;
+        const cancelled = data.total_return ?? data.total_returned ?? data.returned ?? data.returned_parcel ?? data.cancelled_parcel ?? data.cancelled ?? 0;
+        const rate = data.delivery_success_rate ?? data.success_rate ?? data.success_ratio ?? 0;
+
         return {
           ...data,
-          total_delivered: data.total_delivery !== undefined ? data.total_delivery : (data.total_delivered !== undefined ? data.total_delivered : 0),
-          total_cancelled: data.total_return !== undefined ? data.total_return : (data.total_returned !== undefined ? data.total_returned : 0),
-          success_rate: data.delivery_success_rate || data.success_rate || '0%'
+          total_delivered: delivered,
+          total_cancelled: cancelled,
+          success_rate: typeof rate === 'number' ? `${rate.toFixed(2)}%` : (rate || '0%')
         };
       }
       
-      return { total_delivered: 0, total_cancelled: 0, success_rate: '0%', message: data.message || 'Error fetching data' };
+      return { total_delivered: 0, total_cancelled: 0, success_rate: '0%', message: resData.message || 'Error fetching data' };
     } catch (error: any) {
       console.error('Steadfast checkFraud error:', error.response?.data || error.message);
       if (error.response && error.response.status === 404) {

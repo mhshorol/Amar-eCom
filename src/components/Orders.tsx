@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { 
+  ShoppingCart,
+  Package,
+  TrendingUp,
+  TrendingDown,
+  ArrowUpRight,
   Search, 
   Filter, 
   Download, 
@@ -32,7 +37,12 @@ import {
   Eye,
   ChevronDown,
   ShieldCheck,
-  Smartphone
+  Smartphone,
+  PackagePlus,
+  PackageCheck,
+  PackageX,
+  PackageOpen,
+  Clock
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import type { DraggableProvided, DraggableStateSnapshot, DroppableProvided } from '@hello-pangea/dnd';
@@ -45,6 +55,7 @@ import { toast } from 'sonner';
 import { SteadfastService } from '../services/steadfastService';
 import { logActivity } from '../services/activityService';
 import { checkDuplicateOrder } from '../services/orderService';
+import { createNotification } from '../services/notificationService';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { locationService } from '../services/locationService';
 import { LocationNode, districts, upazilas } from '../data/bangladesh-locations';
@@ -69,9 +80,7 @@ const StatusBadge = ({ status, onClick, isOpen }: { status: string; onClick?: (e
     'pending': 'bg-[#fff7ed] text-[#ea580c] border-[#ffedd5]',
     'confirmed': 'bg-[#eff6ff] text-[#2563eb] border-[#dbeafe]',
     'processing': 'bg-[#eef2ff] text-[#4f46e5] border-[#e0e7ff]',
-    'packed': 'bg-[#fefce8] text-[#ca8a04] border-[#fef9c3]',
     'shipped': 'bg-[#faf5ff] text-[#9333ea] border-[#f3e8ff]',
-    'out_for_delivery': 'bg-[#ecfeff] text-[#0891b2] border-[#cffafe]',
     'delivered': 'bg-[#f0fdf4] text-[#16a34a] border-[#dcfce7]',
     'partial_delivered': 'bg-[#f0fdfa] text-[#0d9488] border-[#ccfbf1]',
     'cancelled': 'bg-[#fef2f2] text-[#dc2626] border-[#fee2e2]',
@@ -103,8 +112,7 @@ export default function Orders() {
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState<string | null>(null);
   const [editingOrder, setEditingOrder] = useState<any | null>(null);
   const [viewingOrder, setViewingOrder] = useState<any | null>(null);
-  const [locationSuggestions, setLocationSuggestions] = useState<LocationNode[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [dateFilter, setDateFilter] = useState('all');
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -374,8 +382,8 @@ export default function Orders() {
     await handleUpdateStatus(draggableId, newStatus);
   };
 
-  const tabs = ['All', 'pending', 'confirmed', 'processing', 'packed', 'shipped', 'out_for_delivery', 'delivered', 'cancelled', 'returned'];
-  const statuses = ['pending', 'confirmed', 'processing', 'packed', 'shipped', 'out_for_delivery', 'delivered', 'partial_delivered', 'cancelled', 'returned'];
+  const tabs = ['All', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'returned'];
+  const statuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'partial_delivered', 'cancelled', 'returned'];
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -636,42 +644,6 @@ export default function Orders() {
         autoMatchCarrybee(district, parsed.upazila?.nameEn || orderForm.area);
       }
     }
-
-    // Suggestions based on the last part of the address
-    const parts = address.split(/[,।\s]+/);
-    const lastPart = parts[parts.length - 1];
-    if (lastPart.length > 1) {
-      const suggestions = locationService.searchLocations(lastPart);
-      setLocationSuggestions(suggestions);
-      setShowSuggestions(suggestions.length > 0);
-    } else {
-      setShowSuggestions(false);
-    }
-  };
-
-  const handleSelectLocation = (loc: LocationNode) => {
-    const hierarchy = locationService.getLocationHierarchy(loc.id);
-    if (hierarchy) {
-      const district = hierarchy.district?.nameEn || orderForm.district;
-      const division = hierarchy.division?.nameEn || orderForm.division;
-      const charge = locationService.getDeliveryCharge(district, division);
-
-      setOrderForm(prev => ({
-        ...prev,
-        district,
-        area: hierarchy.upazila?.nameEn || prev.area,
-        division,
-        deliveryCharge: charge
-      }));
-
-      if (courierConfigs.pathao?.isActive) {
-        autoMatchPathao(district, hierarchy.upazila?.nameEn || orderForm.area);
-      }
-      if (courierConfigs.carrybee?.isActive) {
-        autoMatchCarrybee(district, hierarchy.upazila?.nameEn || orderForm.area);
-      }
-    }
-    setShowSuggestions(false);
   };
 
   const autoMatchPathao = async (districtName: string, areaName: string) => {
@@ -684,11 +656,7 @@ export default function Orders() {
       }
       const pathaoCities = await citiesRes.json();
       
-      // Find matching city
-      const city = pathaoCities.data.find((c: any) => 
-        c.city_name.toLowerCase().includes(districtName.toLowerCase()) || 
-        districtName.toLowerCase().includes(c.city_name.toLowerCase())
-      );
+      const city = locationService.matchCourierLocation(districtName, pathaoCities.data || [], 'city_name');
 
       if (city) {
         setOrderForm(prev => ({ ...prev, pathao_city_id: city.city_id.toString() }));
@@ -700,11 +668,7 @@ export default function Orders() {
         }
         const pathaoZones = await zonesRes.json();
         
-        // Find matching zone
-        const zone = pathaoZones.data.find((z: any) => 
-          z.zone_name.toLowerCase().includes(areaName.toLowerCase()) || 
-          areaName.toLowerCase().includes(z.zone_name.toLowerCase())
-        );
+        const zone = locationService.matchCourierLocation(areaName, pathaoZones.data || [], 'zone_name');
 
         if (zone) {
           setOrderForm(prev => ({ ...prev, pathao_zone_id: zone.zone_id.toString() }));
@@ -716,10 +680,7 @@ export default function Orders() {
           }
           const pathaoAreas = await areasRes.json();
           
-          const area = pathaoAreas.data.find((a: any) => 
-            a.area_name.toLowerCase().includes(areaName.toLowerCase()) || 
-            areaName.toLowerCase().includes(a.area_name.toLowerCase())
-          ) || pathaoAreas.data[0];
+          const area = locationService.matchCourierLocation(areaName, pathaoAreas.data || [], 'area_name') || pathaoAreas.data?.[0];
 
           if (area) {
             setOrderForm(prev => ({ ...prev, pathao_area_id: area.area_id.toString() }));
@@ -738,10 +699,7 @@ export default function Orders() {
       if (!citiesRes.ok) return;
       const carrybeeCities = await citiesRes.json();
       
-      const city = carrybeeCities.data?.cities?.find((c: any) => 
-        c.name.toLowerCase().includes(districtName.toLowerCase()) || 
-        districtName.toLowerCase().includes(c.name.toLowerCase())
-      );
+      const city = locationService.matchCourierLocation(districtName, carrybeeCities.data?.cities || [], 'name');
 
       if (city) {
         setOrderForm(prev => ({ ...prev, carrybee_city_id: city.id.toString() }));
@@ -750,10 +708,7 @@ export default function Orders() {
         if (!zonesRes.ok) return;
         const carrybeeZones = await zonesRes.json();
         
-        const zone = carrybeeZones.data?.zones?.find((z: any) => 
-          z.name.toLowerCase().includes(areaName.toLowerCase()) || 
-          areaName.toLowerCase().includes(z.name.toLowerCase())
-        );
+        const zone = locationService.matchCourierLocation(areaName, carrybeeZones.data?.zones || [], 'name');
 
         if (zone) {
           setOrderForm(prev => ({ ...prev, carrybee_zone_id: zone.id.toString() }));
@@ -762,10 +717,7 @@ export default function Orders() {
           if (!areasRes.ok) return;
           const carrybeeAreas = await areasRes.json();
           
-          const area = carrybeeAreas.data?.areas?.find((a: any) => 
-            a.name.toLowerCase().includes(areaName.toLowerCase()) || 
-            areaName.toLowerCase().includes(a.name.toLowerCase())
-          ) || carrybeeAreas.data?.areas?.[0];
+          const area = locationService.matchCourierLocation(areaName, carrybeeAreas.data?.areas || [], 'name') || carrybeeAreas.data?.areas?.[0];
 
           if (area) {
             setOrderForm(prev => ({ ...prev, carrybee_area_id: area.id.toString() }));
@@ -1055,6 +1007,16 @@ export default function Orders() {
         'Orders',
         `Order #${editingOrder ? (editingOrder.orderNumber || editingOrder.id.slice(0, 8)) : 'New'} for ${orderForm.customerName}`
       );
+
+      if (!editingOrder) {
+        await createNotification({
+          title: 'New Order',
+          message: `A new order has been created for ${orderForm.customerName}.`,
+          type: 'order',
+          link: '/orders',
+          forRole: 'admin'
+        });
+      }
 
       setIsModalOpen(false);
     } catch (error) {
@@ -1604,7 +1566,16 @@ export default function Orders() {
     
     const matchesTab = activeTab === 'All' || order.status === activeTab;
     
-    return matchesSearch && matchesTab;
+    const date = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+    const now = new Date();
+    let matchesDate = true;
+    if (dateFilter === 'today') {
+      matchesDate = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    } else if (dateFilter === 'month') {
+      matchesDate = date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    }
+    
+    return matchesSearch && matchesTab && matchesDate;
   }).sort((a, b) => {
     const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
     const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
@@ -1617,49 +1588,163 @@ export default function Orders() {
     currentPage * itemsPerPage
   );
 
+  const allO = [...orders, ...wooOrders].filter(order => {
+    const date = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+    const now = new Date();
+    if (dateFilter === 'today') {
+      return date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    } else if (dateFilter === 'month') {
+      return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    }
+    return true;
+  });
+
+  const getStats = (statusFilter?: string) => {
+    const filterFn = (o: any) => !statusFilter || o.status === statusFilter;
+    
+    const currentOrders = allO.filter(filterFn);
+    const count = currentOrders.length;
+    
+    // Using simple formatting for revenue (rounded to nearest int)
+    const revenueValue = currentOrders.reduce((sum, o) => sum + (parseFloat(o.totalAmount) || parseFloat(o.subtotal) || 0), 0);
+    const revenue = new Intl.NumberFormat('en-US').format(Math.round(revenueValue));
+
+    const now = new Date();
+    let prevStart = new Date(0);
+    let prevEnd = new Date(0);
+
+    if (dateFilter === 'today') {
+      prevStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      prevEnd = new Date(prevStart);
+      prevEnd.setDate(prevEnd.getDate() + 1);
+    } else if (dateFilter === 'month') {
+      prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      prevEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else {
+      prevStart = new Date(); prevStart.setDate(now.getDate() - 60);
+      prevEnd = new Date(); prevEnd.setDate(now.getDate() - 30);
+    }
+
+    const baseOrders = [...orders, ...wooOrders];
+    
+    const previousPeriodCount = baseOrders.filter(o => {
+      if (!filterFn(o)) return false;
+      const d = o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt);
+      return d >= prevStart && d < prevEnd;
+    }).length;
+
+    let growthValueStr = '';
+    let isPositive = true;
+
+    if (previousPeriodCount === 0) {
+      growthValueStr = count > 0 ? '100%' : '0%';
+      isPositive = count > 0;
+    } else {
+      const growth = ((count - previousPeriodCount) / previousPeriodCount) * 100;
+      isPositive = growth >= 0;
+      growthValueStr = Math.abs(growth).toFixed(0) + '%';
+    }
+
+    return { count, revenue, growth: { value: growthValueStr, isPositive } };
+  };
+
+  const totalStats = getStats();
+  const completedStats = getStats('delivered');
+  const pendingStats = getStats('pending');
+  const cancelledStats = getStats('cancelled');
+
+  const statCards = [
+    { label: 'Total Orders', stats: totalStats, icon: Package, iconBg: 'bg-blue-100/50', iconColor: 'text-[#065F6B]' },
+    { label: 'Completed Orders', stats: completedStats, icon: PackageCheck, iconBg: 'bg-green-100/50', iconColor: 'text-[#1B9D33]' },
+    { label: 'Pending Orders', stats: pendingStats, icon: Clock, iconBg: 'bg-orange-100/50', iconColor: 'text-[#E57A21]' },
+    { label: 'Cancelled Orders', stats: cancelledStats, icon: PackageX, iconBg: 'bg-purple-100/50', iconColor: 'text-[#845BC3]' },
+  ];
+
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-8 max-w-7xl mx-auto no-print">
-      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 sm:gap-6">
-        <div className="space-y-4 flex-1 w-full">
-          <div className="space-y-1">
-            <h2 className="text-2xl sm:text-3xl font-bold text-[#141414] tracking-tight">Order Management</h2>
-            <p className="text-xs sm:text-sm text-[#6b7280]">Manage your F-Commerce and website orders seamlessly.</p>
-          </div>
-          
-          <div className="max-w-md relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" size={16} />
-            <input 
-              type="text"
-              placeholder="Search by Name, Phone, ID..."
-              className="w-full pl-10 pr-4 py-2.5 bg-[#ffffff] border border-[#f3f4f6] rounded-xl text-sm focus:border-[#00AEEF] outline-none transition-all shadow-sm"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
-          </div>
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto no-print">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6">
+        <div className="space-y-1">
+          <h2 className="text-2xl sm:text-3xl font-bold text-[#141414] tracking-tight">Order Management</h2>
+          <p className="text-xs sm:text-sm text-[#6b7280]">Manage your F-Commerce and website orders seamlessly.</p>
         </div>
-        <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
+        
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
+          <div className="relative">
+            <select 
+              value={dateFilter} 
+              onChange={e => setDateFilter(e.target.value)}
+              className="appearance-none pl-4 pr-10 py-2.5 border border-gray-200 rounded-xl text-[13px] font-semibold bg-white text-gray-700 outline-none hover:border-gray-300 cursor-pointer shadow-sm w-full transition-colors focus:border-[#00AEEF] focus:ring-2 focus:ring-[#00AEEF]/20"
+            >
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="month">This Month</option>
+            </select>
+            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+          </div>
           <button 
             onClick={handleExportCSV}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-[#ffffff] border border-[#f3f4f6] rounded-xl text-xs sm:text-sm font-bold hover:bg-[#f9fafb] transition-all shadow-sm"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-[13px] font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
           >
-            <Download size={16} className="sm:w-[18px] sm:h-[18px]" />
+            <Download size={16} />
             <span className="whitespace-nowrap">Export CSV</span>
           </button>
           <button 
             onClick={() => setViewMode(viewMode === 'table' ? 'grid' : 'table')}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-[#ffffff] border border-[#f3f4f6] rounded-xl text-xs sm:text-sm font-bold hover:bg-[#f9fafb] transition-all shadow-sm"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-[13px] font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
           >
-            {viewMode === 'table' ? <LayoutGrid size={16} className="sm:w-[18px] sm:h-[18px]" /> : <List size={16} className="sm:w-[18px] sm:h-[18px]" />}
+            {viewMode === 'table' ? <LayoutGrid size={16} /> : <List size={16} />}
             <span className="whitespace-nowrap">{viewMode === 'table' ? 'Grid View' : 'Table View'}</span>
           </button>
           <Link 
             to="/orders/new"
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 sm:px-6 py-2 bg-[#141414] text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-black transition-all shadow-lg hover:shadow-xl"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-[#141414] text-white rounded-xl text-[13px] font-bold hover:bg-black transition-all shadow-md hover:shadow-lg"
           >
-            <Plus size={16} className="sm:w-[18px] sm:h-[18px]" />
+            <Plus size={16} />
             <span className="whitespace-nowrap">New Order</span>
           </Link>
         </div>
+      </div>
+
+      <div className="max-w-md relative w-full mb-6">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+        <input 
+          type="text"
+          placeholder="Search by Name, Phone, ID..."
+          className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-[13px] focus:border-[#00AEEF] focus:ring-2 focus:ring-[#00AEEF]/20 outline-none transition-all shadow-sm placeholder:text-gray-400"
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+        />
+      </div>
+
+      {/* Orders Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        {statCards.map((card, i) => (
+          <div key={i} className="bg-white rounded-xl border border-gray-200 flex flex-col overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
+            <div className="p-4 flex flex-col gap-3">
+              <div className="flex justify-between items-start">
+                <h3 className="text-[14px] font-medium text-gray-600">{card.label}</h3>
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${card.iconBg} ${card.iconColor}`}>
+                  <card.icon size={16} strokeWidth={2} />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <div className="text-[28px] font-bold text-gray-900 leading-none tracking-tight">
+                  {card.stats.count}
+                </div>
+                <div className="text-[12px] text-gray-500 font-medium">
+                  Revenue Generated: <span className="font-semibold text-gray-800">৳{card.stats.revenue}</span>
+                </div>
+              </div>
+            </div>
+            <div className="bg-[#f8f9fa] border-t border-gray-100 flex items-center justify-between px-4 py-2.5 mt-auto">
+              <div className={`text-[11px] font-bold flex items-center gap-1 ${card.stats.growth.isPositive ? 'text-green-600' : 'text-orange-500'}`}>
+                {card.stats.growth.isPositive ? <TrendingUp size={14} strokeWidth={2.5} /> : <TrendingDown size={14} strokeWidth={2.5} />} 
+                {card.stats.growth.isPositive ? '+' : '-'}{card.stats.growth.value}
+              </div>
+              <span className="text-[11px] text-gray-400 font-medium tracking-wide">From last month.</span>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Bulk Actions Bar */}
@@ -2249,25 +2334,7 @@ export default function Orders() {
                     placeholder="Type or paste full address (e.g. House 10, Dhanmondi, Dhaka)"
                     value={orderForm.customerAddress}
                     onChange={e => handleAddressChange(e.target.value)}
-                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                   />
-                  {showSuggestions && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-2xl max-h-48 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
-                      {locationSuggestions.map((loc) => (
-                        <button
-                          key={loc.id}
-                          type="button"
-                          onClick={() => handleSelectLocation(loc)}
-                          className="w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-bold text-gray-800">{loc.nameEn} / {loc.nameBn}</span>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{loc.type}</span>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">

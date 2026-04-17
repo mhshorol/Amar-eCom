@@ -3,7 +3,7 @@ import { allLocations, LocationNode, divisions, districts, upazilas } from '../d
 
 const fuseOptions = {
   keys: ['nameEn', 'nameBn'],
-  threshold: 0.3,
+  threshold: 0.4,
   includeScore: true,
   distance: 100,
 };
@@ -58,40 +58,71 @@ export const locationService = {
   parseAddress(address: string): ParsedAddress {
     if (!address) return { remainingAddress: '' };
 
-    // Normalize and tokenize
-    const tokens = address.split(/[,।\s]+/).filter(t => t.length > 1);
+    const cleanAddress = address.replace(/[^\w\s\u0980-\u09FF-]/g, ' ');
+    const tokens = cleanAddress.split(/\s+/).filter(t => t.length > 2);
     
-    let detectedUpazila: LocationNode | undefined;
-    let detectedDistrict: LocationNode | undefined;
+    // Generate unigrams and bigrams
+    const searchTerms: string[] = [];
+    for(let i = 0; i < tokens.length; i++) {
+        searchTerms.push(tokens[i]);
+        if(i < tokens.length - 1) {
+            searchTerms.push(tokens[i] + ' ' + tokens[i+1]);
+        }
+    }
+
+    interface Match {
+        term: string;
+        item: LocationNode;
+        score: number;
+    }
+    const matches: Match[] = [];
+    
+    searchTerms.forEach(term => {
+        const termMatches = fuse.search(term);
+        termMatches.forEach(m => {
+            if(m.score !== undefined && m.score <= 0.35) {
+                 matches.push({
+                     term,
+                     item: m.item,
+                     score: m.score
+                 });
+            }
+        });
+    });
+
+    matches.sort((a, b) => {
+        if (Math.abs(a.score - b.score) < 0.01) {
+            return b.term.length - a.term.length; // prefer longer search terms for similar scores
+        }
+        return a.score - b.score;
+    });
+
     let detectedDivision: LocationNode | undefined;
+    let detectedDistrict: LocationNode | undefined;
+    let detectedUpazila: LocationNode | undefined;
 
-    // Try to match tokens from right to left (usually addresses end with larger entities)
-    for (let i = tokens.length - 1; i >= 0; i--) {
-      const token = tokens[i];
-      const matches = fuse.search(token);
-      
-      if (matches.length > 0) {
-        const bestMatch = matches[0].item;
-        const score = matches[0].score || 1;
-
-        // Only accept high confidence matches
-        if (score < 0.2) {
-          if (bestMatch.type === 'division' && !detectedDivision) {
-            detectedDivision = bestMatch;
-          } else if (bestMatch.type === 'district' && !detectedDistrict) {
-            detectedDistrict = bestMatch;
-            if (!detectedDivision) {
-              detectedDivision = divisions.find(v => v.id === bestMatch.divisionId);
-            }
-          } else if (bestMatch.type === 'upazila' && !detectedUpazila) {
-            detectedUpazila = bestMatch;
-            if (!detectedDistrict) {
-              detectedDistrict = districts.find(d => d.id === bestMatch.districtId);
-            }
-            if (!detectedDivision) {
-              detectedDivision = divisions.find(v => v.id === bestMatch.divisionId);
-            }
-          }
+    for (const match of matches) {
+      const item = match.item;
+      if (item.type === 'division') {
+        if (!detectedDivision) {
+             if (detectedDistrict && detectedDistrict.divisionId !== item.id) continue;
+             if (detectedUpazila && detectedUpazila.divisionId !== item.id) continue;
+             detectedDivision = item;
+        }
+      } else if (item.type === 'district') {
+        if (!detectedDistrict) {
+            if (detectedDivision && item.divisionId !== detectedDivision.id) continue;
+            if (detectedUpazila && detectedUpazila.districtId !== item.id) continue;
+            detectedDistrict = item;
+            if (!detectedDivision) detectedDivision = divisions.find(d => d.id === item.divisionId);
+        }
+      } else if (item.type === 'upazila' || item.type === 'area') {
+        if (!detectedUpazila) {
+            if (detectedDistrict && item.districtId !== detectedDistrict.id) continue;
+            if (detectedDivision && item.divisionId !== detectedDivision.id) continue;
+            detectedUpazila = item;
+            if (!detectedDistrict) detectedDistrict = districts.find(d => d.id === item.districtId);
+            if (!detectedDivision) detectedDivision = divisions.find(d => d.id === item.divisionId);
         }
       }
     }
@@ -121,5 +152,36 @@ export const locationService = {
     }
 
     return 150; // Outside Dhaka
+  },
+
+  /**
+   * Helper function to match our standard names to courier API names fuzzyly
+   */
+  matchCourierLocation(targetName: string, items: any[], nameKey: string): any {
+    if (!targetName || !items || items.length === 0) return null;
+    
+    // First try exact or subset match
+    const normalizedTarget = targetName.toLowerCase();
+    let exactMatch = items.find(i => i[nameKey].toLowerCase() === normalizedTarget);
+    if (exactMatch) return exactMatch;
+
+    // Then try fuzzy search
+    const fuse = new Fuse(items, {
+      keys: [nameKey],
+      threshold: 0.4,
+      includeScore: true,
+      distance: 100,
+    });
+    
+    const results = fuse.search(targetName);
+    if (results.length > 0 && results[0].score !== undefined && results[0].score <= 0.45) {
+      return results[0].item;
+    }
+    
+    // Fallback naive search
+    return items.find(i => 
+      i[nameKey].toLowerCase().includes(normalizedTarget) || 
+      normalizedTarget.includes(i[nameKey].toLowerCase())
+    );
   }
 };

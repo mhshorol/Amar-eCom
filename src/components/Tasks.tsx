@@ -24,6 +24,7 @@ import { Task, User as TeamMember } from '../types';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import ConfirmModal from './ConfirmModal';
+import { createNotification } from '../services/notificationService';
 
 export default function Tasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -135,6 +136,17 @@ export default function Tasks() {
           ...taskData,
           createdAt: serverTimestamp()
         });
+
+        if (taskForm.assignedTo) {
+          await createNotification({
+            title: 'New Task Assigned',
+            message: `You have been assigned a new task: ${taskForm.title}`,
+            type: 'task',
+            link: '/tasks',
+            recipientIds: [taskForm.assignedTo]
+          });
+        }
+
         toast.success('Task created successfully.');
       }
 
@@ -151,6 +163,19 @@ export default function Tasks() {
         status: newStatus,
         updatedAt: serverTimestamp()
       });
+
+      const task = tasks.find(t => t.id === taskId);
+      if (task) {
+        await createNotification({
+          title: 'Task Status Updated',
+          message: `The task "${task.title}" is now ${newStatus.replace('_', ' ')}`,
+          type: 'task',
+          link: '/tasks',
+          forRole: 'admin', // Notify admins
+          recipientIds: task.assignedBy !== auth.currentUser?.uid ? [task.assignedBy] : [] // Notify creator if not the one updating
+        });
+      }
+
       toast.success(`Task status updated to ${newStatus.replace('_', ' ')}.`);
     } catch (error) {
       console.error('Error updating status:', error);

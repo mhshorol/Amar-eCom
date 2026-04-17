@@ -28,7 +28,7 @@ export interface User {
   lastLogin?: any;
 }
 
-export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'packed' | 'shipped' | 'out_for_delivery' | 'delivered' | 'partial_delivered' | 'cancelled' | 'returned';
+export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'partial_delivered' | 'cancelled' | 'returned';
 export type PaymentMethod = 'COD' | 'bKash' | 'Nagad' | 'Rocket' | 'Bank Transfer';
 export type PaymentStatus = 'unpaid' | 'paid' | 'partially_paid';
 export type OrderSource = 'Facebook' | 'Messenger' | 'Instagram' | 'Website' | 'WooCommerce' | 'Shopify' | 'Daraz' | 'WhatsApp' | 'In-store' | 'Manual';
