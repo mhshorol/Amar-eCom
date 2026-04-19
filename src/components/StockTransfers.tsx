@@ -218,7 +218,7 @@ export default function StockTransfers() {
       {/* Table */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full text-left min-w-[800px] whitespace-nowrap">
             <thead>
               <tr className="bg-gray-50 text-[10px] uppercase tracking-widest text-gray-500">
                 <th className="px-6 py-4 font-semibold">Transfer ID</th>

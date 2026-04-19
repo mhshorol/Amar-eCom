@@ -200,7 +200,7 @@ export default function Team() {
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
         throw new Error(errorData.error || 'Failed to delete user from Auth');
       }
 
@@ -343,7 +343,7 @@ export default function Team() {
 
           <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse min-w-[800px] whitespace-nowrap">
                 <thead>
                   <tr className="border-b border-gray-50">
                     <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Member</th>

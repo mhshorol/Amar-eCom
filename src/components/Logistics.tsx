@@ -17,7 +17,10 @@ import {
   Trash2,
   Edit,
   RefreshCw,
-  Zap
+  Zap,
+  Save,
+  ChevronDown,
+  Settings2
 } from 'lucide-react';
 import { 
   collection, 
@@ -44,6 +47,7 @@ import ConfirmModal from './ConfirmModal';
 interface Delivery {
   id: string;
   orderId: string;
+  orderNumber?: number;
   courier: string;
   status: string;
   location: string;
@@ -71,7 +75,44 @@ export default function Logistics() {
   const [courierConfigs, setCourierConfigs] = useState<Record<string, any>>({});
   const [courierLogs, setCourierLogs] = useState<any[]>([]);
   const [activeSubTab, setActiveSubTab] = useState<'shipments' | 'pending' | 'couriers' | 'logs'>('shipments');
+  const [orderMap, setOrderMap] = useState<Record<string, number>>({});
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [expandedConfig, setExpandedConfig] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchMissingOrderNumbers = async () => {
+      const missingIds = Array.from(new Set(
+        deliveries
+          .filter(d => !d.orderNumber && !d.orderId.startsWith('woo_') && !orderMap[d.orderId])
+          .map(d => d.orderId)
+      ));
+      
+      if (missingIds.length === 0) return;
+
+      const newMap = { ...orderMap };
+      try {
+        // Firestore 'in' query has a limit of 10
+        for (let i = 0; i < missingIds.length; i += 10) {
+          const chunk = missingIds.slice(i, i + 10);
+          const q = query(collection(db, 'orders'), where('__name__', 'in', chunk));
+          const snap = await getDocs(q);
+          snap.forEach(doc => {
+            if (doc.data().orderNumber) {
+              newMap[doc.id] = doc.data().orderNumber;
+            } else {
+              newMap[doc.id] = -1; // -1 indicates marked but not found
+            }
+          });
+        }
+        setOrderMap(newMap);
+      } catch (error) {
+        console.error("Error fetching order numbers:", error);
+      }
+    };
+    
+    fetchMissingOrderNumbers();
+  }, [deliveries]);
   const [selectedPendingOrders, setSelectedPendingOrders] = useState<string[]>([]);
 
   useEffect(() => {
@@ -79,7 +120,7 @@ export default function Logistics() {
       try {
         const response = await fetch('/api/couriers/configs');
         if (response.ok) {
-          const data = await response.json();
+          const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
           setCourierConfigs(data);
         }
 
@@ -147,12 +188,12 @@ export default function Logistics() {
     try {
       const response = await fetch(`/api/couriers/cities/${courier.toLowerCase()}`);
       if (response.ok) {
-        const data = await response.json();
+        const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
         // Pathao returns { data: [...] }, Carrybee returns { data: { cities: [...] } }
         const cityList = data.data?.cities || data.data || [];
         setCities(cityList);
       } else {
-        const errData = await response.json();
+        const errData = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
         console.error(`Error fetching ${courier} cities:`, errData.error);
       }
     } catch (error: any) {
@@ -170,11 +211,11 @@ export default function Logistics() {
     try {
       const response = await fetch(`/api/couriers/zones/${courier}/${cityId}`);
       if (response.ok) {
-        const data = await response.json();
+        const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
         const zoneList = data.data?.zones || data.data || [];
         setZones(zoneList);
       } else {
-        const errData = await response.json();
+        const errData = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
         console.error(`Error fetching ${courier} zones:`, errData.error);
       }
     } catch (error: any) {
@@ -200,11 +241,11 @@ export default function Logistics() {
         
       const response = await fetch(url);
       if (response.ok) {
-        const data = await response.json();
+        const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
         const areaList = data.data?.areas || data.data || [];
         setAreas(areaList);
       } else {
-        const errData = await response.json();
+        const errData = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
         console.error(`Error fetching ${courier} areas:`, errData.error);
       }
     } catch (error: any) {
@@ -314,7 +355,7 @@ export default function Logistics() {
             });
 
             if (response.ok) {
-              const result = await response.json();
+              const result = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
               if (result.success) {
                 // Update order in Firestore
                 await updateDoc(doc(db, 'orders', order.id), {
@@ -335,6 +376,7 @@ export default function Logistics() {
                 // Add to deliveries
                 await addDoc(collection(db, 'deliveries'), {
                   orderId: order.id,
+                  orderNumber: order.orderNumber,
                   courier: courierToUse,
                   status: 'In Transit',
                   location: 'Pending Pickup',
@@ -369,7 +411,7 @@ export default function Logistics() {
     toast.loading(`Syncing status with ${delivery.courier}...`, { id: 'sync-status' });
     try {
       const response = await fetch(`/api/couriers/track/${delivery.courier.toLowerCase()}/${delivery.trackingCode || delivery.id}`);
-      const data = await response.json();
+      const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
       
       if (response.ok) {
         // Map courier-specific status to our app status
@@ -549,6 +591,30 @@ export default function Logistics() {
     });
   };
 
+  const handleSaveConfigs = async () => {
+    setIsSaving(true);
+    try {
+      // Save each courier config to backend
+      for (const [courier, config] of Object.entries(courierConfigs)) {
+        const response = await fetch(`/api/couriers/configs/${courier}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config)
+        });
+        if (!response.ok) {
+          const errorData = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
+          throw new Error(errorData.error || `Failed to save ${courier} config`);
+        }
+      }
+      toast.success('Courier configs saved successfully!');
+    } catch (error: any) {
+      console.error('Error saving configs:', error);
+      toast.error('Failed to save courier configurations: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleExportCSV = () => {
     if (deliveries.length === 0) {
       toast.error('No deliveries to export');
@@ -559,9 +625,14 @@ export default function Logistics() {
     const csvRows = [headers.join(',')];
 
     deliveries.forEach(delivery => {
+      const mappedOrderId = delivery.orderId.startsWith('woo_') ? delivery.orderId : 
+            ((delivery.orderNumber ?? orderMap[delivery.orderId]) && (delivery.orderNumber ?? orderMap[delivery.orderId]) !== -1
+               ? `#${delivery.orderNumber ?? orderMap[delivery.orderId]}` 
+               : delivery.orderId);
+
       const row = [
         delivery.id,
-        delivery.orderId || '',
+        mappedOrderId || '',
         delivery.courier || '',
         delivery.status || '',
         `"${delivery.location || ''}"`,
@@ -584,12 +655,16 @@ export default function Logistics() {
     toast.success('Deliveries exported successfully');
   };
 
-  const filteredDeliveries = deliveries.filter(delivery => 
-    delivery.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredDeliveries = deliveries.filter(delivery => {
+    const mappedOrderNum = delivery.orderNumber ?? orderMap[delivery.orderId] ?? '';
+    const searchableOrderNum = String(mappedOrderNum).toLowerCase();
+    
+    return delivery.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     delivery.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    searchableOrderNum.includes(searchTerm.toLowerCase()) ||
     delivery.courier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    delivery.location.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    delivery.location.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   return (
     <div className="space-y-6">
@@ -656,134 +731,494 @@ export default function Logistics() {
       </div>
 
        {activeSubTab === 'couriers' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Steadfast */}
-          <div className={`p-6 rounded-xl border shadow-lg text-white relative overflow-hidden transition-all ${courierConfigs.steadfast?.isActive ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500' : 'bg-gray-400 border-gray-300 opacity-75'}`}>
-            <div className="absolute -right-4 -top-4 opacity-10">
-              <Truck size={120} />
+        <div className="space-y-8 animate-in fade-in duration-300">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 tracking-tight">Available Integrations</h3>
+              <p className="text-sm text-gray-500 mt-1">Connect and configure your delivery partners</p>
             </div>
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="font-bold text-white flex items-center gap-2">
-                <CheckCircle2 size={16} className={courierConfigs.steadfast?.apiKey ? 'text-green-300' : 'text-blue-300'} />
-                Steadfast
-              </h4>
-            </div>
-            <div className="flex justify-between items-end">
-              <div>
-                <p className="text-[10px] uppercase font-bold text-blue-100 tracking-wider">Status</p>
-                <p className="text-xs font-bold">{courierConfigs.steadfast?.isActive ? 'Active' : 'Inactive'}</p>
-              </div>
-            </div>
+            <button 
+              onClick={handleSaveConfigs}
+              disabled={isSaving}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-semibold hover:bg-black active:scale-[0.98] transition-all shadow-sm disabled:opacity-50"
+            >
+              {isSaving ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
+              {isSaving ? 'Saving...' : 'Save Configurations'}
+            </button>
           </div>
 
-          {/* Pathao */}
-          <div className={`p-6 rounded-xl border shadow-lg text-white relative overflow-hidden transition-all ${courierConfigs.pathao?.isActive ? 'bg-gradient-to-br from-orange-500 to-orange-600 border-orange-400' : 'bg-gray-400 border-gray-300 opacity-75'}`}>
-            <div className="absolute -right-4 -top-4 opacity-10">
-              <Navigation size={120} />
-            </div>
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="font-bold text-white flex items-center gap-2">
-                <CheckCircle2 size={16} className="text-orange-200" />
-                Pathao
-              </h4>
-            </div>
-            <div className="flex justify-between items-end">
-              <div>
-                <p className="text-[10px] uppercase font-bold text-orange-100 tracking-wider">Status</p>
-                <p className="text-xs font-bold">{courierConfigs.pathao?.isActive ? 'Active' : 'Inactive'}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* RedX */}
-          <div className={`p-6 rounded-xl border shadow-lg text-white relative overflow-hidden transition-all ${courierConfigs.redx?.isActive ? 'bg-gradient-to-br from-red-600 to-red-700 border-red-500' : 'bg-gray-400 border-gray-300 opacity-75'}`}>
-            <div className="absolute -right-4 -top-4 opacity-10">
-              <Truck size={120} />
-            </div>
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="font-bold text-white flex items-center gap-2">
-                <CheckCircle2 size={16} className="text-red-200" />
-                RedX
-              </h4>
-            </div>
-            <div className="flex justify-between items-end">
-              <div>
-                <p className="text-[10px] uppercase font-bold text-red-100 tracking-wider">Status</p>
-                <p className="text-xs font-bold">{courierConfigs.redx?.isActive ? 'Active' : 'Inactive'}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Carrybee */}
-          <div className={`p-6 rounded-xl border shadow-lg text-white relative overflow-hidden transition-all ${courierConfigs.carrybee?.isActive ? 'bg-gradient-to-br from-yellow-500 to-yellow-600 border-yellow-400' : 'bg-gray-400 border-gray-300 opacity-75'}`}>
-            <div className="absolute -right-4 -top-4 opacity-10">
-              <Zap size={120} />
-            </div>
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="font-bold text-white flex items-center gap-2">
-                <CheckCircle2 size={16} className="text-yellow-200" />
-                Carrybee
-              </h4>
-            </div>
-            <div className="flex justify-between items-end">
-              <div>
-                <p className="text-[10px] uppercase font-bold text-yellow-100 tracking-wider">Status</p>
-                <p className="text-xs font-bold">{courierConfigs.carrybee?.isActive ? 'Active' : 'Inactive'}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Paperfly */}
-          <div className={`p-6 rounded-xl border shadow-lg text-white relative overflow-hidden transition-all ${courierConfigs.paperfly?.isActive ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 border-indigo-400' : 'bg-gray-400 border-gray-300 opacity-75'}`}>
-            <div className="absolute -right-4 -top-4 opacity-10">
-              <Truck size={120} />
-            </div>
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="font-bold text-white flex items-center gap-2">
-                <CheckCircle2 size={16} className="text-indigo-200" />
-                Paperfly
-              </h4>
-            </div>
-            <div className="flex justify-between items-end">
-              <div>
-                <p className="text-[10px] uppercase font-bold text-indigo-100 tracking-wider">Status</p>
-                <p className="text-xs font-bold">{courierConfigs.paperfly?.isActive ? 'Active' : 'Inactive'}</p>
-              </div>
-            </div>
-          </div>
-
-          {couriers.filter(c => !['steadfast', 'pathao', 'redx', 'carrybee', 'paperfly'].includes(c.name.toLowerCase())).map((courier) => (
-            <div key={courier.id} className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm relative group">
-              <div className="absolute top-2 right-2 flex items-center gap-1 transition-all">
-                <button 
-                  onClick={() => handleOpenEditCourierModal(courier)}
-                  className="p-1 text-gray-400 hover:text-blue-600"
-                >
-                  <Edit size={14} />
-                </button>
-                <button 
-                  onClick={() => handleDeleteCourier(courier.id)}
-                  className="p-1 text-gray-400 hover:text-red-600"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-              <div className="flex justify-between items-center mb-4">
-                <h4 className="font-bold text-[#141414]">{courier.name}</h4>
-                <div className={`w-2 h-2 rounded-full ${courier.active ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-              </div>
-              <div className="flex justify-between items-end">
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Total Orders</p>
-                  <p className="text-xl font-bold">{courier.orders || 0}</p>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            {/* Steadfast */}
+            <div className={`bg-white rounded-3xl border transition-all duration-300 overflow-hidden ${expandedConfig === 'steadfast' ? 'border-gray-800 shadow-md ring-1 ring-gray-800' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'}`}>
+              <div 
+                className="p-6 flex items-center justify-between cursor-pointer bg-white group select-none"
+                onClick={() => setExpandedConfig(expandedConfig === 'steadfast' ? null : 'steadfast')}
+              >
+                <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 rounded-xl bg-white shadow-sm border border-gray-100 flex items-center justify-center ring-4 ring-gray-50 overflow-hidden shrink-0 p-1">
+                    <img 
+                      src="/assets/couriers/steadfast.jpg" 
+                      alt="Steadfast Courier" 
+                      className="w-full h-full object-contain mix-blend-multiply" 
+                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://ui-avatars.com/api/?name=Steadfast&background=0052CC&color=fff&size=128&rounded=true' }} 
+                    />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-bold text-gray-900 group-hover:text-blue-600 transition-colors">Steadfast Courier</h4>
+                    <p className="text-xs text-gray-500 mt-0.5 font-medium">Automated delivery for Bangladesh</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Success Rate</p>
-                  <p className="text-sm font-bold text-green-600">{courier.success || '100%'}</p>
+                <div className="flex items-center gap-4">
+                  {courierConfigs.steadfast?.isActive ? (
+                    <span className="px-3 py-1 bg-green-50 text-green-700 text-[10px] font-bold uppercase tracking-widest rounded-lg border border-green-200/50">Connected</span>
+                  ) : (
+                    <span className="px-3 py-1 bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-widest rounded-lg border border-gray-200">Disconnected</span>
+                  )}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${expandedConfig === 'steadfast' ? 'bg-gray-100' : 'group-hover:bg-gray-50'}`}>
+                    <ChevronDown size={18} className={`text-gray-500 transition-transform duration-300 ${expandedConfig === 'steadfast' ? 'rotate-180' : ''}`} />
+                  </div>
                 </div>
               </div>
+
+              {expandedConfig === 'steadfast' && (
+                <div className="px-6 pb-6 pt-2 bg-[#FDFDFD] border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex items-center justify-between mb-5 px-1 pt-3">
+                    <h5 className="text-sm font-bold text-gray-700">API Configuration</h5>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-semibold text-gray-500">Enable Integration</span>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setCourierConfigs(prev => ({ ...prev, steadfast: { ...prev.steadfast, isActive: !prev.steadfast?.isActive } }))}}
+                        className={`w-11 h-6 rounded-full transition-colors relative shadow-inner overflow-hidden ${courierConfigs.steadfast?.isActive ? 'bg-blue-600' : 'bg-gray-300'}`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all duration-300 ${courierConfigs.steadfast?.isActive ? 'left-6' : 'left-1'}`} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 px-1">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">API Key</label>
+                      <input 
+                        type="text" 
+                        value={courierConfigs.steadfast?.apiKey || ''} 
+                        onChange={e => setCourierConfigs(prev => ({ ...prev, steadfast: { ...prev.steadfast, apiKey: e.target.value } }))}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm" 
+                        placeholder="Enter API Key"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Secret Key</label>
+                      <input 
+                        type="password" 
+                        value={courierConfigs.steadfast?.secretKey || ''} 
+                        onChange={e => setCourierConfigs(prev => ({ ...prev, steadfast: { ...prev.steadfast, secretKey: e.target.value } }))}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm" 
+                        placeholder="Enter Secret Key"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          ))}
+
+            {/* Pathao */}
+            <div className={`bg-white rounded-3xl border transition-all duration-300 overflow-hidden ${expandedConfig === 'pathao' ? 'border-gray-800 shadow-md ring-1 ring-gray-800' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'}`}>
+              <div 
+                className="p-6 flex items-center justify-between cursor-pointer bg-white group select-none"
+                onClick={() => setExpandedConfig(expandedConfig === 'pathao' ? null : 'pathao')}
+              >
+                <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 rounded-xl bg-white shadow-sm border border-gray-100 flex items-center justify-center ring-4 ring-gray-50 overflow-hidden shrink-0 p-1">
+                    <img 
+                      src="/assets/couriers/pathao.jpg" 
+                      alt="Pathao Courier" 
+                      className="w-full h-full object-contain mix-blend-multiply" 
+                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://ui-avatars.com/api/?name=Pathao&background=FF5A00&color=fff&size=128&rounded=true' }} 
+                    />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-bold text-gray-900 group-hover:text-orange-500 transition-colors">Pathao Courier</h4>
+                    <p className="text-xs text-gray-500 mt-0.5 font-medium">Fast and reliable delivery service</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  {courierConfigs.pathao?.isActive ? (
+                    <span className="px-3 py-1 bg-green-50 text-green-700 text-[10px] font-bold uppercase tracking-widest rounded-lg border border-green-200/50">Connected</span>
+                  ) : (
+                    <span className="px-3 py-1 bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-widest rounded-lg border border-gray-200">Disconnected</span>
+                  )}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${expandedConfig === 'pathao' ? 'bg-gray-100' : 'group-hover:bg-gray-50'}`}>
+                    <ChevronDown size={18} className={`text-gray-500 transition-transform duration-300 ${expandedConfig === 'pathao' ? 'rotate-180' : ''}`} />
+                  </div>
+                </div>
+              </div>
+
+              {expandedConfig === 'pathao' && (
+                <div className="px-6 pb-6 pt-2 bg-[#FDFDFD] border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex items-center justify-between mb-5 px-1 pt-3">
+                    <h5 className="text-sm font-bold text-gray-700">API Configuration</h5>
+                    <div className="flex items-center gap-6">
+                      <label className="flex items-center gap-2 cursor-pointer group/sandbox">
+                        <div className="relative flex items-center">
+                          <input
+                            type="checkbox"
+                            className="peer sr-only"
+                            checked={courierConfigs.pathao?.isSandbox || false}
+                            onChange={e => setCourierConfigs(prev => ({ ...prev, pathao: { ...prev.pathao, isSandbox: e.target.checked } }))}
+                          />
+                          <div className="w-4 h-4 border-2 border-gray-300 rounded peer-checked:bg-orange-500 peer-checked:border-orange-500 transition-colors"></div>
+                          <svg className="absolute w-4 h-4 text-white p-0.5 opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
+                          </svg>
+                        </div>
+                        <span className="text-[11px] font-bold text-gray-500 group-hover/sandbox:text-gray-800 uppercase tracking-widest transition-colors">Sandbox Mode</span>
+                      </label>
+                      <div className="h-4 w-px bg-gray-200"></div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-semibold text-gray-500">Enable Integration</span>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setCourierConfigs(prev => ({ ...prev, pathao: { ...prev.pathao, isActive: !prev.pathao?.isActive } }))}}
+                          className={`w-11 h-6 rounded-full transition-colors relative shadow-inner overflow-hidden ${courierConfigs.pathao?.isActive ? 'bg-orange-500' : 'bg-gray-300'}`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all duration-300 ${courierConfigs.pathao?.isActive ? 'left-6' : 'left-1'}`} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 px-1">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Client ID</label>
+                      <input 
+                        type="text" 
+                        value={courierConfigs.pathao?.clientId || ''} 
+                        onChange={e => setCourierConfigs(prev => ({ ...prev, pathao: { ...prev.pathao, clientId: e.target.value } }))}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-100 outline-none transition-all shadow-sm" 
+                        placeholder="Enter Client ID"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Client Secret</label>
+                      <input 
+                        type="password" 
+                        value={courierConfigs.pathao?.clientSecret || ''} 
+                        onChange={e => setCourierConfigs(prev => ({ ...prev, pathao: { ...prev.pathao, clientSecret: e.target.value } }))}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-100 outline-none transition-all shadow-sm" 
+                        placeholder="Enter Client Secret"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Email (Username)</label>
+                      <input 
+                        type="text" 
+                        value={courierConfigs.pathao?.username || ''} 
+                        onChange={e => setCourierConfigs(prev => ({ ...prev, pathao: { ...prev.pathao, username: e.target.value } }))}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-100 outline-none transition-all shadow-sm" 
+                        placeholder="email@example.com"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Password</label>
+                      <input 
+                        type="password" 
+                        value={courierConfigs.pathao?.password || ''} 
+                        onChange={e => setCourierConfigs(prev => ({ ...prev, pathao: { ...prev.pathao, password: e.target.value } }))}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-100 outline-none transition-all shadow-sm" 
+                        placeholder="Enter Password"
+                      />
+                    </div>
+                    <div className="space-y-1.5 md:col-span-2">
+                      <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Store ID</label>
+                      <input 
+                        type="text" 
+                        value={courierConfigs.pathao?.storeId || ''} 
+                        onChange={e => setCourierConfigs(prev => ({ ...prev, pathao: { ...prev.pathao, storeId: e.target.value } }))}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-100 outline-none transition-all shadow-sm" 
+                        placeholder="Enter Pathao Store ID"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* RedX */}
+            <div className={`bg-white rounded-3xl border transition-all duration-300 overflow-hidden ${expandedConfig === 'redx' ? 'border-gray-800 shadow-md ring-1 ring-gray-800' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'}`}>
+              <div 
+                className="p-6 flex items-center justify-between cursor-pointer bg-white group select-none"
+                onClick={() => setExpandedConfig(expandedConfig === 'redx' ? null : 'redx')}
+              >
+                <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 rounded-xl bg-white shadow-sm border border-gray-100 flex items-center justify-center ring-4 ring-gray-50 overflow-hidden shrink-0 p-1">
+                    <img 
+                      src="/assets/couriers/redx.png" 
+                      alt="RedX Courier" 
+                      className="w-full h-full object-contain mix-blend-multiply" 
+                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://ui-avatars.com/api/?name=RedX&background=E50914&color=fff&size=128&rounded=true' }} 
+                    />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-bold text-gray-900 group-hover:text-red-600 transition-colors">RedX</h4>
+                    <p className="text-xs text-gray-500 mt-0.5 font-medium">Logistics for modern businesses</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  {courierConfigs.redx?.isActive ? (
+                    <span className="px-3 py-1 bg-green-50 text-green-700 text-[10px] font-bold uppercase tracking-widest rounded-lg border border-green-200/50">Connected</span>
+                  ) : (
+                    <span className="px-3 py-1 bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-widest rounded-lg border border-gray-200">Disconnected</span>
+                  )}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${expandedConfig === 'redx' ? 'bg-gray-100' : 'group-hover:bg-gray-50'}`}>
+                    <ChevronDown size={18} className={`text-gray-500 transition-transform duration-300 ${expandedConfig === 'redx' ? 'rotate-180' : ''}`} />
+                  </div>
+                </div>
+              </div>
+
+              {expandedConfig === 'redx' && (
+                <div className="px-6 pb-6 pt-2 bg-[#FDFDFD] border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex items-center justify-between mb-5 px-1 pt-3">
+                    <h5 className="text-sm font-bold text-gray-700">API Configuration</h5>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-semibold text-gray-500">Enable Integration</span>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setCourierConfigs(prev => ({ ...prev, redx: { ...prev.redx, isActive: !prev.redx?.isActive } }))}}
+                        className={`w-11 h-6 rounded-full transition-colors relative shadow-inner overflow-hidden ${courierConfigs.redx?.isActive ? 'bg-red-600' : 'bg-gray-300'}`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all duration-300 ${courierConfigs.redx?.isActive ? 'left-6' : 'left-1'}`} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5 px-1">
+                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">API Key</label>
+                    <input 
+                      type="text" 
+                      value={courierConfigs.redx?.apiKey || ''} 
+                      onChange={e => setCourierConfigs(prev => ({ ...prev, redx: { ...prev.redx, apiKey: e.target.value } }))}
+                      className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none transition-all shadow-sm" 
+                      placeholder="Enter API Key"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Carrybee */}
+            <div className={`bg-white rounded-3xl border transition-all duration-300 overflow-hidden ${expandedConfig === 'carrybee' ? 'border-gray-800 shadow-md ring-1 ring-gray-800' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'}`}>
+              <div 
+                className="p-6 flex items-center justify-between cursor-pointer bg-white group select-none"
+                onClick={() => setExpandedConfig(expandedConfig === 'carrybee' ? null : 'carrybee')}
+              >
+                <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 rounded-xl bg-white shadow-sm border border-gray-100 flex items-center justify-center ring-4 ring-gray-50 overflow-hidden shrink-0 p-1">
+                    <img 
+                      src="/assets/couriers/carrybee.png" 
+                      alt="Carrybee Courier" 
+                      className="w-full h-full object-contain mix-blend-multiply" 
+                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://ui-avatars.com/api/?name=Carrybee&background=FFC107&color=fff&size=128&rounded=true' }} 
+                    />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-bold text-gray-900 group-hover:text-yellow-600 transition-colors">Carrybee</h4>
+                    <p className="text-xs text-gray-500 mt-0.5 font-medium">Fast and secure delivery</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  {courierConfigs.carrybee?.isActive ? (
+                    <span className="px-3 py-1 bg-green-50 text-green-700 text-[10px] font-bold uppercase tracking-widest rounded-lg border border-green-200/50">Connected</span>
+                  ) : (
+                    <span className="px-3 py-1 bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-widest rounded-lg border border-gray-200">Disconnected</span>
+                  )}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${expandedConfig === 'carrybee' ? 'bg-gray-100' : 'group-hover:bg-gray-50'}`}>
+                    <ChevronDown size={18} className={`text-gray-500 transition-transform duration-300 ${expandedConfig === 'carrybee' ? 'rotate-180' : ''}`} />
+                  </div>
+                </div>
+              </div>
+
+              {expandedConfig === 'carrybee' && (
+                <div className="px-6 pb-6 pt-2 bg-[#FDFDFD] border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex items-center justify-between mb-5 px-1 pt-3">
+                    <h5 className="text-sm font-bold text-gray-700">API Configuration</h5>
+                    <div className="flex items-center gap-6">
+                      <label className="flex items-center gap-2 cursor-pointer group/sandbox">
+                        <div className="relative flex items-center">
+                          <input
+                            type="checkbox"
+                            className="peer sr-only"
+                            checked={courierConfigs.carrybee?.isSandbox || false}
+                            onChange={e => setCourierConfigs(prev => ({ ...prev, carrybee: { ...prev.carrybee, isSandbox: e.target.checked } }))}
+                          />
+                          <div className="w-4 h-4 border-2 border-gray-300 rounded peer-checked:bg-yellow-500 peer-checked:border-yellow-500 transition-colors"></div>
+                          <svg className="absolute w-4 h-4 text-white p-0.5 opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
+                          </svg>
+                        </div>
+                        <span className="text-[11px] font-bold text-gray-500 group-hover/sandbox:text-gray-800 uppercase tracking-widest transition-colors">Sandbox Mode</span>
+                      </label>
+                      <div className="h-4 w-px bg-gray-200"></div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-semibold text-gray-500">Enable Integration</span>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setCourierConfigs(prev => ({ ...prev, carrybee: { ...prev.carrybee, isActive: !prev.carrybee?.isActive } }))}}
+                          className={`w-11 h-6 rounded-full transition-colors relative shadow-inner overflow-hidden ${courierConfigs.carrybee?.isActive ? 'bg-yellow-500' : 'bg-gray-300'}`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all duration-300 ${courierConfigs.carrybee?.isActive ? 'left-6' : 'left-1'}`} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 px-1">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Client ID</label>
+                      <input 
+                        type="text" 
+                        value={courierConfigs.carrybee?.clientId || ''} 
+                        onChange={e => setCourierConfigs(prev => ({ ...prev, carrybee: { ...prev.carrybee, clientId: e.target.value } }))}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100 outline-none transition-all shadow-sm" 
+                        placeholder="Enter Client ID"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Client Secret</label>
+                      <input 
+                        type="password" 
+                        value={courierConfigs.carrybee?.clientSecret || ''} 
+                        onChange={e => setCourierConfigs(prev => ({ ...prev, carrybee: { ...prev.carrybee, clientSecret: e.target.value } }))}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100 outline-none transition-all shadow-sm" 
+                        placeholder="Enter Client Secret"
+                      />
+                    </div>
+                    <div className="space-y-1.5 md:col-span-2">
+                      <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Client Context</label>
+                      <input 
+                        type="text" 
+                        value={courierConfigs.carrybee?.clientContext || ''} 
+                        onChange={e => setCourierConfigs(prev => ({ ...prev, carrybee: { ...prev.carrybee, clientContext: e.target.value } }))}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100 outline-none transition-all shadow-sm" 
+                        placeholder="Enter Client Context"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Paperfly */}
+            <div className={`bg-white rounded-3xl border transition-all duration-300 overflow-hidden ${expandedConfig === 'paperfly' ? 'border-gray-800 shadow-md ring-1 ring-gray-800' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'}`}>
+              <div 
+                className="p-6 flex items-center justify-between cursor-pointer bg-white group select-none"
+                onClick={() => setExpandedConfig(expandedConfig === 'paperfly' ? null : 'paperfly')}
+              >
+                <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 rounded-xl bg-white shadow-sm border border-gray-100 flex items-center justify-center ring-4 ring-gray-50 overflow-hidden shrink-0 p-1">
+                    <img 
+                      src="/assets/couriers/paperfly.jpg" 
+                      alt="Paperfly Courier" 
+                      className="w-full h-full object-contain mix-blend-multiply" 
+                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://ui-avatars.com/api/?name=Paperfly&background=3F51B5&color=fff&size=128&rounded=true' }} 
+                    />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">Paperfly</h4>
+                    <p className="text-xs text-gray-500 mt-0.5 font-medium">Smart logistics for smart businesses</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  {courierConfigs.paperfly?.isActive ? (
+                    <span className="px-3 py-1 bg-green-50 text-green-700 text-[10px] font-bold uppercase tracking-widest rounded-lg border border-green-200/50">Connected</span>
+                  ) : (
+                    <span className="px-3 py-1 bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-widest rounded-lg border border-gray-200">Disconnected</span>
+                  )}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${expandedConfig === 'paperfly' ? 'bg-gray-100' : 'group-hover:bg-gray-50'}`}>
+                    <ChevronDown size={18} className={`text-gray-500 transition-transform duration-300 ${expandedConfig === 'paperfly' ? 'rotate-180' : ''}`} />
+                  </div>
+                </div>
+              </div>
+
+              {expandedConfig === 'paperfly' && (
+                <div className="px-6 pb-6 pt-2 bg-[#FDFDFD] border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex items-center justify-between mb-5 px-1 pt-3">
+                    <h5 className="text-sm font-bold text-gray-700">API Configuration</h5>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-semibold text-gray-500">Enable Integration</span>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setCourierConfigs(prev => ({ ...prev, paperfly: { ...prev.paperfly, isActive: !prev.paperfly?.isActive } }))}}
+                        className={`w-11 h-6 rounded-full transition-colors relative shadow-inner overflow-hidden ${courierConfigs.paperfly?.isActive ? 'bg-indigo-600' : 'bg-gray-300'}`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all duration-300 ${courierConfigs.paperfly?.isActive ? 'left-6' : 'left-1'}`} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5 px-1">
+                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">API Key</label>
+                    <input 
+                      type="text" 
+                      value={courierConfigs.paperfly?.apiKey || ''} 
+                      onChange={e => setCourierConfigs(prev => ({ ...prev, paperfly: { ...prev.paperfly, apiKey: e.target.value } }))}
+                      className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all shadow-sm" 
+                      placeholder="Enter API Key"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+            
+          {/* OTHER CUSTOM COURIERS HEADER */}
+          <div className="pt-8 mb-4 border-t border-gray-100 mt-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 tracking-tight">Manual Couriers</h3>
+                <p className="text-sm text-gray-500 mt-1">Manage couriers that are not directly integrated via API</p>
+              </div>
+              <button 
+                onClick={handleOpenAddCourierModal}
+                className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-sm font-semibold transition-colors"
+              >
+                <Plus size={16} /> Add Custom Courier
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {couriers.filter(c => !['steadfast', 'pathao', 'redx', 'carrybee', 'paperfly'].includes(c.name.toLowerCase())).map((courier) => (
+              <div key={courier.id} className="bg-white p-5 rounded-3xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow relative group">
+                <div className="absolute top-4 right-4 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={() => handleOpenEditCourierModal(courier)}
+                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+                  >
+                    <Edit size={16} />
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteCourier(courier.id)}
+                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-700 font-bold shadow-inner border-b-2">
+                    <Truck size={20} className="text-gray-400" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900 text-sm leading-tight">{courier.name}</h4>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <div className={`w-2 h-2 rounded-full ${courier.active ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-gray-300'}`}></div>
+                      <span className="text-[10px] uppercase font-bold tracking-widest text-gray-500">{courier.active ? 'Active' : 'Inactive'}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-50">
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-gray-400 tracking-widest mb-1">Total</p>
+                    <p className="text-xl font-bold text-gray-900">{courier.orders || 0}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase font-bold text-gray-400 tracking-widest mb-1">Success</p>
+                    <p className="text-sm font-bold text-green-600 mt-2">{courier.success || '100%'}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -799,7 +1234,7 @@ export default function Logistics() {
             </button>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left min-w-[800px] whitespace-nowrap">
               <thead>
                 <tr className="bg-gray-50 text-[10px] uppercase font-bold text-gray-400 tracking-wider">
                   <th className="px-6 py-3">Timestamp</th>
@@ -873,7 +1308,7 @@ export default function Logistics() {
           </div>
 
           <div className="bg-white rounded-2xl border border-[#f3f4f6] shadow-sm overflow-hidden">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[800px] whitespace-nowrap">
               <thead>
                 <tr className="border-b border-[#f9fafb] bg-[#f9fafb]/50">
                   <th className="px-6 py-4">
@@ -978,7 +1413,7 @@ export default function Logistics() {
       {/* Deliveries Table */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full text-left min-w-[800px] whitespace-nowrap">
             <thead>
               <tr className="bg-gray-50 text-[10px] uppercase tracking-widest text-gray-500">
                 <th className="px-6 py-4 font-semibold">Tracking info</th>
@@ -1021,7 +1456,12 @@ export default function Logistics() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-xs font-medium text-gray-600">{delivery.orderId}</span>
+                      <span className="text-xs font-medium text-gray-600">
+                        {delivery.orderId.startsWith('woo_') ? delivery.orderId : 
+                           ((delivery.orderNumber ?? orderMap[delivery.orderId]) && (delivery.orderNumber ?? orderMap[delivery.orderId]) !== -1
+                              ? `#${delivery.orderNumber ?? orderMap[delivery.orderId]}` 
+                              : delivery.orderId)}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-xs font-bold text-[#141414]">{delivery.courier}</span>

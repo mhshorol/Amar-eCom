@@ -93,7 +93,7 @@ export default function NewOrder() {
   });
   const [newItem, setNewItem] = useState({ productId: '', variantId: '', quantity: 1, price: 0 });
 
-  const statuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'partial_delivered', 'cancelled', 'returned'];
+  const statuses = ['urgent', 'hold', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'partial_delivered', 'cancelled', 'returned'];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -118,7 +118,7 @@ export default function NewOrder() {
       try {
         const response = await fetch('/api/couriers/configs');
         if (response.ok) {
-          const data = await response.json();
+          const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
           setCourierConfigs(data);
         }
       } catch (error) {
@@ -139,7 +139,7 @@ export default function NewOrder() {
     try {
       const response = await fetch('/api/couriers/cities/pathao');
       if (response.ok) {
-        const data = await response.json();
+        const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
         setCities(data.data || []);
       }
     } catch (error) {
@@ -179,10 +179,10 @@ export default function NewOrder() {
     try {
       const citiesRes = await fetch('/api/couriers/cities/pathao');
       if (!citiesRes.ok) {
-        const errData = await citiesRes.json();
+        const errData = await (citiesRes.headers.get('content-type')?.includes('json') ? citiesRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
         throw new Error(errData.error || 'Failed to fetch Pathao cities');
       }
-      const pathaoCities = await citiesRes.json();
+      const pathaoCities = await (citiesRes.headers.get('content-type')?.includes('json') ? citiesRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
       
       const city = locationService.matchCourierLocation(districtName, pathaoCities.data || [], 'city_name');
 
@@ -191,10 +191,10 @@ export default function NewOrder() {
         
         const zonesRes = await fetch(`/api/couriers/zones/pathao/${city.city_id}`);
         if (!zonesRes.ok) {
-          const errData = await zonesRes.json();
+          const errData = await (zonesRes.headers.get('content-type')?.includes('json') ? zonesRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
           throw new Error(errData.error || 'Failed to fetch Pathao zones');
         }
-        const pathaoZones = await zonesRes.json();
+        const pathaoZones = await (zonesRes.headers.get('content-type')?.includes('json') ? zonesRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
         
         const zone = locationService.matchCourierLocation(areaName, pathaoZones.data || [], 'zone_name');
 
@@ -203,10 +203,10 @@ export default function NewOrder() {
           
           const areasRes = await fetch(`/api/couriers/areas/pathao/${zone.zone_id}`);
           if (!areasRes.ok) {
-            const errData = await areasRes.json();
+            const errData = await (areasRes.headers.get('content-type')?.includes('json') ? areasRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
             throw new Error(errData.error || 'Failed to fetch Pathao areas');
           }
-          const pathaoAreas = await areasRes.json();
+          const pathaoAreas = await (areasRes.headers.get('content-type')?.includes('json') ? areasRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
           
           const area = locationService.matchCourierLocation(areaName, pathaoAreas.data || [], 'area_name') || pathaoAreas.data?.[0];
 
@@ -227,10 +227,10 @@ export default function NewOrder() {
     try {
       const response = await fetch(`/api/couriers/zones/pathao/${cityId}`);
       if (response.ok) {
-        const data = await response.json();
+        const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
         setZones(data.data || []);
       } else {
-        const errData = await response.json();
+        const errData = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
         console.error("Error fetching Pathao zones:", errData.error);
       }
     } catch (error: any) {
@@ -246,10 +246,10 @@ export default function NewOrder() {
     try {
       const response = await fetch(`/api/couriers/areas/pathao/${zoneId}`);
       if (response.ok) {
-        const data = await response.json();
+        const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
         setAreas(data.data || []);
       } else {
-        const errData = await response.json();
+        const errData = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
         console.error("Error fetching Pathao areas:", errData.error);
       }
     } catch (error: any) {
@@ -312,17 +312,27 @@ export default function NewOrder() {
     setIsFetchingHistory(true);
     try {
       const response = await fetch(`/api/couriers/check-fraud/${phone}`);
+      const result = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
+      
       if (response.ok) {
-        const result = await response.json();
         if (result.data) {
           setCourierHistory({
             courier: result.courier,
             ...result.data
           });
+          if (result.data.error) {
+            toast.error(`Courier Check Warning: ${result.data.error}`);
+          }
+        }
+      } else {
+        console.error("Courier response error:", result.error);
+        if (result.error !== 'No active courier supports fraud check') {
+          toast.error(`Courier Error: ${result.error}`);
         }
       }
     } catch (error) {
       console.error("Error fetching courier history:", error);
+      toast.error("Network error while checking courier history");
     } finally {
       setIsFetchingHistory(false);
     }

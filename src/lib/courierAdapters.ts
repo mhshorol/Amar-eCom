@@ -97,45 +97,75 @@ export class SteadfastAdapter implements CourierInterface {
   }
 
   async checkFraud(phone: string): Promise<any> {
-    try {
-      // Sanitize phone number - ensure it's just digits and handle leading zero
-      const sanitizedPhone = phone.replace(/\D/g, '');
-      
-      const response = await axios.get(`${this.baseUrl}/check_client/${sanitizedPhone}`, {
-        headers: {
-          'Api-Key': this.apiKey,
-          'Secret-Key': this.secretKey
-        }
-      });
-      
-      const resData = response.data;
-      console.log(`Steadfast check_client response for ${sanitizedPhone}:`, resData);
+    // Try multiple functional Steadfast API domains
+    const urls = [
+      'https://portal.packzy.com/api/v1',
+      'https://steadfast.com.bd/api/v1',
+      'https://www.packzy.com/api/v1'
+    ];
 
-      // Extract the actual payload, sometimes wrapped in a "data" object or just returned directly.
-      const data = resData.user || resData.data || resData;
-      const status = resData.status || response.status;
-
-      if (Number(status) === 200 || status === 'success') {
-        const delivered = data.total_delivery ?? data.total_delivered ?? data.delivered ?? data.delivered_parcel ?? 0;
-        const cancelled = data.total_return ?? data.total_returned ?? data.returned ?? data.returned_parcel ?? data.cancelled_parcel ?? data.cancelled ?? 0;
-        const rate = data.delivery_success_rate ?? data.success_rate ?? data.success_ratio ?? 0;
-
-        return {
-          ...data,
-          total_delivered: delivered,
-          total_cancelled: cancelled,
-          success_rate: typeof rate === 'number' ? `${rate.toFixed(2)}%` : (rate || '0%')
-        };
-      }
-      
-      return { total_delivered: 0, total_cancelled: 0, success_rate: '0%', message: resData.message || 'Error fetching data' };
-    } catch (error: any) {
-      console.error('Steadfast checkFraud error:', error.response?.data || error.message);
-      if (error.response && error.response.status === 404) {
-        return { total_delivered: 0, total_cancelled: 0, success_rate: '0%', message: 'No history found' };
-      }
-      return { total_delivered: 0, total_cancelled: 0, success_rate: '0%', error: error.message };
+    // Standardize phone number to 11 digits starting with 0
+    let sanitizedPhone = phone.replace(/\D/g, '');
+    if (sanitizedPhone.startsWith('880')) {
+      sanitizedPhone = sanitizedPhone.substring(2);
+    } else if (sanitizedPhone.length === 10 && !sanitizedPhone.startsWith('0')) {
+      sanitizedPhone = '0' + sanitizedPhone;
     }
+
+    let lastError = null;
+
+    for (const url of urls) {
+      try {
+        console.log(`Steadfast: Checking fraud at ${url}/check_client/${sanitizedPhone}`);
+        const response = await axios.get(`${url}/check_client/${sanitizedPhone}`, {
+          headers: {
+            'api-key': this.apiKey,
+            'secret-key': this.secretKey,
+            'Api-Key': this.apiKey,
+            'Secret-Key': this.secretKey,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          timeout: 10000
+        });
+        
+        const resData = response.data;
+        // Some versions return 200 but with status: 404 in body for "Not Found"
+        const status = Number(resData.status || response.status);
+        
+        if (status === 200 || resData.status === 'success') {
+          // Extract data from user, data, or root
+          const data = resData.user || resData.data || resData;
+          
+          const delivered = data.total_delivery ?? data.total_delivered ?? data.delivered ?? data.delivered_parcel ?? 0;
+          const cancelled = data.total_return ?? data.total_returned ?? data.returned ?? data.returned_parcel ?? data.cancelled_parcel ?? data.cancelled ?? 0;
+          const rate = data.delivery_success_rate ?? data.success_rate ?? data.success_ratio ?? 0;
+
+          return {
+            ...data,
+            total_delivered: Number(delivered),
+            total_cancelled: Number(cancelled),
+            success_rate: typeof rate === 'number' ? `${rate.toFixed(1)}%` : (String(rate).includes('%') ? rate : `${rate}%`)
+          };
+        }
+        
+        if (status === 404 || resData.message?.toLowerCase().includes('not found')) {
+          continue; // Try next URL
+        }
+      } catch (error: any) {
+        lastError = error;
+        const status = error.response?.status;
+        if (status === 404) continue;
+        console.error(`Steadfast checkFraud error at ${url}:`, error.message);
+      }
+    }
+
+    // If all failed or 404'd
+    if (lastError?.response?.status === 404 || lastError?.message?.includes('404')) {
+      return { total_delivered: 0, total_cancelled: 0, success_rate: '0%', message: 'No history found' };
+    }
+
+    return { total_delivered: 0, total_cancelled: 0, success_rate: '0%', error: lastError?.message || 'Failed to fetch history' };
   }
 
   async cancelOrder(orderId: string): Promise<any> {

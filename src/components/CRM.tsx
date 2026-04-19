@@ -496,7 +496,7 @@ export default function CRM() {
                   </button>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left">
+                  <table className="w-full text-left min-w-[800px] whitespace-nowrap">
                     <thead>
                       <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-50">
                         <th className="px-6 py-4">Bill no.</th>
@@ -546,7 +546,7 @@ export default function CRM() {
                   </button>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left">
+                  <table className="w-full text-left min-w-[800px] whitespace-nowrap">
                     <thead>
                       <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-50">
                         <th className="px-6 py-4">Category</th>

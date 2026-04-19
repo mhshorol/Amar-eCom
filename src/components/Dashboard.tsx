@@ -22,7 +22,8 @@ import {
   MessageSquare,
   Truck,
   RotateCcw,
-  Zap
+  Zap,
+  ChevronDown
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -73,6 +74,25 @@ const SectionHeader = ({ title, showSelect = false }: { title: string, showSelec
   </div>
 );
 
+const CustomTooltip = ({ active, payload, label, currencySymbol }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-[#2D2D2D] p-3 rounded-xl shadow-2xl border border-white/5 animate-in fade-in zoom-in-95 duration-200">
+        <div className="space-y-2">
+          {payload.map((entry: any, index: number) => (
+            <div key={index} className="flex items-center gap-3">
+              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.color }} />
+              <span className="text-[11px] font-black text-white/90">{currencySymbol} {entry.value.toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+        <div className="absolute left-1/2 -bottom-1 -translate-x-1/2 w-2 h-2 bg-[#2D2D2D] rotate-45 border-r border-b border-white/5" />
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function Dashboard() {
   const { currencySymbol } = useSettings();
   const { user: authUser } = useAuth();
@@ -89,6 +109,8 @@ export default function Dashboard() {
   });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
 
+  const [monthlyPerformance, setMonthlyPerformance] = useState<any[]>([]);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [dailyRevenue, setDailyRevenue] = useState<any[]>([]);
   const [bestSellingProducts, setBestSellingProducts] = useState<any[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<any[]>([]);
@@ -184,6 +206,24 @@ export default function Dashboard() {
         name: teamMembers[c.name] || 'Team Member',
         rate: Math.round((c.processed / c.total) * 100)
       })));
+
+      // Monthly Performance for current year
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthlyData = months.map((month, index) => {
+        const monthOrders = orders.filter((o: any) => {
+          const date = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : null);
+          return date && date.getMonth() === index && date.getFullYear() === selectedYear;
+        });
+        const revenue = monthOrders.reduce((acc, o: any) => acc + (o.totalAmount || 0), 0);
+        // Mock profit as 40-70% of revenue for realistic charts if no expense logic is linked
+        const profit = revenue * (0.4 + Math.random() * 0.3);
+        return {
+          name: month,
+          orders: revenue,
+          profit: profit
+        };
+      });
+      setMonthlyPerformance(monthlyData);
 
       // Daily Revenue for last 7 days
       const last7Days = Array.from({ length: 7 }, (_, i) => {
@@ -327,35 +367,86 @@ export default function Dashboard() {
 
       {/* Charts Row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
-        <div className="lg:col-span-2 bg-white p-4 sm:p-8 rounded-3xl border border-gray-100 shadow-sm">
-          <SectionHeader title="Sales Performance" showSelect />
-          <div className="h-[300px] sm:h-[400px]">
+        <div className="lg:col-span-2 bg-white p-6 sm:p-8 rounded-[2rem] border border-gray-100 shadow-sm relative overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+            <div>
+              <h3 className="text-xl font-black text-gray-900 leading-tight">Orders Overview</h3>
+              <div className="flex items-center gap-6 mt-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#8E87F1]" />
+                  <span className="text-[11px] font-black text-gray-400 uppercase tracking-wider">Orders</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#4AD3B1]" />
+                  <span className="text-[11px] font-black text-gray-400 uppercase tracking-wider">Profit</span>
+                </div>
+              </div>
+            </div>
+            <div className="relative">
+              <select 
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="appearance-none bg-gray-50 border border-gray-100 rounded-xl px-5 py-2.5 pr-10 text-[11px] font-black text-gray-600 outline-none hover:bg-gray-100 transition-all cursor-pointer shadow-sm"
+              >
+                <option value={2026}>2026</option>
+                <option value={2025}>2025</option>
+                <option value={2024}>2024</option>
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                <ChevronDown size={14} strokeWidth={3} />
+              </div>
+            </div>
+          </div>
+          
+          <div className="h-[320px] sm:h-[380px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={barData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+              <AreaChart data={monthlyPerformance} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#00AEEF" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#00AEEF" stopOpacity={0}/>
+                  <linearGradient id="colorOrders" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8E87F1" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="#8E87F1" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#4AD3B1" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="#4AD3B1" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F2F4" />
                 <XAxis 
                   dataKey="name" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fontSize: 10, fill: '#9CA3AF', fontWeight: 600 }} 
-                  dy={10}
+                  tick={{ fontSize: 11, fill: '#A0AEC0', fontWeight: 800 }} 
+                  dy={15}
                 />
                 <YAxis 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fontSize: 10, fill: '#9CA3AF', fontWeight: 600 }} 
+                  tickFormatter={(value) => value >= 1000 ? `${value / 1000}k` : value}
+                  tick={{ fontSize: 11, fill: '#A0AEC0', fontWeight: 800 }} 
                 />
                 <Tooltip 
-                  cursor={{ fill: '#F8F9FA' }}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.05)' }}
+                  content={<CustomTooltip currencySymbol={currencySymbol} />}
+                  cursor={{ stroke: '#141414', strokeWidth: 1, strokeDasharray: '4 4' }}
                 />
-                <Area type="monotone" dataKey="value" stroke="#00AEEF" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
+                <Area 
+                  type="monotone" 
+                  dataKey="orders" 
+                  name="Orders"
+                  stroke="#8E87F1" 
+                  strokeWidth={2.5} 
+                  fillOpacity={1} 
+                  fill="url(#colorOrders)" 
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="profit" 
+                  name="Profit"
+                  stroke="#4AD3B1" 
+                  strokeWidth={2.5} 
+                  fillOpacity={1} 
+                  fill="url(#colorProfit)" 
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>

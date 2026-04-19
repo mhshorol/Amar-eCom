@@ -25,7 +25,7 @@ import {
 import { db, auth, storage, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, writeBatch, getDoc, getDocs, where, ref, uploadBytes, getDownloadURL } from '../firebase';
 import { logActivity } from '../services/activityService';
 import Barcode from 'react-barcode';
-import { useReactToPrint } from 'react-to-print';
+import { openPrintWindow } from '../utils/printHelper';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
@@ -327,27 +327,17 @@ function ProductsTab({ products, variants, categories, brands, onEdit, onDelete,
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
-  const handlePrint = useReactToPrint({
-    contentRef: printRef,
-    suppressErrors: true,
-    onBeforePrint: () => {
-      return new Promise((resolve) => {
-        setTimeout(resolve, 500);
-      });
-    },
-    onPrintError: (errorLocation, error) => {
-      console.error("Print error:", errorLocation, error);
-      toast.error("Standard print failed. Attempting manual print...");
-      setTimeout(() => {
-        window.print();
-      }, 500);
-    }
-  });
-
   const triggerPrint = (product: any) => {
     setSelectedProduct(product);
+    const win = window.open('', '_blank');
+    if (!win) {
+       toast.error("Please allow popups to print.");
+       return;
+    }
     setTimeout(() => {
-      handlePrint();
+      if (printRef.current) {
+        openPrintWindow(printRef.current.innerHTML, 'Print Barcode', win);
+      }
     }, 500);
   };
 
@@ -377,7 +367,7 @@ function ProductsTab({ products, variants, categories, brands, onEdit, onDelete,
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-left min-w-[800px]">
+        <table className="w-full text-left min-w-[800px] whitespace-nowrap">
           <thead>
             <tr className="bg-gray-50 text-[10px] uppercase tracking-widest text-gray-500">
               <th className="px-6 py-4 font-semibold">Product</th>
@@ -494,7 +484,7 @@ function StockTab({ inventory, products, variants, warehouses, onAdjust, onTrans
           <button onClick={onTransfer} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all">Transfer</button>
         </div>
       </div>
-      <table className="w-full text-left">
+      <table className="w-full text-left min-w-[800px] whitespace-nowrap">
         <thead>
           <tr className="bg-gray-50 text-[10px] uppercase tracking-widest text-gray-500">
             <th className="px-6 py-4 font-semibold">Item</th>
@@ -614,7 +604,7 @@ function PurchasesTab({ pos, suppliers, products, variants, onAdd, setConfirmCon
         <button onClick={onAdd} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest bg-[#141414] text-white rounded-lg hover:bg-black transition-all">New PO</button>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-left min-w-[800px]">
+        <table className="w-full text-left min-w-[800px] whitespace-nowrap">
           <thead>
             <tr className="bg-gray-50 text-[10px] uppercase tracking-widest text-gray-500">
               <th className="px-6 py-4 font-semibold">PO ID</th>
@@ -676,7 +666,7 @@ function SuppliersTab({ suppliers, onEdit, setConfirmConfig }: any) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-left min-w-[800px]">
+        <table className="w-full text-left min-w-[800px] whitespace-nowrap">
           <thead>
             <tr className="bg-gray-50 text-[10px] uppercase tracking-widest text-gray-500">
               <th className="px-6 py-4 font-semibold">Supplier Name</th>
@@ -790,7 +780,7 @@ function ReturnsTab({ products, variants, warehouses, setConfirmConfig }: any) {
         <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest">Return & Exchange Requests</h3>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-left min-w-[800px]">
+        <table className="w-full text-left min-w-[800px] whitespace-nowrap">
           <thead>
             <tr className="bg-gray-50 text-[10px] uppercase tracking-widest text-gray-500">
               <th className="px-6 py-4 font-semibold">Order ID</th>
@@ -836,7 +826,7 @@ function LogsTab({ logs, products, variants, warehouses }: any) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-left min-w-[800px]">
+        <table className="w-full text-left min-w-[800px] whitespace-nowrap">
           <thead>
             <tr className="bg-gray-50 text-[10px] uppercase tracking-widest text-gray-500">
               <th className="px-6 py-4 font-semibold">Time</th>

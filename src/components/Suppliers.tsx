@@ -406,7 +406,7 @@ export default function Suppliers() {
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[800px] whitespace-nowrap">
             <thead>
               <tr className="bg-gray-50/50 border-b border-gray-100">
                 <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">PO ID</th>
@@ -553,7 +553,7 @@ export default function Suppliers() {
                     Transaction Ledger
                   </h3>
                   <div className="border border-gray-100 rounded-2xl overflow-hidden">
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full text-left border-collapse min-w-[800px] whitespace-nowrap">
                       <thead>
                         <tr className="bg-gray-50 border-b border-gray-100">
                           <th className="px-6 py-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Date</th>

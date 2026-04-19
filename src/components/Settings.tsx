@@ -30,6 +30,8 @@ import { User, UserRole, UserPermissions } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import ConfirmModal from './ConfirmModal';
 
+import { QRCodeCanvas } from 'qrcode.react';
+
 function ActivityLogsTab() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,7 +68,7 @@ function ActivityLogsTab() {
 
       <div className="bg-gray-50 rounded-xl border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full text-left min-w-[800px] whitespace-nowrap">
             <thead>
               <tr className="bg-gray-100 text-[10px] uppercase tracking-widest text-gray-500">
                 <th className="px-6 py-4 font-semibold">Time</th>
@@ -188,7 +190,7 @@ export default function Settings() {
         // Fetch courier configs from backend
         const response = await fetch('/api/couriers/configs');
         if (response.ok) {
-          const data = await response.json();
+          const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
           setCourierConfigs(prev => ({ ...prev, ...data }));
         }
       } catch (error) {
@@ -395,7 +397,9 @@ export default function Settings() {
   };
 
   const handleDownloadApp = () => {
-    toast.info('Mobile app is currently in development. We will notify you once it is available for download.');
+    const appUrl = window.location.origin;
+    navigator.clipboard.writeText(appUrl);
+    toast.success('App link copied to clipboard! Open it in your mobile browser to install.');
   };
 
   const handleSave = async () => {
@@ -412,41 +416,16 @@ export default function Settings() {
         await setDoc(doc(db, 'settings', 'company'), { sms: smsSettings }, { merge: true });
       }
       
-      if (activeTab === 'Logistics') {
-        console.log('Saving logistics configs:', courierConfigs);
-        // Save each courier config to backend
-        for (const [courier, config] of Object.entries(courierConfigs)) {
-          console.log(`Sending config for ${courier}...`);
-          const response = await fetch(`/api/couriers/configs/${courier}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(config)
-          });
-          if (!response.ok) {
-            const errorData = await response.json();
-            console.error(`Failed to save ${courier}:`, errorData);
-            throw new Error(errorData.error || `Failed to save ${courier} configuration`);
-          }
-          console.log(`Successfully saved ${courier} to backend`);
-        }
-        // Also update companyInfo for legacy support if needed
-        await setDoc(doc(db, 'settings', 'company'), {
-          steadfastApiKey: courierConfigs.steadfast.apiKey,
-          steadfastSecretKey: courierConfigs.steadfast.secretKey
-        }, { merge: true });
-        toast.success('Logistics settings saved successfully');
-      } else {
-        const userDocRef = doc(db, 'settings', `user_${auth.currentUser?.uid}`);
-        const updateData: any = {};
-        if (activeTab === 'Account') updateData.account = accountSettings;
-        if (activeTab === 'Notifications') updateData.notifications = notificationSettings;
+      const userDocRef = doc(db, 'settings', `user_${auth.currentUser?.uid}`);
+      const updateData: any = {};
+      if (activeTab === 'Account') updateData.account = accountSettings;
+      if (activeTab === 'Notifications') updateData.notifications = notificationSettings;
         if (activeTab === 'Security') updateData.security = securitySettings;
         if (activeTab === 'Integrations') updateData.integrations = integrationSettings;
         if (activeTab === 'Data Management') updateData.dataManagement = dataSettings;
         if (activeTab === 'Mobile App') updateData.mobile = mobileSettings;
         
         await setDoc(userDocRef, updateData, { merge: true });
-      }
       setMessage({ type: 'success', text: 'Settings saved successfully!' });
     } catch (error) {
       console.error("Error saving settings:", error);
@@ -491,7 +470,6 @@ export default function Settings() {
               {[
                 { name: 'General', icon: SettingsIcon },
                 { name: 'Company Info', icon: Building2 },
-                { name: 'Logistics', icon: Truck },
               ].map((item) => (
                 <button
                   key={item.name}
@@ -1023,307 +1001,6 @@ export default function Settings() {
               </div>
             )}
 
-            {activeTab === 'Logistics' && (
-              <div className="space-y-8">
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                  <Truck size={20} /> Courier Integrations
-                </h3>
-                
-                <div className="space-y-6">
-                  {/* Steadfast */}
-                  <div className="p-6 bg-gray-50 rounded-xl border border-gray-100 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">S</div>
-                        <div>
-                          <h4 className="text-sm font-bold text-gray-900">Steadfast Courier</h4>
-                          <p className="text-[10px] text-gray-500">Automated delivery for Bangladesh</p>
-                        </div>
-                      </div>
-                      <button 
-                        onClick={() => setCourierConfigs(prev => ({ 
-                          ...prev, 
-                          steadfast: { ...prev.steadfast, isActive: !prev.steadfast.isActive } 
-                        }))}
-                        className={`w-12 h-6 rounded-full transition-all relative ${courierConfigs.steadfast.isActive ? 'bg-blue-600' : 'bg-gray-300'}`}
-                      >
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${courierConfigs.steadfast.isActive ? 'right-1' : 'left-1'}`} />
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase">API Key</label>
-                        <input 
-                          type="text" 
-                          value={courierConfigs.steadfast.apiKey} 
-                          onChange={e => setCourierConfigs(prev => ({ 
-                            ...prev, 
-                            steadfast: { ...prev.steadfast, apiKey: e.target.value } 
-                          }))}
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:border-blue-500 outline-none transition-all" 
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase">Secret Key</label>
-                        <input 
-                          type="password" 
-                          value={courierConfigs.steadfast.secretKey} 
-                          onChange={e => setCourierConfigs(prev => ({ 
-                            ...prev, 
-                            steadfast: { ...prev.steadfast, secretKey: e.target.value } 
-                          }))}
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:border-blue-500 outline-none transition-all" 
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Pathao */}
-                  <div className="p-6 bg-gray-50 rounded-xl border border-gray-100 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center text-white font-bold">P</div>
-                        <div>
-                          <h4 className="text-sm font-bold text-gray-900">Pathao Courier</h4>
-                          <p className="text-[10px] text-gray-500">Fast and reliable delivery service</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            id="pathao-sandbox"
-                            className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
-                            checked={courierConfigs.pathao.isSandbox}
-                            onChange={e => setCourierConfigs(prev => ({ 
-                              ...prev, 
-                              pathao: { ...prev.pathao, isSandbox: e.target.checked } 
-                            }))}
-                          />
-                          <label htmlFor="pathao-sandbox" className="text-[10px] font-bold text-gray-500 uppercase">Sandbox</label>
-                        </div>
-                        <button 
-                          onClick={() => setCourierConfigs(prev => ({ 
-                            ...prev, 
-                            pathao: { ...prev.pathao, isActive: !prev.pathao.isActive } 
-                          }))}
-                          className={`w-12 h-6 rounded-full transition-all relative ${courierConfigs.pathao.isActive ? 'bg-orange-500' : 'bg-gray-300'}`}
-                        >
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${courierConfigs.pathao.isActive ? 'right-1' : 'left-1'}`} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase">Client ID</label>
-                        <input 
-                          type="text" 
-                          value={courierConfigs.pathao.clientId} 
-                          onChange={e => setCourierConfigs(prev => ({ 
-                            ...prev, 
-                            pathao: { ...prev.pathao, clientId: e.target.value } 
-                          }))}
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:border-orange-500 outline-none transition-all" 
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase">Client Secret</label>
-                        <input 
-                          type="password" 
-                          value={courierConfigs.pathao.clientSecret} 
-                          onChange={e => setCourierConfigs(prev => ({ 
-                            ...prev, 
-                            pathao: { ...prev.pathao, clientSecret: e.target.value } 
-                          }))}
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:border-orange-500 outline-none transition-all" 
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase">Username (Email)</label>
-                        <input 
-                          type="text" 
-                          value={courierConfigs.pathao.username} 
-                          onChange={e => setCourierConfigs(prev => ({ 
-                            ...prev, 
-                            pathao: { ...prev.pathao, username: e.target.value } 
-                          }))}
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:border-orange-500 outline-none transition-all" 
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase">Password</label>
-                        <input 
-                          type="password" 
-                          value={courierConfigs.pathao.password} 
-                          onChange={e => setCourierConfigs(prev => ({ 
-                            ...prev, 
-                            pathao: { ...prev.pathao, password: e.target.value } 
-                          }))}
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:border-orange-500 outline-none transition-all" 
-                        />
-                      </div>
-                      <div className="space-y-1 md:col-span-2">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase">Store ID</label>
-                        <input 
-                          type="text" 
-                          value={courierConfigs.pathao.storeId} 
-                          onChange={e => setCourierConfigs(prev => ({ 
-                            ...prev, 
-                            pathao: { ...prev.pathao, storeId: e.target.value } 
-                          }))}
-                          placeholder="Enter your Pathao Store ID"
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:border-orange-500 outline-none transition-all" 
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* RedX */}
-                  <div className="p-6 bg-gray-50 rounded-xl border border-gray-100 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center text-white font-bold">R</div>
-                        <div>
-                          <h4 className="text-sm font-bold text-gray-900">RedX</h4>
-                          <p className="text-[10px] text-gray-500">Logistics for modern businesses</p>
-                        </div>
-                      </div>
-                      <button 
-                        onClick={() => setCourierConfigs(prev => ({ 
-                          ...prev, 
-                          redx: { ...prev.redx, isActive: !prev.redx.isActive } 
-                        }))}
-                        className={`w-12 h-6 rounded-full transition-all relative ${courierConfigs.redx.isActive ? 'bg-red-600' : 'bg-gray-300'}`}
-                      >
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${courierConfigs.redx.isActive ? 'right-1' : 'left-1'}`} />
-                      </button>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase">API Key</label>
-                      <input 
-                        type="text" 
-                        value={courierConfigs.redx.apiKey} 
-                        onChange={e => setCourierConfigs(prev => ({ 
-                          ...prev, 
-                          redx: { ...prev.redx, apiKey: e.target.value } 
-                        }))}
-                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:border-red-500 outline-none transition-all" 
-                      />
-                    </div>
-                  </div>
-
-                  {/* Carrybee */}
-                  <div className="p-6 bg-gray-50 rounded-xl border border-gray-100 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center text-white font-bold">C</div>
-                        <div>
-                          <h4 className="text-sm font-bold text-gray-900">Carrybee</h4>
-                          <p className="text-[10px] text-gray-500">Fast and secure delivery</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            id="carrybee-sandbox"
-                            className="w-4 h-4 rounded border-gray-300 text-yellow-500 focus:ring-yellow-500"
-                            checked={courierConfigs.carrybee.isSandbox}
-                            onChange={e => setCourierConfigs(prev => ({ 
-                              ...prev, 
-                              carrybee: { ...prev.carrybee, isSandbox: e.target.checked } 
-                            }))}
-                          />
-                          <label htmlFor="carrybee-sandbox" className="text-[10px] font-bold text-gray-500 uppercase">Sandbox</label>
-                        </div>
-                        <button 
-                          onClick={() => setCourierConfigs(prev => ({ 
-                            ...prev, 
-                            carrybee: { ...prev.carrybee, isActive: !prev.carrybee.isActive } 
-                          }))}
-                          className={`w-12 h-6 rounded-full transition-all relative ${courierConfigs.carrybee.isActive ? 'bg-yellow-500' : 'bg-gray-300'}`}
-                        >
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${courierConfigs.carrybee.isActive ? 'right-1' : 'left-1'}`} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase">Client ID</label>
-                        <input 
-                          type="text" 
-                          value={courierConfigs.carrybee.clientId} 
-                          onChange={e => setCourierConfigs(prev => ({ 
-                            ...prev, 
-                            carrybee: { ...prev.carrybee, clientId: e.target.value } 
-                          }))}
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:border-yellow-500 outline-none transition-all" 
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase">Client Secret</label>
-                        <input 
-                          type="password" 
-                          value={courierConfigs.carrybee.clientSecret} 
-                          onChange={e => setCourierConfigs(prev => ({ 
-                            ...prev, 
-                            carrybee: { ...prev.carrybee, clientSecret: e.target.value } 
-                          }))}
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:border-yellow-500 outline-none transition-all" 
-                        />
-                      </div>
-                      <div className="space-y-1 md:col-span-2">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase">Client Context</label>
-                        <input 
-                          type="text" 
-                          value={courierConfigs.carrybee.clientContext} 
-                          onChange={e => setCourierConfigs(prev => ({ 
-                            ...prev, 
-                            carrybee: { ...prev.carrybee, clientContext: e.target.value } 
-                          }))}
-                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:border-yellow-500 outline-none transition-all" 
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Paperfly */}
-                  <div className="p-6 bg-gray-50 rounded-xl border border-gray-100 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">P</div>
-                        <div>
-                          <h4 className="text-sm font-bold text-gray-900">Paperfly</h4>
-                          <p className="text-[10px] text-gray-500">Smart logistics for smart businesses</p>
-                        </div>
-                      </div>
-                      <button 
-                        onClick={() => setCourierConfigs(prev => ({ 
-                          ...prev, 
-                          paperfly: { ...prev.paperfly, isActive: !prev.paperfly.isActive } 
-                        }))}
-                        className={`w-12 h-6 rounded-full transition-all relative ${courierConfigs.paperfly.isActive ? 'bg-indigo-600' : 'bg-gray-300'}`}
-                      >
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${courierConfigs.paperfly.isActive ? 'right-1' : 'left-1'}`} />
-                      </button>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase">API Key</label>
-                      <input 
-                        type="text" 
-                        value={courierConfigs.paperfly.apiKey} 
-                        onChange={e => setCourierConfigs(prev => ({ 
-                          ...prev, 
-                          paperfly: { ...prev.paperfly, apiKey: e.target.value } 
-                        }))}
-                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs focus:border-indigo-500 outline-none transition-all" 
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {activeTab === 'Data Management' && (
               <div className="space-y-6">
                 <h3 className="text-lg font-bold flex items-center gap-2">
@@ -1405,18 +1082,23 @@ export default function Settings() {
                   </button>
                 </div>
                 <div className="p-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200 flex flex-col items-center text-center space-y-4">
-                  <div className="w-32 h-32 bg-white rounded-xl shadow-sm flex items-center justify-center">
-                    <Globe size={48} className="text-gray-200" />
+                  <div className="p-4 bg-white rounded-2xl shadow-sm flex items-center justify-center">
+                    <QRCodeCanvas 
+                      value={window.location.origin} 
+                      size={128}
+                      level="H"
+                      includeMargin={false}
+                    />
                   </div>
                   <div>
                     <p className="text-sm font-bold text-gray-900">Mobile App QR Code</p>
-                    <p className="text-xs text-gray-500">Scan this code to download the app on your device.</p>
+                    <p className="text-xs text-gray-500">Scan this code with your phone to open and install the app.</p>
                   </div>
                   <button 
                     onClick={handleDownloadApp}
                     className="text-xs font-bold text-blue-600 hover:underline"
                   >
-                    Download App Link
+                    Copy App Link
                   </button>
                 </div>
               </div>

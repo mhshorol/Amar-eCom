@@ -21,8 +21,14 @@ import {
   Calendar,
   X,
   Loader2,
+  PauseCircle,
+  Clock,
+  Flame,
+  Zap,
+  CheckCircle2,
   Trash2,
-  CheckCircle,
+  AlertTriangle,
+  RotateCcw,
   LayoutGrid,
   List,
   ChevronRight,
@@ -42,12 +48,12 @@ import {
   PackageCheck,
   PackageX,
   PackageOpen,
-  Clock
+  CheckCircle
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import type { DraggableProvided, DraggableStateSnapshot, DroppableProvided } from '@hello-pangea/dnd';
 import { db, auth, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, Timestamp, doc, updateDoc, deleteDoc, writeBatch, getDocs, getDoc, where, arrayUnion, runTransaction, limit } from '../firebase';
-import { useReactToPrint } from 'react-to-print';
+import { openPrintWindow } from '../utils/printHelper';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { A5Invoice, POSInvoice } from './InvoiceTemplates';
@@ -77,22 +83,26 @@ const ChannelIcon = ({ channel }: { channel: string }) => {
 
 const StatusBadge = ({ status, onClick, isOpen }: { status: string; onClick?: (e?: React.MouseEvent) => void; isOpen?: boolean }) => {
   const colors: Record<string, string> = {
-    'pending': 'bg-[#fff7ed] text-[#ea580c] border-[#ffedd5]',
-    'confirmed': 'bg-[#eff6ff] text-[#2563eb] border-[#dbeafe]',
-    'processing': 'bg-[#eef2ff] text-[#4f46e5] border-[#e0e7ff]',
-    'shipped': 'bg-[#faf5ff] text-[#9333ea] border-[#f3e8ff]',
-    'delivered': 'bg-[#f0fdf4] text-[#16a34a] border-[#dcfce7]',
-    'partial_delivered': 'bg-[#f0fdfa] text-[#0d9488] border-[#ccfbf1]',
-    'cancelled': 'bg-[#fef2f2] text-[#dc2626] border-[#fee2e2]',
-    'returned': 'bg-[#f9fafb] text-[#4b5563] border-[#f3f4f6]',
+    'pending': 'bg-orange-50 text-orange-600 border-orange-100 shadow-orange-500/5',
+    'confirmed': 'bg-blue-50 text-blue-600 border-blue-100 shadow-blue-500/5',
+    'processing': 'bg-indigo-50 text-indigo-600 border-indigo-100 shadow-indigo-500/5',
+    'shipped': 'bg-purple-50 text-purple-600 border-purple-100 shadow-purple-500/5',
+    'delivered': 'bg-green-50 text-green-600 border-green-100 shadow-green-500/5',
+    'partial_delivered': 'bg-teal-50 text-teal-600 border-teal-100 shadow-teal-500/5',
+    'cancelled': 'bg-red-50 text-red-600 border-red-100 shadow-red-500/5',
+    'returned': 'bg-gray-50 text-gray-600 border-gray-100 shadow-gray-500/5',
+    'urgent': 'bg-rose-50 text-rose-600 border-rose-100 shadow-rose-500/5',
+    'hold': 'bg-amber-50 text-amber-600 border-amber-100 shadow-amber-500/5',
   };
   return (
     <button 
       onClick={onClick}
-      className={`text-[10px] font-bold px-2 py-1 rounded-md border cursor-pointer hover:opacity-80 transition-all flex items-center gap-1.5 ${colors[status] || colors['pending']}`}
+      className={`text-[10px] sm:text-[11px] font-black px-3 py-1.5 rounded-full border shadow-sm cursor-pointer hover:scale-105 transition-all flex items-center gap-2 uppercase tracking-tight ${colors[status] || colors['pending']}`}
     >
-      {status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1)}
-      <ChevronDown size={10} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      {status === 'urgent' && <Flame size={12} strokeWidth={2.5} className="animate-pulse" />}
+      {status === 'hold' && <PauseCircle size={12} strokeWidth={2.5} />}
+      <span>{status.replace(/_/g, ' ')}</span>
+      <ChevronDown size={10} strokeWidth={3} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
     </button>
   );
 };
@@ -152,52 +162,38 @@ export default function Orders() {
     // Removed auto-open modal logic for new orders as it is now a separate page
   }, [searchParams, setSearchParams]);
 
-  const handlePrint = useReactToPrint({
-    contentRef: printRef,
-    suppressErrors: true,
-    onBeforePrint: () => {
-      if (!printType) {
-        return Promise.reject("No print type selected");
-      }
-      return new Promise((resolve) => {
-        setTimeout(resolve, 500);
-      });
-    },
-    onAfterPrint: () => {
-      setSelectedOrderForPrint(null);
-      setPrintType(null);
-    },
-    onPrintError: (errorLocation, error) => {
-      console.error("Print error:", errorLocation, error);
-      // Fallback to manual window.print if react-to-print fails
-      if (printType) {
-        toast.error("Standard print failed. Attempting manual print...");
-        setTimeout(() => {
-          window.print();
-        }, 500);
-      }
+  const handlePrint = () => {
+    if (!printType) {
+      toast.error("No print type selected");
+      return;
     }
-  });
+    const win = window.open('', '_blank');
+    if (!win) {
+       toast.error("Please allow popups to print.");
+       return;
+    }
+    setTimeout(() => {
+      if (printRef.current) {
+        openPrintWindow(printRef.current.innerHTML, 'Invoice', win);
+        setSelectedOrderForPrint(null);
+        setPrintType(null);
+      }
+    }, 500);
+  };
 
-  const handleBulkPrint = useReactToPrint({
-    contentRef: bulkPrintRef,
-    suppressErrors: true,
-    onBeforePrint: () => {
-      return new Promise((resolve) => {
-        setTimeout(resolve, 500);
-      });
-    },
-    onAfterPrint: () => {
-      setSelectedOrders([]);
-    },
-    onPrintError: (errorLocation, error) => {
-      console.error("Bulk Print error:", errorLocation, error);
-      toast.error("Bulk print failed. Attempting manual print...");
-      setTimeout(() => {
-        window.print();
-      }, 500);
+  const handleBulkPrint = () => {
+    const win = window.open('', '_blank');
+    if (!win) {
+       toast.error("Please allow popups to print.");
+       return;
     }
-  });
+    setTimeout(() => {
+      if (bulkPrintRef.current) {
+        openPrintWindow(bulkPrintRef.current.innerHTML, 'Bulk Invoices', win);
+        setSelectedOrders([]);
+      }
+    }, 500);
+  };
 
   const handleDownloadPDF = async () => {
     if (!printRef.current || !selectedOrderForPrint) return;
@@ -265,10 +261,17 @@ export default function Orders() {
   useEffect(() => {
     const fetchCourierConfigs = async () => {
       try {
-        const response = await fetch('/api/couriers/configs');
-        if (response.ok) {
-          const data = await response.json();
+        const response = await fetch('/api/couriers/configs', {
+          headers: { 'Accept': 'application/json' }
+        });
+        
+        const contentType = response.headers.get('content-type') || '';
+        if (response.ok && contentType.includes('application/json')) {
+          const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
           setCourierConfigs(data);
+        } else if (!contentType.includes('application/json')) {
+           const text = await response.text();
+           console.warn('Courier configs returned non-JSON:', text.substring(0, 100));
         }
       } catch (error) {
         console.error("Error fetching courier configs:", error);
@@ -322,7 +325,7 @@ export default function Orders() {
     try {
       const response = await fetch('/api/couriers/cities/pathao');
       if (response.ok) {
-        const data = await response.json();
+        const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
         setCities(data.data || []);
       }
     } catch (error) {
@@ -339,7 +342,7 @@ export default function Orders() {
     try {
       const response = await fetch(`/api/couriers/zones/pathao/${cityId}`);
       if (response.ok) {
-        const data = await response.json();
+        const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
         setZones(data.data || []);
       }
     } catch (error) {
@@ -355,7 +358,7 @@ export default function Orders() {
     try {
       const response = await fetch(`/api/couriers/areas/pathao/${zoneId}`);
       if (response.ok) {
-        const data = await response.json();
+        const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
         setAreas(data.data || []);
       }
     } catch (error) {
@@ -382,8 +385,8 @@ export default function Orders() {
     await handleUpdateStatus(draggableId, newStatus);
   };
 
-  const tabs = ['All', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'returned'];
-  const statuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'partial_delivered', 'cancelled', 'returned'];
+  const tabs = ['All', 'urgent', 'hold', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'returned'];
+  const statuses = ['urgent', 'hold', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'partial_delivered', 'cancelled', 'returned'];
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -440,8 +443,17 @@ export default function Orders() {
       
       setIsWooLoading(true);
       try {
-        const response = await fetch('/api/woocommerce/orders?per_page=50');
-        const data = await response.json();
+        const response = await fetch('/api/woocommerce/orders?per_page=50', {
+          headers: { 'Accept': 'application/json' }
+        });
+        
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          const text = await response.text();
+          throw new Error(`Server returned non-JSON response (${response.status}). Please reload the page.`);
+        }
+        
+        const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
         
         if (response.ok) {
           const mappedWooOrders = (data.orders || []).map((order: any) => ({
@@ -601,17 +613,27 @@ export default function Orders() {
     setIsFetchingHistory(true);
     try {
       const response = await fetch(`/api/couriers/check-fraud/${phone}`);
+      const result = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
+      
       if (response.ok) {
-        const result = await response.json();
         if (result.data) {
           setCourierHistory({
             courier: result.courier,
             ...result.data
           });
+          if (result.data.error) {
+            toast.error(`Courier Check Warning: ${result.data.error}`);
+          }
+        }
+      } else {
+        console.error("Courier response error:", result.error);
+        if (result.error !== 'No active courier supports fraud check') {
+          toast.error(`Courier Error: ${result.error}`);
         }
       }
     } catch (error) {
       console.error("Error fetching courier history:", error);
+      toast.error("Network error while checking courier history");
     } finally {
       setIsFetchingHistory(false);
     }
@@ -651,10 +673,10 @@ export default function Orders() {
     try {
       const citiesRes = await fetch('/api/couriers/cities/pathao');
       if (!citiesRes.ok) {
-        const errData = await citiesRes.json();
+        const errData = await (citiesRes.headers.get('content-type')?.includes('json') ? citiesRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
         throw new Error(errData.error || 'Failed to fetch Pathao cities');
       }
-      const pathaoCities = await citiesRes.json();
+      const pathaoCities = await (citiesRes.headers.get('content-type')?.includes('json') ? citiesRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
       
       const city = locationService.matchCourierLocation(districtName, pathaoCities.data || [], 'city_name');
 
@@ -663,10 +685,10 @@ export default function Orders() {
         
         const zonesRes = await fetch(`/api/couriers/zones/pathao/${city.city_id}`);
         if (!zonesRes.ok) {
-          const errData = await zonesRes.json();
+          const errData = await (zonesRes.headers.get('content-type')?.includes('json') ? zonesRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
           throw new Error(errData.error || 'Failed to fetch Pathao zones');
         }
-        const pathaoZones = await zonesRes.json();
+        const pathaoZones = await (zonesRes.headers.get('content-type')?.includes('json') ? zonesRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
         
         const zone = locationService.matchCourierLocation(areaName, pathaoZones.data || [], 'zone_name');
 
@@ -675,10 +697,10 @@ export default function Orders() {
           
           const areasRes = await fetch(`/api/couriers/areas/pathao/${zone.zone_id}`);
           if (!areasRes.ok) {
-            const errData = await areasRes.json();
+            const errData = await (areasRes.headers.get('content-type')?.includes('json') ? areasRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
             throw new Error(errData.error || 'Failed to fetch Pathao areas');
           }
-          const pathaoAreas = await areasRes.json();
+          const pathaoAreas = await (areasRes.headers.get('content-type')?.includes('json') ? areasRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
           
           const area = locationService.matchCourierLocation(areaName, pathaoAreas.data || [], 'area_name') || pathaoAreas.data?.[0];
 
@@ -697,7 +719,7 @@ export default function Orders() {
     try {
       const citiesRes = await fetch('/api/couriers/cities/carrybee');
       if (!citiesRes.ok) return;
-      const carrybeeCities = await citiesRes.json();
+      const carrybeeCities = await (citiesRes.headers.get('content-type')?.includes('json') ? citiesRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
       
       const city = locationService.matchCourierLocation(districtName, carrybeeCities.data?.cities || [], 'name');
 
@@ -706,7 +728,7 @@ export default function Orders() {
         
         const zonesRes = await fetch(`/api/couriers/zones/carrybee/${city.id}`);
         if (!zonesRes.ok) return;
-        const carrybeeZones = await zonesRes.json();
+        const carrybeeZones = await (zonesRes.headers.get('content-type')?.includes('json') ? zonesRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
         
         const zone = locationService.matchCourierLocation(areaName, carrybeeZones.data?.zones || [], 'name');
 
@@ -715,7 +737,7 @@ export default function Orders() {
           
           const areasRes = await fetch(`/api/couriers/areas/carrybee/${zone.id}?cityId=${city.id}`);
           if (!areasRes.ok) return;
-          const carrybeeAreas = await areasRes.json();
+          const carrybeeAreas = await (areasRes.headers.get('content-type')?.includes('json') ? areasRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
           
           const area = locationService.matchCourierLocation(areaName, carrybeeAreas.data?.areas || [], 'name') || carrybeeAreas.data?.areas?.[0];
 
@@ -1042,7 +1064,7 @@ export default function Orders() {
           // Refresh WooCommerce orders
           const wooResponse = await fetch('/api/woocommerce/orders?per_page=50');
           if (wooResponse.ok) {
-            const data = await wooResponse.json();
+            const data = await (wooResponse.headers.get('content-type')?.includes('json') ? wooResponse.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
             const mappedWooOrders = (data.orders || []).map((order: any) => ({
               id: `woo_${order.id}`,
               wooId: order.id,
@@ -1066,7 +1088,7 @@ export default function Orders() {
             setWooOrders(mappedWooOrders);
           }
         } else {
-          const err = await response.json();
+          const err = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
           throw new Error(err.error || 'Failed to update WooCommerce order');
         }
       } catch (error: any) {
@@ -1311,7 +1333,7 @@ export default function Orders() {
         body: JSON.stringify({ courier: targetCourier, orderData })
       });
 
-      const result = await response.json();
+      const result = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
 
       if (response.ok) {
         const trackingCode = result.consignment?.tracking_code || result.tracking_id || result.tracking_code;
@@ -1356,6 +1378,7 @@ export default function Orders() {
           await addDoc(collection(db, 'deliveries'), {
             id: trackingCode,
             orderId: order.id,
+            orderNumber: order.orderNumber,
             courier: targetCourier.charAt(0).toUpperCase() + targetCourier.slice(1),
             status: 'Pending Pickup',
             location: order.customerZone || 'Processing',
@@ -1442,7 +1465,7 @@ export default function Orders() {
           body: JSON.stringify({ courier: targetCourier, orderData })
         });
 
-        const result = await response.json();
+        const result = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
 
         if (response.ok) {
           const trackingCode = result.consignment?.tracking_code || result.tracking_id || result.tracking_code;
@@ -1485,6 +1508,7 @@ export default function Orders() {
             await addDoc(collection(db, 'deliveries'), {
               id: trackingCode,
               orderId: order.id,
+              orderNumber: order.orderNumber,
               courier: targetCourier.charAt(0).toUpperCase() + targetCourier.slice(1),
               status: 'Pending Pickup',
               location: order.customerZone || 'Processing',
@@ -1790,20 +1814,68 @@ export default function Orders() {
 
       <div className="grid grid-cols-1 gap-6">
         <div className="space-y-6">
-          <div className="bg-[#ffffff] p-2 rounded-2xl border border-[#f3f4f6] shadow-sm flex gap-1 overflow-x-auto no-scrollbar">
-            {tabs.map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  activeTab === tab 
-                    ? 'bg-[#141414] text-white shadow-md' 
-                    : 'text-[#6b7280] hover:bg-[#f3f4f6]'
-                }`}
-              >
-                {tab.replace(/_/g, ' ').charAt(0).toUpperCase() + tab.replace(/_/g, ' ').slice(1)}
-              </button>
-            ))}
+          <div className="bg-white p-1.5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth">
+            {tabs.map(tab => {
+              const isActive = activeTab === tab;
+              const Icon = {
+                'All': LayoutGrid,
+                'urgent': Flame,
+                'hold': PauseCircle,
+                'pending': Clock,
+                'confirmed': CheckCircle2,
+                'processing': Zap,
+                'shipped': Truck,
+                'delivered': PackageCheck,
+                'cancelled': PackageX,
+                'returned': RotateCcw
+              }[tab] || Package;
+
+              const tabColors: Record<string, string> = {
+                'All': 'hover:bg-gray-100 text-[#141414]',
+                'urgent': 'hover:bg-red-50 text-red-600',
+                'hold': 'hover:bg-amber-50 text-amber-600',
+                'pending': 'hover:bg-orange-50 text-orange-600',
+                'confirmed': 'hover:bg-blue-50 text-blue-600',
+                'processing': 'hover:bg-indigo-50 text-indigo-600',
+                'shipped': 'hover:bg-purple-50 text-purple-600',
+                'delivered': 'hover:bg-green-50 text-green-600',
+                'cancelled': 'hover:bg-red-50 text-red-600',
+                'returned': 'hover:bg-gray-50 text-gray-600'
+              };
+
+              const activeBg: Record<string, string> = {
+                'All': 'bg-[#141414] text-white shadow-[#141414]/10',
+                'urgent': 'bg-red-600 text-white shadow-red-600/10',
+                'hold': 'bg-amber-600 text-white shadow-amber-600/10',
+                'pending': 'bg-orange-600 text-white shadow-orange-600/10',
+                'confirmed': 'bg-blue-600 text-white shadow-blue-600/10',
+                'processing': 'bg-indigo-600 text-white shadow-indigo-600/10',
+                'shipped': 'bg-purple-600 text-white shadow-purple-600/10',
+                'delivered': 'bg-green-600 text-white shadow-green-600/10',
+                'cancelled': 'bg-red-600 text-white shadow-red-600/10',
+                'returned': 'bg-gray-600 text-white shadow-gray-600/10'
+              };
+
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-tight whitespace-nowrap transition-all border border-transparent shrink-0 ${
+                    isActive 
+                      ? `${activeBg[tab]} shadow-md scale-[1.02]` 
+                      : `${tabColors[tab]} border-transparent`
+                  }`}
+                >
+                  <Icon size={14} strokeWidth={isActive ? 3 : 2} className={isActive ? 'animate-pulse' : ''} />
+                  <span>{tab}</span>
+                  {orders.filter(o => tab === 'All' || o.status === tab).length > 0 && (
+                    <span className={`text-[9px] min-w-[18px] h-[18px] flex items-center justify-center rounded-full font-black ${isActive ? 'bg-white/20' : 'bg-gray-100 text-gray-500'}`}>
+                      {orders.filter(o => tab === 'All' || o.status === tab).length}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {viewMode === 'table' ? (
@@ -1852,7 +1924,7 @@ export default function Orders() {
 
               <div className="bg-[#ffffff] rounded-3xl border border-[#f3f4f6] shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[800px] whitespace-nowrap">
                   <thead>
                     <tr className="border-b border-[#f9fafb]">
                       <th className="px-6 py-4">

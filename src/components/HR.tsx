@@ -488,7 +488,7 @@ const HR: React.FC = () => {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {activeTab === 'employees' && (
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left min-w-[800px] whitespace-nowrap">
               <thead>
                 <tr className="bg-gray-50 text-[10px] uppercase tracking-widest text-gray-500">
                   <th className="px-6 py-4 font-semibold">Employee</th>
@@ -585,7 +585,7 @@ const HR: React.FC = () => {
 
         {activeTab === 'designations' && (
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left min-w-[800px] whitespace-nowrap">
               <thead>
                 <tr className="bg-gray-50 text-[10px] uppercase tracking-widest text-gray-500">
                   <th className="px-6 py-4 font-semibold">Designation Name</th>
@@ -651,7 +651,7 @@ const HR: React.FC = () => {
               </div>
             </div>
             <div className="overflow-x-auto border border-gray-100 rounded-xl">
-              <table className="w-full text-left">
+              <table className="w-full text-left min-w-[800px] whitespace-nowrap">
                 <thead>
                   <tr className="bg-gray-50 text-[10px] uppercase tracking-widest text-gray-500">
                     <th className="px-6 py-4 font-semibold">Employee</th>
@@ -735,7 +735,7 @@ const HR: React.FC = () => {
               <div className="md:col-span-2 space-y-4">
                 <h4 className="text-sm font-bold text-[#141414] uppercase tracking-wider">Salary History</h4>
                 <div className="overflow-x-auto border border-gray-100 rounded-xl">
-                  <table className="w-full text-left">
+                  <table className="w-full text-left min-w-[800px] whitespace-nowrap">
                     <thead>
                       <tr className="bg-gray-50 text-[10px] uppercase tracking-widest text-gray-500">
                         <th className="px-4 py-3 font-semibold">Employee</th>

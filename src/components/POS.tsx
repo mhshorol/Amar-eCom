@@ -20,10 +20,11 @@ import {
   CheckCircle2,
   Calculator,
   Barcode,
-  Scan
+  Scan,
+  Check
 } from 'lucide-react';
 import { db, auth, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, writeBatch, getDoc, getDocs, where, Timestamp, runTransaction, limit } from '../firebase';
-import { useReactToPrint } from 'react-to-print';
+import { openPrintWindow } from '../utils/printHelper';
 import { toast } from 'sonner';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
@@ -92,18 +93,19 @@ export default function POS() {
   });
 
   const printRef = useRef<HTMLDivElement>(null);
-  const handlePrint = useReactToPrint({
-    contentRef: printRef,
-    suppressErrors: true,
-    onAfterPrint: () => setCompletedOrder(null),
-    onPrintError: (errorLocation, error) => {
-      console.error("Print error:", errorLocation, error);
-      toast.error("Standard print failed. Attempting manual print...");
-      setTimeout(() => {
-        window.print();
-      }, 500);
+  const handlePrint = () => {
+    const win = window.open('', '_blank');
+    if (!win) {
+       toast.error("Please allow popups to print.");
+       return;
     }
-  });
+    setTimeout(() => {
+      if (printRef.current) {
+        openPrintWindow(printRef.current.innerHTML, 'POS Invoice', win);
+        setCompletedOrder(null);
+      }
+    }, 500);
+  };
 
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
@@ -576,10 +578,10 @@ export default function POS() {
   }
 
   return (
-    <div className="h-full lg:h-[calc(100vh-120px)] flex flex-col lg:flex-row gap-6 overflow-y-auto lg:overflow-hidden p-4 lg:p-0">
+    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 lg:h-[calc(100vh-120px)] overflow-y-auto lg:overflow-hidden p-4 lg:p-0">
       {/* Left Side: Product Selection */}
-      <div className="flex-1 flex flex-col gap-6 min-w-0">
-        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+      <div className="flex-1 flex flex-col gap-4 lg:gap-6 min-w-0 order-2 lg:order-1 pb-24 lg:pb-0">
+        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
           <form onSubmit={handleBarcodeScan} className="relative w-full sm:w-64 flex gap-2">
             <div className="relative flex-1">
               <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -617,7 +619,7 @@ export default function POS() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-0 lg:pr-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 pb-8">
+        <div className="flex-1 overflow-visible lg:overflow-y-auto pr-0 lg:pr-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4 pb-8">
           {filteredProducts.map(product => {
             const productVariants = variants.filter(v => v.productId === product.id);
             const totalStock = getStock(product.id);
@@ -692,7 +694,7 @@ export default function POS() {
       </div>
 
       {/* Right Side: Cart & Checkout */}
-      <div className="w-full lg:w-[400px] flex flex-col gap-4 h-full overflow-y-auto lg:pr-1 custom-scrollbar pb-6 lg:pb-0">
+      <div className="w-full lg:w-[400px] flex flex-col gap-4 lg:h-full lg:overflow-y-auto lg:pr-1 custom-scrollbar shrink-0 order-1 lg:order-2">
         {/* Customer Selection */}
         <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm space-y-3 shrink-0">
           <div className="flex items-center justify-between">
@@ -797,7 +799,7 @@ export default function POS() {
         </div>
 
         {/* Cart Items */}
-        <div className="flex-1 bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden min-h-[300px] shrink-0">
+        <div className="flex-1 bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden min-h-[150px] lg:min-h-[200px] shrink-0">
           <div className="p-4 border-b border-gray-50 flex items-center justify-between shrink-0">
             <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
               <ShoppingCart size={18} className="text-[#00AEEF]" />
@@ -928,82 +930,81 @@ export default function POS() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              <button 
-                onClick={() => setPaymentMethod('Cash')}
-                className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all ${
-                  paymentMethod === 'Cash' ? 'bg-[#00AEEF] text-white border-[#00AEEF]' : 'bg-white text-gray-500 border-gray-100 hover:bg-gray-50'
-                }`}
-              >
-                <Banknote size={16} />
-                <span className="text-[10px] font-bold">Cash</span>
-              </button>
-              <button 
-                onClick={() => setPaymentMethod('Card')}
-                className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all ${
-                  paymentMethod === 'Card' ? 'bg-[#00AEEF] text-white border-[#00AEEF]' : 'bg-white text-gray-500 border-gray-100 hover:bg-gray-50'
-                }`}
-              >
-                <CreditCard size={16} />
-                <span className="text-[10px] font-bold">Card</span>
-              </button>
-              <button 
-                onClick={() => setPaymentMethod('bKash')}
-                className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all ${
-                  paymentMethod === 'bKash' ? 'bg-[#D12053] text-white border-[#D12053]' : 'bg-white text-gray-500 border-gray-100 hover:bg-gray-50'
-                }`}
-              >
-                <Smartphone size={16} />
-                <span className="text-[10px] font-bold">bKash</span>
-              </button>
-              <button 
-                onClick={() => setPaymentMethod('Nagad')}
-                className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all ${
-                  paymentMethod === 'Nagad' ? 'bg-[#F7941D] text-white border-[#F7941D]' : 'bg-white text-gray-500 border-gray-100 hover:bg-gray-50'
-                }`}
-              >
-                <Smartphone size={16} />
-                <span className="text-[10px] font-bold">Nagad</span>
-              </button>
-              <button 
-                onClick={() => setPaymentMethod('Rocket')}
-                className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all ${
-                  paymentMethod === 'Rocket' ? 'bg-[#8C3494] text-white border-[#8C3494]' : 'bg-white text-gray-500 border-gray-100 hover:bg-gray-50'
-                }`}
-              >
-                <Smartphone size={16} />
-                <span className="text-[10px] font-bold">Rocket</span>
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between p-2 bg-blue-50 rounded-xl border border-blue-100">
-              <div className="flex items-center gap-2">
-                <Smartphone size={14} className="text-blue-600" />
-                <span className="text-[9px] font-bold text-blue-900">Send SMS</span>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between mb-1">
+                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Payment Method</h4>
+                <span className="text-[9px] font-bold text-[#00AEEF] px-2 py-0.5 bg-[#00AEEF]/5 rounded-full">Required</span>
               </div>
+              
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: 'Cash', icon: Banknote, color: 'bg-[#00AEEF] text-white shadow-md shadow-[#00AEEF]/20' },
+                  { id: 'Card', icon: CreditCard, color: 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' },
+                  { id: 'bKash', icon: Smartphone, color: 'bg-[#D12053] text-white shadow-md shadow-[#D12053]/20' },
+                  { id: 'Nagad', icon: Smartphone, color: 'bg-[#F7941D] text-white shadow-md shadow-[#F7941D]/20' },
+                  { id: 'Rocket', icon: Smartphone, color: 'bg-[#8C3494] text-white shadow-md shadow-[#8C3494]/20' }
+                ].map((method) => {
+                  const Icon = method.icon;
+                  const isSelected = paymentMethod === method.id;
+                  return (
+                    <button 
+                      key={method.id}
+                      onClick={() => setPaymentMethod(method.id)}
+                      className={`group relative flex items-center gap-2 px-3 py-2 rounded-xl border transition-all duration-200 flex-1 min-w-[30%] justify-center ${
+                        isSelected 
+                          ? `${method.color} border-transparent scale-[1.02] z-10` 
+                          : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className={`p-1 rounded-lg transition-colors ${isSelected ? 'bg-white/20 text-white' : 'bg-gray-50 text-gray-400 group-hover:bg-white group-hover:text-gray-900'}`}>
+                        <Icon size={14} strokeWidth={isSelected ? 3 : 2} />
+                      </div>
+                      <span className={`text-[11px] font-black uppercase tracking-tight ${isSelected ? 'text-white' : 'text-gray-500 group-hover:text-gray-900'}`}>{method.id}</span>
+                      {isSelected && (
+                        <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white rounded-full flex items-center justify-center text-[#00AEEF] shadow-sm animate-in zoom-in duration-200">
+                          <Check size={10} strokeWidth={4} />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-gray-50/50 rounded-xl border border-gray-100 group transition-all hover:bg-white hover:border-[#00AEEF]/20">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${sendSMS ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                    <Smartphone size={14} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-black text-gray-900 block cursor-pointer" onClick={() => setSendSMS(!sendSMS)}>Send SMS</label>
+                    <p className="text-[9px] font-bold text-gray-400">Order confirmation</p>
+                  </div>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => setSendSMS(!sendSMS)}
+                  className={`w-10 h-5 rounded-full transition-all relative ${sendSMS ? 'bg-[#00AEEF]' : 'bg-gray-200'}`}
+                >
+                  <div className={`absolute top-1 w-3 h-3 bg-white rounded-full shadow-sm transition-all ${sendSMS ? 'right-1' : 'left-1'}`} />
+                </button>
+              </div>
+
               <button 
-                type="button"
-                onClick={() => setSendSMS(!sendSMS)}
-                className={`w-7 h-3.5 rounded-full transition-all relative ${sendSMS ? 'bg-blue-600' : 'bg-gray-300'}`}
+                onClick={handleCheckout}
+                disabled={isProcessing || cart.length === 0}
+                className="w-full relative overflow-hidden group py-3.5 bg-[#00AEEF] text-white rounded-xl font-black text-sm hover:bg-[#0095cc] transition-all shadow-md shadow-[#00AEEF]/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:bg-gray-300 disabled:shadow-none uppercase tracking-widest active:scale-[0.98]"
               >
-                <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-all ${sendSMS ? 'right-0.5' : 'left-0.5'}`} />
+                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                {isProcessing ? (
+                  <Loader2 className="animate-spin" size={18} />
+                ) : (
+                  <>
+                    <CheckCircle2 size={18} strokeWidth={2.5} />
+                    Complete Sale
+                  </>
+                )}
               </button>
             </div>
-
-            <button 
-              onClick={handleCheckout}
-              disabled={isProcessing || cart.length === 0}
-              className="w-full py-4 bg-[#00AEEF] text-white rounded-2xl font-bold hover:bg-[#0095cc] transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:bg-gray-400"
-            >
-              {isProcessing ? (
-                <Loader2 className="animate-spin" size={20} />
-              ) : (
-                <>
-                  <CheckCircle2 size={20} />
-                  Complete Sale
-                </>
-              )}
-            </button>
           </div>
         </div>
 

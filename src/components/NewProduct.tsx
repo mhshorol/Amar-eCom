@@ -33,7 +33,7 @@ import {
 } from '../firebase';
 import { logActivity } from '../services/activityService';
 import Barcode from 'react-barcode';
-import { useReactToPrint } from 'react-to-print';
+import { openPrintWindow } from '../utils/printHelper';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { useSettings } from '../contexts/SettingsContext';
@@ -117,19 +117,18 @@ export default function NewProduct() {
     fetchData();
   }, [id, navigate]);
 
-  const handlePrintBarcode = useReactToPrint({
-    contentRef: barcodeRef,
-    suppressErrors: true,
-    onBeforePrint: () => {
-      return new Promise((resolve) => {
-        setTimeout(resolve, 500);
-      });
-    },
-    onPrintError: (errorLocation, error) => {
-      console.error("Print error:", errorLocation, error);
-      toast.error("Printing failed. Please try again or use the download option.");
+  const handlePrintBarcode = () => {
+    const win = window.open('', '_blank');
+    if (!win) {
+       toast.error("Please allow popups to print.");
+       return;
     }
-  });
+    setTimeout(() => {
+      if (barcodeRef.current) {
+        openPrintWindow(barcodeRef.current.innerHTML, 'Print Barcode', win);
+      }
+    }, 500);
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

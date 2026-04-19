@@ -14,6 +14,7 @@ import {
   Printer
 } from 'lucide-react';
 import { db, collection, query, where, getDocs, orderBy } from '../firebase';
+import { openPrintWindow } from '../utils/printHelper';
 import { useSettings } from '../contexts/SettingsContext';
 
 interface OrderDetailsModalProps {
@@ -39,7 +40,12 @@ export default function OrderDetailsModal({
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const handlePrint = () => {
-    window.print();
+    const el = document.querySelector('.print-content');
+    if (el) {
+      openPrintWindow(el.outerHTML, `Order_${order.orderNumber || order.id.slice(0, 8)}`);
+    } else {
+      window.print();
+    }
   };
 
   useEffect(() => {
