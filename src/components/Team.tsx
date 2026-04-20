@@ -20,8 +20,18 @@ import {
   X,
   Lock,
   Settings,
-  Check
+  Check,
+  LayoutDashboard,
+  ShoppingCart,
+  FileText,
+  Package,
+  Truck,
+  ClipboardList,
+  CreditCard,
+  BarChart3,
+  Users2
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { db, auth, collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp, where, getDocs, addDoc, serverTimestamp, setDoc, getSecondaryAuth, createUserWithEmailAndPassword, signOut } from '../firebase';
 import { User, UserRole, ActivityLog, UserPermissions } from '../types';
 import { toast } from 'sonner';
@@ -587,63 +597,126 @@ export default function Team() {
       )}
 
       {/* Permissions Modal */}
-      {isPermissionsModalOpen && selectedUser && tempPermissions && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
-          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
-            <div className="p-6 border-b border-gray-50 flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-[#00AEEF]">
-                  <Settings size={20} />
+      <AnimatePresence>
+        {isPermissionsModalOpen && selectedUser && tempPermissions && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-[2.5rem] w-full max-w-2xl shadow-2xl overflow-hidden my-auto"
+            >
+            {/* ... rest of the modal content stays same ... */}
+              <div className="p-8 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-gray-50 to-white">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-[#00AEEF] rounded-2xl flex items-center justify-center text-white shadow-xl shadow-[#00AEEF]/20 rotate-3">
+                    <ShieldCheck size={28} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black text-gray-900 tracking-tight">Module Permissions</h3>
+                    <p className="text-sm font-medium text-gray-500">Managing access for <span className="text-[#00AEEF] font-bold">{selectedUser.name}</span></p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">Module Permissions</h3>
-                  <p className="text-xs text-gray-500">Managing access for {selectedUser.name}</p>
-                </div>
-              </div>
-              <button onClick={() => setIsPermissionsModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto">
-              {(Object.keys(tempPermissions) as Array<keyof UserPermissions>).map((key) => (
-                <div 
-                  key={key}
-                  onClick={() => togglePermission(key)}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group ${tempPermissions[key] ? 'bg-blue-50 border-[#00AEEF]/20' : 'bg-white border-gray-100 hover:border-gray-200'}`}
+                <button 
+                  onClick={() => setIsPermissionsModalOpen(false)} 
+                  className="p-3 hover:bg-gray-100 text-gray-400 hover:text-gray-900 rounded-2xl transition-all active:scale-95"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${tempPermissions[key] ? 'bg-[#00AEEF] text-white' : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100'}`}>
-                      {tempPermissions[key] ? <Check size={16} /> : <X size={16} />}
-                    </div>
-                    <span className="text-sm font-bold text-gray-700 capitalize">{key}</span>
-                  </div>
-                  <div className={`w-10 h-5 rounded-full transition-colors relative ${tempPermissions[key] ? 'bg-[#00AEEF]' : 'bg-gray-200'}`}>
-                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${tempPermissions[key] ? 'right-1' : 'left-1'}`}></div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <div className="p-8 grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto no-scrollbar">
+                {(Object.keys(tempPermissions) as Array<keyof UserPermissions>).map((key) => {
+                  const moduleIcons: Record<string, any> = {
+                    dashboard: LayoutDashboard,
+                    pos: ShoppingCart,
+                    orders: FileText,
+                    inventory: Package,
+                    crm: Users2,
+                    suppliers: Truck,
+                    logistics: Activity,
+                    tasks: ClipboardList,
+                    finance: CreditCard,
+                    hr: UserCheck,
+                    team: Shield,
+                    settings: Settings,
+                    reports: BarChart3
+                  };
+                  const Icon = moduleIcons[key] || Settings;
+                  const isEnabled = tempPermissions[key];
 
-            <div className="p-6 bg-gray-50 flex gap-3">
-              <button 
-                onClick={() => setIsPermissionsModalOpen(false)}
-                className="flex-1 py-3 px-6 bg-white border border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50 transition-all"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={handleUpdatePermissions}
-                disabled={isUpdatingPermissions}
-                className="flex-1 py-3 px-6 bg-[#141414] text-white rounded-xl font-bold hover:bg-black transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isUpdatingPermissions ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-                Save Permissions
-              </button>
-            </div>
+                  return (
+                    <motion.div 
+                      key={key}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => togglePermission(key)}
+                      className={`p-5 rounded-[2rem] border-2 transition-all cursor-pointer flex items-center justify-between group overflow-hidden relative ${
+                        isEnabled 
+                          ? 'bg-blue-50/50 border-[#00AEEF] shadow-lg shadow-[#00AEEF]/5' 
+                          : 'bg-white border-gray-100 hover:border-gray-200'
+                      }`}
+                    >
+                      {isEnabled && (
+                        <div className="absolute top-0 right-0 -mr-4 -mt-4 w-12 h-12 bg-[#00AEEF]/10 rounded-full blur-xl" />
+                      )}
+                      
+                      <div className="flex items-center gap-4 relative z-10">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${
+                          isEnabled 
+                            ? 'bg-[#00AEEF] text-white shadow-lg shadow-[#00AEEF]/30 rotate-6 group-hover:rotate-0' 
+                            : 'bg-gray-100 text-gray-400 group-hover:bg-gray-200'
+                        }`}>
+                          <Icon size={22} strokeWidth={isEnabled ? 2.5 : 2} />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className={`text-sm font-black capitalize tracking-tight ${isEnabled ? 'text-gray-900' : 'text-gray-500'}`}>
+                            {key}
+                          </span>
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                            {isEnabled ? 'Access Granted' : 'No Access'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className={`w-12 h-6 rounded-full transition-all duration-300 relative p-1 ${isEnabled ? 'bg-[#00AEEF]' : 'bg-gray-200'}`}>
+                        <motion.div 
+                          animate={{ x: isEnabled ? 24 : 0 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                          className="w-4 h-4 bg-white rounded-full shadow-sm"
+                        />
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              <div className="p-8 bg-gray-50/50 border-t border-gray-100 flex flex-col sm:flex-row gap-4">
+                <button 
+                  onClick={() => setIsPermissionsModalOpen(false)}
+                  className="flex-1 py-4 px-8 bg-white border border-gray-200 text-gray-600 rounded-2xl font-black text-sm hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm active:scale-95"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleUpdatePermissions}
+                  disabled={isUpdatingPermissions}
+                  className="flex-1 py-4 px-8 bg-[#141414] text-white rounded-2xl font-black text-sm hover:bg-black transition-all shadow-xl shadow-black/10 disabled:opacity-50 flex items-center justify-center gap-3 active:scale-95 translate-y-0 hover:-translate-y-1"
+                >
+                  {isUpdatingPermissions ? (
+                    <Loader2 size={20} className="animate-spin" />
+                  ) : (
+                    <>
+                      <CheckCircle2 size={20} />
+                      Save Permissions
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }

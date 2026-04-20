@@ -31,9 +31,7 @@ import {
   Mail,
   Check,
   Circle,
-  Download,
-  PanelLeftClose,
-  PanelLeftOpen
+  Download
 } from 'lucide-react';
 import { db, auth, signOut, collection, query, where, orderBy, onSnapshot, limit } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
