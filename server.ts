@@ -63,143 +63,151 @@ async function getDb() {
   log(`[getDb] Starting initialization. Project: ${projectId}, Database: ${dbId}`);
   
   try {
-    log(`[getDb] Initializing Client SDK Firestore for project: ${projectId}, database: ${dbId}`);
-    const clientApp = getClientApps().length > 0 
-      ? getClientApp() 
-      : initializeClientApp(firebaseConfig);
-    const clientDb = getClientFirestore(clientApp, dbId);
+    // Prefer Admin SDK as it bypasses security rules and is more robust for server-side logic
+    log(`[getDb] Initializing Admin SDK Firestore for database: ${dbId}`);
+    db = getFirestore(admin.app(), dbId);
     
-    // Create a shim to mimic Admin SDK API
-    db = {
-      collection: (path: string) => {
-        const colRef = collection(clientDb, path);
-        return {
-          add: (data: any) => addDoc(colRef, data),
-          doc: (id?: string) => {
-            const docRef = id ? doc(clientDb, path, id) : doc(colRef);
-            return {
-              id: docRef.id,
-              set: (data: any, options?: any) => setDoc(docRef, data, options),
-              update: (data: any) => updateDoc(docRef, data),
-              delete: () => deleteDoc(docRef),
-              get: async () => {
-                const snap = await getDoc(docRef);
-                return {
-                  exists: snap.exists(),
-                  id: snap.id,
-                  data: () => snap.data(),
-                  get: (field: string) => snap.get(field)
-                };
-              }
-            };
-          },
-          get: async () => {
-            const snap = await getDocs(colRef);
-            return {
-              size: snap.size,
-              empty: snap.empty,
-              docs: snap.docs.map(d => ({
-                id: d.id,
-                data: () => d.data(),
-                get: (f: string) => d.get(f)
-              })),
-              forEach: (cb: any) => snap.docs.forEach(d => cb({
-                id: d.id,
-                data: () => d.data(),
-                get: (f: string) => d.get(f)
-              }))
-            };
-          },
-          where: (field: string, op: any, value: any) => {
-            let q = query(colRef, where(field, op, value));
-            const queryWrapper = (currentQ: any) => ({
-              orderBy: (f: string, d: any = 'asc') => queryWrapper(query(currentQ, orderBy(f, d))),
-              limit: (n: number) => queryWrapper(query(currentQ, limit(n))),
-              get: async () => {
-                const snap = await getDocs(currentQ);
-                return {
-                  size: snap.size,
-                  empty: snap.empty,
-                  docs: snap.docs.map(d => ({
-                    id: d.id,
-                    data: () => d.data(),
-                    get: (f: string) => d.get(f)
-                  })),
-                  forEach: (cb: any) => snap.docs.forEach(d => cb({
-                    id: d.id,
-                    data: () => d.data(),
-                    get: (f: string) => d.get(f)
-                  }))
-                };
-              }
-            });
-            return queryWrapper(q);
-          },
-          orderBy: (field: string, dir: any = 'asc') => {
-            let q = query(colRef, orderBy(field, dir));
-            const queryWrapper = (currentQ: any) => ({
-              where: (f: string, o: any, v: any) => queryWrapper(query(currentQ, where(f, o, v))),
-              limit: (n: number) => queryWrapper(query(currentQ, limit(n))),
-              get: async () => {
-                const snap = await getDocs(currentQ);
-                return {
-                  size: snap.size,
-                  empty: snap.empty,
-                  docs: snap.docs.map(d => ({
-                    id: d.id,
-                    data: () => d.data(),
-                    get: (f: string) => d.get(f)
-                  })),
-                  forEach: (cb: any) => snap.docs.forEach(d => cb({
-                    id: d.id,
-                    data: () => d.data(),
-                    get: (f: string) => d.get(f)
-                  }))
-                };
-              }
-            });
-            return queryWrapper(q);
-          },
-          limit: (n: number) => {
-            let q = query(colRef, limit(n));
-            const queryWrapper = (currentQ: any) => ({
-              where: (f: string, o: any, v: any) => queryWrapper(query(currentQ, where(f, o, v))),
-              orderBy: (f: string, d: any = 'asc') => queryWrapper(query(currentQ, orderBy(f, d))),
-              get: async () => {
-                const snap = await getDocs(currentQ);
-                return {
-                  size: snap.size,
-                  empty: snap.empty,
-                  docs: snap.docs.map(d => ({
-                    id: d.id,
-                    data: () => d.data(),
-                    get: (f: string) => d.get(f)
-                  })),
-                  forEach: (cb: any) => snap.docs.forEach(d => cb({
-                    id: d.id,
-                    data: () => d.data(),
-                    get: (f: string) => d.get(f)
-                  }))
-                };
-              }
-            });
-            return queryWrapper(q);
-          }
-        };
-      }
-    };
-    
-    activeDbId = dbId;
-    
-    // Health check
-    log(`[getDb] Running health check on ${dbId}...`);
+    // Health check verification
     const snapshot = await db.collection('health_check').limit(1).get();
-    log(`[getDb] Health check success for ${dbId}. Found ${snapshot.size} docs.`);
-    
+    log(`[getDb] Admin SDK Health check success. Found ${snapshot.size || 0} docs.`);
+    activeDbId = dbId;
     return db;
-  } catch (e: any) {
-    log(`[getDb] Initialization of Client SDK Firestore failed: ${e.message}`);
-    throw e;
+  } catch (adminErr: any) {
+    log(`[getDb] Admin SDK initialization failed: ${adminErr.message}. Attempting Client SDK shim as fallback...`);
+    
+    try {
+      const clientApp = getClientApps().length > 0 
+        ? getClientApp() 
+        : initializeClientApp(firebaseConfig);
+      const clientDb = getClientFirestore(clientApp, dbId);
+      
+      // Create a shim to mimic the Admin SDK API using the Client SDK
+      db = {
+        collection: (path: string) => {
+          const colRef = collection(clientDb, path);
+          return {
+            add: (data: any) => addDoc(colRef, data),
+            doc: (id?: string) => {
+              const docRef = id ? doc(clientDb, path, id) : doc(colRef);
+              return {
+                id: docRef.id,
+                set: (data: any, options?: any) => setDoc(docRef, data, options),
+                update: (data: any) => updateDoc(docRef, data),
+                delete: () => deleteDoc(docRef),
+                get: async () => {
+                  const snap = await getDoc(docRef);
+                  return {
+                    exists: snap.exists(),
+                    id: snap.id,
+                    data: () => snap.data(),
+                    get: (field: string) => snap.get(field)
+                  };
+                }
+              };
+            },
+            get: async () => {
+              const snap = await getDocs(colRef);
+              return {
+                size: snap.size,
+                empty: snap.empty,
+                docs: snap.docs.map(d => ({
+                  id: d.id,
+                  data: () => d.data(),
+                  get: (f: string) => d.get(f)
+                })),
+                forEach: (cb: any) => snap.docs.forEach(d => cb({
+                  id: d.id,
+                  data: () => d.data(),
+                  get: (f: string) => d.get(f)
+                }))
+              };
+            },
+            where: (field: string, op: any, value: any) => {
+              let q = query(colRef, where(field, op, value));
+              const queryWrapper = (currentQ: any) => ({
+                orderBy: (f: string, d: any = 'asc') => queryWrapper(query(currentQ, orderBy(f, d))),
+                limit: (n: number) => queryWrapper(query(currentQ, limit(n))),
+                get: async () => {
+                  const snap = await getDocs(currentQ);
+                  return {
+                    size: snap.size,
+                    empty: snap.empty,
+                    docs: snap.docs.map(d => ({
+                      id: d.id,
+                      data: () => d.data(),
+                      get: (f: string) => d.get(f)
+                    })),
+                    forEach: (cb: any) => snap.docs.forEach(d => cb({
+                      id: d.id,
+                      data: () => d.data(),
+                      get: (f: string) => d.get(f)
+                    }))
+                  };
+                }
+              });
+              return queryWrapper(q);
+            },
+            orderBy: (field: string, dir: any = 'asc') => {
+              let q = query(colRef, orderBy(field, dir));
+              const queryWrapper = (currentQ: any) => ({
+                where: (f: string, o: any, v: any) => queryWrapper(query(currentQ, where(f, o, v))),
+                limit: (n: number) => queryWrapper(query(currentQ, limit(n))),
+                get: async () => {
+                  const snap = await getDocs(currentQ);
+                  return {
+                    size: snap.size,
+                    empty: snap.empty,
+                    docs: snap.docs.map(d => ({
+                      id: d.id,
+                      data: () => d.data(),
+                      get: (f: string) => d.get(f)
+                    })),
+                    forEach: (cb: any) => snap.docs.forEach(d => cb({
+                      id: d.id,
+                      data: () => d.data(),
+                      get: (f: string) => d.get(f)
+                    }))
+                  };
+                }
+              });
+              return queryWrapper(q);
+            },
+            limit: (n: number) => {
+              let q = query(colRef, limit(n));
+              const queryWrapper = (currentQ: any) => ({
+                where: (f: string, o: any, v: any) => queryWrapper(query(currentQ, where(f, o, v))),
+                orderBy: (f: string, d: any = 'asc') => queryWrapper(query(currentQ, orderBy(f, d))),
+                get: async () => {
+                  const snap = await getDocs(currentQ);
+                  return {
+                    size: snap.size,
+                    empty: snap.empty,
+                    docs: snap.docs.map(d => ({
+                      id: d.id,
+                      data: () => d.data(),
+                      get: (f: string) => d.get(f)
+                    })),
+                    forEach: (cb: any) => snap.docs.forEach(d => cb({
+                      id: d.id,
+                      data: () => d.data(),
+                      get: (f: string) => d.get(f)
+                    }))
+                  };
+                }
+              });
+              return queryWrapper(q);
+            }
+          };
+        }
+      };
+      
+      activeDbId = dbId;
+      log(`[getDb] Client SDK fallback successful for ${dbId}. Note: This mode follows security rules.`);
+      return db;
+    } catch (clientErr: any) {
+      log(`[getDb] Critical Error: Both Admin and Client SDK initialization failed: ${clientErr.message}`);
+      throw clientErr;
+    }
   }
 }
 

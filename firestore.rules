@@ -1,8 +1,103 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.get('email_verified', false) == true;
+    }
+
+    function isAdmin() {
+       return isVerified() && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'staff') == 'admin' || request.auth.token.email == 'mhshorol@gmail.com');
+    }
+
+    function isOwner(userId) {
+      return isVerified() && request.auth.uid == userId;
+    }
+
+    function hasModulePermission(module) {
+      return isVerified() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('active', false) == true && 
+             (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'staff') == 'admin' || 
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('permissions', {}).get(module, false) == true);
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isVerified();
+      allow create: if isOwner(userId) && request.resource.data.get('role', 'staff') == 'staff';
+      allow update: if isAdmin() || (isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'photoURL', 'lastLogin']));
+    }
+
+    match /orders/{id} {
+      allow get: if hasModulePermission('orders') || hasModulePermission('pos');
+      allow list: if isVerified();
+      allow create: if (hasModulePermission('orders') || hasModulePermission('pos'));
+      allow update: if (hasModulePermission('orders') || hasModulePermission('pos')) && resource.data.get('status', 'pending') != 'delivered';
+      allow delete: if isAdmin();
+    }
+
+    match /customers/{id} {
+      allow get: if isVerified();
+      allow list: if isVerified();
+      allow create, update: if hasModulePermission('crm') || hasModulePermission('pos');
+    }
+
+    match /products/{id} {
+      allow read: if isVerified();
+      allow write: if hasModulePermission('inventory');
+    }
+
+    match /variants/{id} {
+      allow read: if isVerified();
+      allow write: if hasModulePermission('inventory');
+    }
+
+    match /inventory/{id} {
+      allow read: if isVerified();
+      allow write: if hasModulePermission('inventory');
+    }
+
+    match /activityLogs/{id} {
+      allow read: if isAdmin();
+      allow create: if isVerified() && request.resource.data.get('userId', '') == request.auth.uid;
+    }
+
+    match /notifications/{id} {
+      allow get: if isVerified() && request.auth.uid in resource.data.get('recipients', []);
+      allow list: if isVerified() && request.auth.uid in resource.data.get('recipients', []);
+      allow update: if isVerified() && request.auth.uid in resource.data.get('recipients', []) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']);
+    }
+
+    match /settings/{id} {
+      allow get: if isVerified();
+      allow write: if isAdmin();
+    }
+
+    match /health_check/{id} {
+      allow read, write: if isSignedIn();
+    }
+    
+    // Add generic catch-all for other collections used in the app
+    match /warehouses/{id} { allow read: if isVerified(); allow write: if hasModulePermission('inventory'); }
+    match /categories/{id} { allow read: if isVerified(); allow write: if hasModulePermission('inventory'); }
+    match /brands/{id} { allow read: if isVerified(); allow write: if hasModulePermission('inventory'); }
+    match /accounts/{id} { allow read: if hasModulePermission('finance'); allow write: if hasModulePermission('finance'); }
+    match /transactions/{id} { allow read: if hasModulePermission('finance'); allow create: if isVerified(); allow update, delete: if isAdmin(); }
+    match /suppliers/{id} { allow read: if hasModulePermission('suppliers'); allow write: if hasModulePermission('suppliers'); }
+    match /purchaseOrders/{id} { allow read, write: if hasModulePermission('suppliers') || hasModulePermission('inventory'); }
+    match /supplierPayments/{id} { allow read, write: if hasModulePermission('suppliers') || hasModulePermission('finance'); }
+    match /couriers/{id} { allow read, write: if hasModulePermission('logistics'); }
+    match /deliveries/{id} { allow read, write: if hasModulePermission('logistics'); }
+    match /courier_configs/{id} { allow read, write: if isAdmin(); }
+    match /courier_logs/{id} { allow read, write: if isAdmin(); }
+    match /tasks/{id} { allow read, write: if hasModulePermission('tasks'); }
   }
 }

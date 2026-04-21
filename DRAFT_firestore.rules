@@ -1,0 +1,217 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Phase 3: Primitive Definitions ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function getUserData() {
+      // Use get() to fetch user data for RBAC
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasPermission(module) {
+      let data = getUserData();
+      return isVerified() && data.active == true && (data.role == 'admin' || data.permissions[module] == true);
+    }
+
+    function isAdmin() {
+       // Super Admin Check
+       return isVerified() && (getUserData().role == 'admin' || request.auth.token.email == 'mhshorol@gmail.com');
+    }
+
+    function isOwner(userId) {
+      return isVerified() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- Validation Helpers (Blueprints) ---
+
+    function isValidUser(data) {
+      return data.size() >= 5 
+        && data.email is string && data.email.size() <= 256
+        && data.role in ['admin', 'manager', 'staff']
+        && data.active is boolean;
+    }
+
+    function isValidOrder(data) {
+      return data.size() >= 5
+        && data.customerId is string && isValidId(data.customerId)
+        && data.totalAmount is number && data.totalAmount >= 0
+        && data.status is string && data.status.size() <= 32
+        && data.createdAt == request.time;
+    }
+
+    function isTerminalStatus(data) {
+      return data.status in ['delivered', 'cancelled', 'returned'];
+    }
+
+    // --- Collection Matches ---
+
+    // 1. User & Identity
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().role == 'staff' && incoming().active == false;
+      allow update: if (isAdmin() && isValidUser(incoming())) || 
+                    (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'photoURL', 'lastLogin']) && isValidUser(incoming()));
+    }
+
+    // 2. Orders & Sales
+    match /orders/{orderId} {
+      allow read: if hasPermission('orders') || hasPermission('pos');
+      allow create: if (hasPermission('orders') || hasPermission('pos')) && isValidOrder(incoming());
+      allow update: if (hasPermission('orders') || hasPermission('pos')) && 
+                    !isTerminalStatus(existing()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['status', 'paidAmount', 'dueAmount', 'notes', 'updatedAt', 'courierStatus', 'trackingNumber', 'logs']) &&
+                    incoming().updatedAt == request.time;
+      allow delete: if isAdmin();
+    }
+
+    // 3. CRM & Customers
+    match /customers/{customerId} {
+      allow read: if hasPermission('crm') || hasPermission('pos') || hasPermission('orders');
+      allow create, update: if (hasPermission('crm') || hasPermission('pos')) && incoming().size() >= 2;
+      allow delete: if isAdmin();
+    }
+
+    // 4. Inventory & Catalog
+    match /products/{id} {
+      allow read: if isSignedIn();
+      allow write: if hasPermission('inventory');
+    }
+    match /variants/{id} {
+      allow read: if isSignedIn();
+      allow write: if hasPermission('inventory');
+    }
+    match /inventory/{id} {
+      allow read: if isSignedIn();
+      allow write: if hasPermission('inventory');
+    }
+    match /inventoryLogs/{id} {
+      allow read: if hasPermission('inventory');
+      allow create: if hasPermission('inventory') && incoming().createdAt == request.time;
+    }
+    match /categories/{id} {
+      allow read: if isSignedIn();
+      allow write: if hasPermission('inventory');
+    }
+    match /brands/{id} {
+      allow read: if isSignedIn();
+      allow write: if hasPermission('inventory');
+    }
+    match /warehouses/{id} {
+      allow read: if isSignedIn();
+      allow write: if hasPermission('inventory');
+    }
+
+    // 5. Finance
+    match /accounts/{id} {
+      allow read, write: if hasPermission('finance');
+    }
+    match /transactions/{id} {
+      allow read: if hasPermission('finance');
+      allow create: if (hasPermission('finance') || hasPermission('pos') || hasPermission('suppliers') || hasPermission('hr')) && incoming().createdAt == request.time;
+      allow update, delete: if isAdmin();
+    }
+    match /petty_cash/{id} {
+      allow read, write: if hasPermission('finance');
+    }
+
+    // 6. Suppliers
+    match /suppliers/{id} {
+      allow read, write: if hasPermission('suppliers');
+    }
+    match /purchaseOrders/{id} {
+      allow read, write: if hasPermission('suppliers') || hasPermission('inventory');
+    }
+    match /supplierPayments/{id} {
+      allow read, write: if hasPermission('suppliers') || hasPermission('finance');
+    }
+
+    // 7. Logistics
+    match /couriers/{id} {
+      allow read, write: if hasPermission('logistics');
+    }
+    match /deliveries/{id} {
+      allow read, write: if hasPermission('logistics') || hasPermission('orders');
+    }
+    match /courier_configs/{id} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+    match /courier_logs/{id} {
+      allow read: if isAdmin();
+      allow create: if isVerified(); // System generated logs
+    }
+
+    // 8. HR & Team
+    match /employees/{id} {
+      allow read, write: if hasPermission('hr');
+    }
+    match /designations/{id} {
+      allow read, write: if hasPermission('hr');
+    }
+    match /attendance/{id} {
+      allow read, write: if hasPermission('hr');
+    }
+    match /salaryAdvances/{id} {
+      allow read, write: if hasPermission('hr');
+    }
+    match /salaryRecords/{id} {
+      allow read, write: if hasPermission('hr');
+    }
+    match /tasks/{id} {
+      allow read: if hasPermission('tasks');
+      allow create: if hasPermission('tasks');
+      allow update: if hasPermission('tasks') && (incoming().assignedTo == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // 9. Logs & Notifications
+    match /activityLogs/{id} {
+      allow read: if isAdmin();
+      allow create: if isVerified() && incoming().userId == request.auth.uid && incoming().timestamp == request.time;
+    }
+    match /notifications/{id} {
+      allow get: if isVerified() && request.auth.uid in existing().recipients;
+      allow list: if isVerified() && request.auth.uid in resource.data.recipients;
+      allow update: if isVerified() && request.auth.uid in existing().recipients && incoming().diff(existing()).affectedKeys().hasOnly(['readBy']);
+    }
+
+    // 10. System Admin
+    match /settings/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /health_check/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /woocommerce_logs/{id} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
