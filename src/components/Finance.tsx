@@ -99,7 +99,7 @@ const COA_STRUCTURE = {
   Equity: ['Owner Investment', 'Retained Earnings', 'Owner Withdraw'],
   Income: ['Product Sales', 'Delivery Charge Income', 'Discount Adjustment', 'Other Income'],
   COGS: ['Product Cost', 'Packaging Cost', 'Delivery Cost'],
-  Expenses: ['Marketing', 'Salary', 'Rent', 'Utilities', 'Courier Charge', 'Misc Expenses']
+  Expenses: ['Marketing', 'Salary', 'Rent', 'Utilities', 'Courier Charge', 'Damage & Wastage', 'Misc Expenses']
 };
 
 function Finance() {

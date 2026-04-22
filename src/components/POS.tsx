@@ -285,7 +285,8 @@ export default function POS() {
   const total = subtotal - discount + tax;
 
   const handleCheckout = async () => {
-    if (cart.length === 0) {
+    const validCart = cart.filter(item => item.quantity > 0);
+    if (validCart.length === 0) {
       toast.error('Cart is empty');
       return;
     }
@@ -300,7 +301,7 @@ export default function POS() {
       const duplicate = await checkDuplicateOrder({
         customerPhone: selectedCustomer.phone,
         customerName: selectedCustomer.name,
-        items: cart.map(item => ({
+        items: validCart.map(item => ({
           productId: item.productId,
           variantId: item.variantId || '',
           quantity: item.quantity,
@@ -330,10 +331,11 @@ export default function POS() {
 
   const proceedWithCheckout = async () => {
     setIsProcessing(true);
+    const validCart = cart.filter(item => item.quantity > 0);
     try {
       // 1. PRE-TRANSACTION READS
       const inventorySnaps: { item: any; snap: any }[] = [];
-      for (const item of cart) {
+      for (const item of validCart) {
         const invQuery = query(
           collection(db, 'inventory'), 
           where('productId', '==', item.productId),
@@ -384,7 +386,7 @@ export default function POS() {
           customerName: selectedCustomer!.name,
           customerPhone: selectedCustomer!.phone,
           customerAddress: selectedCustomer!.address || '',
-          items: cart.map(item => ({
+          items: validCart.map(item => ({
             productId: item.productId,
             variantId: item.variantId || '',
             name: item.name,
@@ -424,7 +426,7 @@ export default function POS() {
               updatedAt: serverTimestamp()
             });
 
-            // Log stock change
+            // Log stock change (legacy)
             const logRef = doc(collection(db, 'stock_logs'));
             transaction.set(logRef, {
               productId: item.productId,
@@ -435,6 +437,21 @@ export default function POS() {
               reason: `POS Sale #${nextOrderNumber}`,
               uid: auth.currentUser?.uid,
               createdAt: serverTimestamp()
+            });
+
+            // Stock Ledger for Valuation
+            const ledgerRef = doc(collection(db, 'stockLedger'));
+            transaction.set(ledgerRef, {
+              productId: item.productId,
+              variantId: item.variantId || '',
+              warehouseId: invDoc.data().warehouseId || 'primary',
+              type: 'sale',
+              quantity: -item.quantity,
+              unitCost: 0, // Calculated during valuation via FIFO
+              totalValue: 0,
+              referenceId: orderRef.id,
+              uid: auth.currentUser?.uid,
+              timestamp: serverTimestamp()
             });
           }
         }
@@ -857,16 +874,21 @@ export default function POS() {
                         </button>
                         <input 
                           type="number"
-                          className="text-[12px] font-bold w-10 text-center bg-white border border-gray-200 rounded outline-none focus:border-[#00AEEF] py-0.5"
-                          value={item.quantity}
+                          className="text-[12px] font-bold w-12 text-center bg-white border border-gray-200 rounded outline-none focus:border-[#00AEEF] py-0.5 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+                          value={item.quantity === 0 ? '' : item.quantity}
+                          onBlur={() => {
+                            if (item.quantity === 0) {
+                              removeFromCart(item.id);
+                            }
+                          }}
                           onChange={(e) => {
                             const val = parseInt(e.target.value);
-                            if (isNaN(val)) return;
-                            if (val > item.stock) {
+                            const newQty = isNaN(val) ? 0 : val;
+                            if (newQty > item.stock) {
                               toast.error('Cannot exceed available stock');
                               return;
                             }
-                            setCart(cart.map(i => i.id === item.id ? { ...i, quantity: val } : i).filter(i => i.quantity > 0));
+                            setCart(cart.map(i => i.id === item.id ? { ...i, quantity: newQty } : i));
                           }}
                         />
                         <button 

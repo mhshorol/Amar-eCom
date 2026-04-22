@@ -52,18 +52,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check connection on mount
-    const checkConnection = async () => {
-      try {
-        await getDocFromServer(doc(db, 'health_check', 'connection_test'));
-      } catch (error: any) {
-        if (error.message?.includes('offline')) {
-          toast.error("Database is offline. Please check your connection or Firebase setup.");
-        }
-      }
-    };
-    checkConnection();
-
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {

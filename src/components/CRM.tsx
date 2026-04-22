@@ -31,6 +31,7 @@ import {
   updateDoc
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
@@ -56,6 +57,7 @@ interface Customer {
 }
 
 export default function CRM() {
+  const { user } = useAuth();
   const { currencySymbol } = useSettings();
   const [searchTerm, setSearchTerm] = useState('');
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -111,7 +113,7 @@ export default function CRM() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!selectedCustomer) return;

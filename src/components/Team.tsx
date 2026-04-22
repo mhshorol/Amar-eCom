@@ -61,7 +61,7 @@ export default function Team() {
   const [isUpdatingPermissions, setIsUpdatingPermissions] = useState(false);
 
   useEffect(() => {
-    if (!auth.currentUser) return;
+    if (!currentUser) return;
 
     // Subscribe to users
     const unsubUsers = onSnapshot(query(collection(db, 'users'), orderBy('name', 'asc')), (snapshot) => {
@@ -86,7 +86,7 @@ export default function Team() {
       unsubUsers();
       unsubLogs();
     };
-  }, []);
+  }, [currentUser]);
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();

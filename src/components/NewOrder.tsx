@@ -348,8 +348,11 @@ export default function NewOrder() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth.currentUser) return;
-    if (orderForm.items.length === 0) {
-      toast.error("Please add at least one item.");
+    
+    // Filter out zero-quantity items
+    const validItems = orderForm.items.filter(item => item.quantity > 0);
+    if (validItems.length === 0) {
+      toast.error("Please add at least one item with a valid quantity.");
       return;
     }
     if (!orderForm.warehouseId) {
@@ -359,12 +362,12 @@ export default function NewOrder() {
 
     setLoading(true);
     try {
-      const { subtotal, totalAmount, dueAmount } = calculateTotals(orderForm.items, orderForm.deliveryCharge, orderForm.discount, orderForm.paidAmount);
+      const { subtotal, totalAmount, dueAmount } = calculateTotals(validItems, orderForm.deliveryCharge, orderForm.discount, orderForm.paidAmount);
       
       const duplicate = await checkDuplicateOrder({
         customerPhone: orderForm.customerPhone,
         customerName: orderForm.customerName,
-        items: orderForm.items,
+        items: validItems,
         totalAmount: totalAmount
       });
 
@@ -389,6 +392,7 @@ export default function NewOrder() {
 
   const proceedWithSubmit = async (subtotal: number, totalAmount: number, dueAmount: number) => {
     setLoading(true);
+    const validItems = orderForm.items.filter(item => item.quantity > 0);
     try {
       const logEntry = {
         user: auth.currentUser?.email,
@@ -399,6 +403,7 @@ export default function NewOrder() {
 
       const data = {
         ...orderForm,
+        items: validItems,
         subtotal,
         totalAmount,
         dueAmount,
@@ -411,7 +416,7 @@ export default function NewOrder() {
       const customerSnap = await getDocs(customerQuery);
 
       const inventorySnaps: { item: any; snap: any }[] = [];
-      for (const item of orderForm.items) {
+      for (const item of validItems) {
         const invQuery = query(
           collection(db, 'inventory'),
           where('productId', '==', item.productId),
@@ -833,9 +838,12 @@ export default function NewOrder() {
                     </button>
                     <input 
                       type="number" 
-                      className="w-full text-center py-2.5 sm:py-3 text-xs outline-none"
-                      value={newItem.quantity || 0}
-                      onChange={e => setNewItem({...newItem, quantity: parseInt(e.target.value) || 0})}
+                      className="w-full text-center py-2.5 sm:py-3 text-xs outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+                      value={newItem.quantity === 0 ? '' : newItem.quantity}
+                      onChange={e => {
+                        const val = parseInt(e.target.value);
+                        setNewItem({...newItem, quantity: isNaN(val) ? 0 : val});
+                      }}
                     />
                     <button 
                       type="button"
@@ -903,12 +911,12 @@ export default function NewOrder() {
                         </button>
                         <input 
                           type="number"
-                          className="w-8 text-center bg-transparent text-[10px] font-bold outline-none"
-                          value={item.quantity}
+                          className="w-10 text-center bg-transparent text-[10px] font-bold outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+                          value={item.quantity === 0 ? '' : item.quantity}
                           onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
+                            const val = parseInt(e.target.value);
                             const newItems = [...orderForm.items];
-                            newItems[idx].quantity = val;
+                            newItems[idx].quantity = isNaN(val) ? 0 : val;
                             setOrderForm({...orderForm, items: newItems});
                           }}
                         />

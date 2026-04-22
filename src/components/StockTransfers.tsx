@@ -28,6 +28,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { format } from 'date-fns';
@@ -46,6 +47,7 @@ interface StockTransfer {
 }
 
 export default function StockTransfers() {
+  const { user: authUser } = useAuth();
   const [transfers, setTransfers] = useState<StockTransfer[]>([]);
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,7 +60,7 @@ export default function StockTransfers() {
   });
 
   useEffect(() => {
-    if (!auth.currentUser) return;
+    if (!authUser) return;
     const q = query(collection(db, 'stock_transfers'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setTransfers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StockTransfer[]);
@@ -80,7 +82,7 @@ export default function StockTransfers() {
       unsubscribe();
       wUnsubscribe();
     };
-  }, []);
+  }, [authUser]);
 
   const handleUpdateStatus = async (transferId: string, newStatus: string) => {
     try {
@@ -92,7 +94,7 @@ export default function StockTransfers() {
       batch.update(transferRef, { 
         status: newStatus, 
         updatedAt: serverTimestamp(),
-        ...(newStatus === 'approved' ? { approvedBy: auth.currentUser?.uid } : {})
+        ...(newStatus === 'approved' ? { approvedBy: authUser?.uid } : {})
       });
 
       // If received, update inventory for both warehouses
@@ -136,7 +138,7 @@ export default function StockTransfers() {
               variantId: item.variantId || null,
               warehouseId: transferData.toWarehouseId,
               quantity: item.quantity,
-              uid: auth.currentUser?.uid,
+              uid: authUser?.uid,
               lastStockUpdate: serverTimestamp()
             });
           }

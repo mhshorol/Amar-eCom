@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Search, 
   Plus, 
@@ -39,10 +39,12 @@ import {
   updateDoc
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import ConfirmModal from './ConfirmModal';
+import CourierReconciliation from './CourierReconciliation';
 
 interface Delivery {
   id: string;
@@ -67,6 +69,7 @@ interface Courier {
 }
 
 export default function Logistics() {
+  const { user } = useAuth();
   const { settings } = useSettings();
   const [searchTerm, setSearchTerm] = useState('');
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
@@ -74,7 +77,7 @@ export default function Logistics() {
   const [loading, setLoading] = useState(true);
   const [courierConfigs, setCourierConfigs] = useState<Record<string, any>>({});
   const [courierLogs, setCourierLogs] = useState<any[]>([]);
-  const [activeSubTab, setActiveSubTab] = useState<'shipments' | 'pending' | 'couriers' | 'logs'>('shipments');
+  const [activeSubTab, setActiveSubTab] = useState<'shipments' | 'pending' | 'couriers' | 'logs' | 'reconciliation'>('shipments');
   const [orderMap, setOrderMap] = useState<Record<string, number>>({});
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -256,6 +259,7 @@ export default function Logistics() {
   };
 
   useEffect(() => {
+    if (!user) return;
     const qDeliveries = query(collection(db, 'deliveries'), orderBy('createdAt', 'desc'));
     const qCouriers = query(collection(db, 'couriers'), orderBy('name', 'asc'));
     
@@ -308,7 +312,7 @@ export default function Logistics() {
       unsubscribeCouriers();
       unsubscribePending();
     };
-  }, []);
+  }, [user]);
 
   const handleBulkBook = async () => {
     const activeCouriers = Object.entries(courierConfigs)
@@ -655,80 +659,99 @@ export default function Logistics() {
     toast.success('Deliveries exported successfully');
   };
 
-  const filteredDeliveries = deliveries.filter(delivery => {
+  const filteredDeliveries = useMemo(() => deliveries.filter(delivery => {
     const mappedOrderNum = delivery.orderNumber ?? orderMap[delivery.orderId] ?? '';
     const searchableOrderNum = String(mappedOrderNum).toLowerCase();
+    const searchLower = searchTerm.toLowerCase();
     
-    return delivery.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    delivery.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    searchableOrderNum.includes(searchTerm.toLowerCase()) ||
-    delivery.courier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    delivery.location.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+    return delivery.id.toLowerCase().includes(searchLower) ||
+    delivery.orderId.toLowerCase().includes(searchLower) ||
+    searchableOrderNum.includes(searchLower) ||
+    delivery.courier.toLowerCase().includes(searchLower) ||
+    delivery.location.toLowerCase().includes(searchLower);
+  }), [deliveries, orderMap, searchTerm]);
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold text-[#141414] tracking-tight">Logistics & Delivery</h2>
-          <p className="text-sm text-gray-500 mt-1">Track shipments, manage courier partners, and optimize routes.</p>
+      <div className="flex flex-col gap-6">
+        {/* Title and Top Actions */}
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          <div className="shrink-0">
+            <h2 className="text-3xl font-bold text-[#141414] tracking-tight">Logistics & Delivery</h2>
+            <p className="text-sm text-gray-500 mt-1">Track shipments, manage courier partners, and optimize routes.</p>
+          </div>
+          
+          <div className="flex items-center gap-3 overflow-x-auto pb-2 xl:pb-0 hide-scrollbar w-full xl:w-auto">
+            <button 
+              onClick={handleExportCSV}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-full text-[13px] font-semibold hover:bg-gray-50 transition-colors shrink-0"
+            >
+              <Download size={16} />
+              Export CSV
+            </button>
+            <button 
+              onClick={handleOpenAddDeliveryModal}
+              className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#141414] text-white rounded-full text-[13px] font-semibold hover:bg-black transition-colors shadow-sm cursor-pointer shrink-0"
+            >
+              <Plus size={16} />
+              Add Shipment
+            </button>
+            <button 
+              onClick={handleOpenAddCourierModal}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-full text-[13px] font-semibold hover:bg-gray-50 transition-colors shrink-0"
+            >
+              <Plus size={16} />
+              Connect Courier
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
+
+        {/* Tabs */}
+        <div className="flex items-center gap-3 overflow-x-auto pb-2 hide-scrollbar w-full">
           <button 
-            onClick={handleExportCSV}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+            onClick={() => setActiveSubTab('shipments')}
+            className={`px-5 py-2.5 rounded-full text-[13px] font-semibold transition-all shrink-0 ${activeSubTab === 'shipments' ? 'bg-[#141414] text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
           >
-            <Download size={16} />
-            Export CSV
+            Shipments
           </button>
           <button 
-            onClick={handleOpenAddDeliveryModal}
-            className="flex items-center gap-2 px-4 py-2 bg-[#141414] text-white rounded-lg text-sm font-medium hover:bg-black transition-colors"
+            onClick={() => setActiveSubTab('pending')}
+            className={`px-5 py-2.5 rounded-full text-[13px] font-semibold transition-all shrink-0 flex items-center gap-2 ${activeSubTab === 'pending' ? 'bg-[#141414] text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
           >
-            <Plus size={16} />
-            Add Shipment
+            Pending Ready-to-Ship
+            {pendingOrders.length > 0 && (
+              <span className={`px-1.5 py-0.5 text-[10px] rounded-full font-bold ${activeSubTab === 'pending' ? 'bg-white/20 text-white' : 'bg-[#00AEEF] text-white'}`}>
+                {pendingOrders.length}
+              </span>
+            )}
           </button>
           <button 
-            onClick={handleOpenAddCourierModal}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+            onClick={() => setActiveSubTab('couriers')}
+            className={`px-5 py-2.5 rounded-full text-[13px] font-semibold transition-all shrink-0 ${activeSubTab === 'couriers' ? 'bg-[#141414] text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
           >
-            <Plus size={16} />
-            Connect Courier
+            Courier Partners
+          </button>
+          <button 
+            onClick={() => setActiveSubTab('reconciliation')}
+            className={`px-5 py-2.5 rounded-full text-[13px] font-semibold transition-all shrink-0 ${activeSubTab === 'reconciliation' ? 'bg-[#141414] text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
+          >
+            Charge Reconciliation
+          </button>
+          <button 
+            onClick={() => setActiveSubTab('logs')}
+            className={`px-5 py-2.5 rounded-full text-[13px] font-semibold transition-all shrink-0 ${activeSubTab === 'logs' ? 'bg-[#141414] text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
+          >
+            API Logs
           </button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-xl w-fit">
-        <button 
-          onClick={() => setActiveSubTab('shipments')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeSubTab === 'shipments' ? 'bg-white text-[#141414] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          Shipments
-        </button>
-        <button 
-          onClick={() => setActiveSubTab('pending')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeSubTab === 'pending' ? 'bg-white text-[#141414] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          Pending
-          {pendingOrders.length > 0 && (
-            <span className="px-1.5 py-0.5 bg-[#00AEEF] text-white text-[10px] rounded-full font-bold">{pendingOrders.length}</span>
-          )}
-        </button>
-        <button 
-          onClick={() => setActiveSubTab('couriers')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeSubTab === 'couriers' ? 'bg-white text-[#141414] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          Courier Partners
-        </button>
-        <button 
-          onClick={() => setActiveSubTab('logs')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeSubTab === 'logs' ? 'bg-white text-[#141414] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          API Logs
-        </button>
-      </div>
+       {activeSubTab === 'reconciliation' && (
+         <div className="animate-in fade-in duration-300">
+            <CourierReconciliation />
+         </div>
+       )}
 
        {activeSubTab === 'couriers' && (
         <div className="space-y-8 animate-in fade-in duration-300">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   TrendingUp, 
   Users, 
@@ -97,25 +97,11 @@ export default function Dashboard() {
   const { currencySymbol } = useSettings();
   const { user: authUser } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalAmount: 0,
-    totalPaid: 0,
-    totalDue: 0,
-    totalCustomer: 0,
-    totalProduct: 0,
-    totalInvoice: 0,
-    totalPaidInvoice: 0,
-    totalDueInvoice: 0
-  });
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
-
-  const [monthlyPerformance, setMonthlyPerformance] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [customersCount, setCustomersCount] = useState<number>(0);
+  
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [dailyRevenue, setDailyRevenue] = useState<any[]>([]);
-  const [bestSellingProducts, setBestSellingProducts] = useState<any[]>([]);
-  const [lowStockProducts, setLowStockProducts] = useState<any[]>([]);
-  const [returnRate, setReturnRate] = useState(0);
-  const [teamPerformance, setTeamPerformance] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
@@ -141,109 +127,7 @@ export default function Dashboard() {
     setLoading(true);
 
     const unsubOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
-      const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
-      const totalAmount = orders.reduce((acc, o: any) => acc + (o.totalAmount || 0), 0);
-      const totalPaid = orders.reduce((acc, o: any) => acc + (o.paidAmount || 0), 0);
-      const totalDue = orders.reduce((acc, o: any) => acc + (o.dueAmount || 0), 0);
-      const totalInvoice = orders.length;
-      const totalPaidInvoice = orders.filter((o: any) => o.status?.toLowerCase() === 'delivered').length;
-      const totalDueInvoice = orders.filter((o: any) => o.status?.toLowerCase() !== 'delivered' && o.status?.toLowerCase() !== 'cancelled').length;
-
-      const cancelledOrders = orders.filter((o: any) => o.status?.toLowerCase() === 'cancelled').length;
-      const returnedOrders = orders.filter((o: any) => o.status?.toLowerCase() === 'returned').length;
-      const totalReturns = cancelledOrders + returnedOrders;
-      setReturnRate(totalInvoice > 0 ? Math.round((totalReturns / totalInvoice) * 100) : 0);
-
-      setStats(prev => ({
-        ...prev,
-        totalAmount,
-        totalPaid,
-        totalDue,
-        totalInvoice,
-        totalPaidInvoice,
-        totalDueInvoice
-      }));
-      
-      const sortedOrders = orders.sort((a: any, b: any) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
-      setRecentOrders(sortedOrders.slice(0, 10));
-
-      // Calculate Best Selling Products
-      const productSales: { [key: string]: { name: string, quantity: number, revenue: number } } = {};
-      orders.forEach((order: any) => {
-        if (order.items && Array.isArray(order.items)) {
-          order.items.forEach((item: any) => {
-            const key = item.productId || item.id;
-            if (!productSales[key]) {
-              productSales[key] = { name: item.name, quantity: 0, revenue: 0 };
-            }
-            productSales[key].quantity += (item.quantity || 0);
-            productSales[key].revenue += (item.price || 0) * (item.quantity || 0);
-          });
-        }
-      });
-
-      const bestSelling = Object.values(productSales)
-        .sort((a, b) => b.quantity - a.quantity)
-        .slice(0, 5);
-      setBestSellingProducts(bestSelling);
-
-      // Team Performance
-      const teamStats: { [key: string]: { name: string, total: number, processed: number } } = {};
-      orders.forEach((order: any) => {
-        if (order.uid) {
-          if (!teamStats[order.uid]) {
-            teamStats[order.uid] = { name: order.uid, total: 0, processed: 0 };
-          }
-          teamStats[order.uid].total++;
-          if (order.status?.toLowerCase() !== 'pending' && order.status?.toLowerCase() !== 'cancelled') {
-            teamStats[order.uid].processed++;
-          }
-        }
-      });
-      setTeamPerformance(Object.values(teamStats).map(c => ({
-        ...c,
-        name: teamMembers[c.name] || 'Team Member',
-        rate: Math.round((c.processed / c.total) * 100)
-      })));
-
-      // Monthly Performance for current year
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const monthlyData = months.map((month, index) => {
-        const monthOrders = orders.filter((o: any) => {
-          const date = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : null);
-          return date && date.getMonth() === index && date.getFullYear() === selectedYear;
-        });
-        const revenue = monthOrders.reduce((acc, o: any) => acc + (o.totalAmount || 0), 0);
-        // Mock profit as 40-70% of revenue for realistic charts if no expense logic is linked
-        const profit = revenue * (0.4 + Math.random() * 0.3);
-        return {
-          name: month,
-          orders: revenue,
-          profit: profit
-        };
-      });
-      setMonthlyPerformance(monthlyData);
-
-      // Daily Revenue for last 7 days
-      const last7Days = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        return d.toISOString().split('T')[0];
-      }).reverse();
-
-      const dailyData = last7Days.map(date => {
-        const dayOrders = orders.filter((o: any) => {
-          const orderDate = o.createdAt?.toDate ? o.createdAt.toDate().toISOString().split('T')[0] : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000).toISOString().split('T')[0] : '');
-          return orderDate === date;
-        });
-        return {
-          name: date,
-          value: dayOrders.reduce((acc, o: any) => acc + (o.totalAmount || 0), 0)
-        };
-      });
-      setDailyRevenue(dailyData);
-
+      setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
     }, (error) => {
       setLoading(false);
@@ -253,7 +137,7 @@ export default function Dashboard() {
     });
 
     const unsubCustomers = onSnapshot(collection(db, 'customers'), (snapshot) => {
-      setStats(prev => ({ ...prev, totalCustomer: snapshot.size }));
+      setCustomersCount(snapshot.size);
     }, (error) => {
       if (error.code !== 'permission-denied') {
         handleFirestoreError(error, OperationType.LIST, 'customers');
@@ -261,11 +145,7 @@ export default function Dashboard() {
     });
 
     const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
-      const prods = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      setStats(prev => ({ ...prev, totalProduct: prods.length }));
-      
-      const lowStock = prods.filter((p: any) => (p.stock || 0) <= (p.minStock || 5));
-      setLowStockProducts(lowStock.slice(0, 5));
+      setProducts(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (error) => {
       if (error.code !== 'permission-denied') {
         handleFirestoreError(error, OperationType.LIST, 'products');
@@ -277,7 +157,120 @@ export default function Dashboard() {
       unsubCustomers();
       unsubProducts();
     };
-  }, [authUser, teamMembers]);
+  }, [authUser]); // Removed teamMembers from dep array to avoid infinite loop
+
+  const memoizedStats = useMemo(() => {
+    const totalAmount = orders.reduce((acc, o: any) => acc + (o.totalAmount || 0), 0);
+    const totalPaid = orders.reduce((acc, o: any) => acc + (o.paidAmount || 0), 0);
+    const totalDue = orders.reduce((acc, o: any) => acc + (o.dueAmount || 0), 0);
+    const totalInvoice = orders.length;
+    const totalPaidInvoice = orders.filter((o: any) => o.status?.toLowerCase() === 'delivered').length;
+    const totalDueInvoice = orders.filter((o: any) => o.status?.toLowerCase() !== 'delivered' && o.status?.toLowerCase() !== 'cancelled').length;
+
+    const cancelledOrders = orders.filter((o: any) => o.status?.toLowerCase() === 'cancelled').length;
+    const returnedOrders = orders.filter((o: any) => o.status?.toLowerCase() === 'returned').length;
+    const totalReturns = cancelledOrders + returnedOrders;
+    const returnRateCalc = totalInvoice > 0 ? Math.round((totalReturns / totalInvoice) * 100) : 0;
+
+    return {
+      totalAmount,
+      totalPaid,
+      totalDue,
+      totalInvoice,
+      totalPaidInvoice,
+      totalDueInvoice,
+      returnRate: returnRateCalc,
+      totalCustomer: customersCount,
+      totalProduct: products.length
+    };
+  }, [orders, customersCount, products.length]);
+
+  const stats = memoizedStats;
+  const returnRate = memoizedStats.returnRate;
+
+  const recentOrders = useMemo(() => {
+    return [...orders].sort((a: any, b: any) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)).slice(0, 10);
+  }, [orders]);
+
+  const bestSellingProducts = useMemo(() => {
+    const productSales: { [key: string]: { name: string, quantity: number, revenue: number } } = {};
+    orders.forEach((order: any) => {
+      if (order.items && Array.isArray(order.items)) {
+        order.items.forEach((item: any) => {
+          const key = item.productId || item.id;
+          if (!productSales[key]) {
+            productSales[key] = { name: item.name, quantity: 0, revenue: 0 };
+          }
+          productSales[key].quantity += (item.quantity || 0);
+          productSales[key].revenue += (item.price || 0) * (item.quantity || 0);
+        });
+      }
+    });
+
+    return Object.values(productSales)
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 5);
+  }, [orders]);
+
+  const teamPerformance = useMemo(() => {
+    const teamStats: { [key: string]: { name: string, total: number, processed: number } } = {};
+    orders.forEach((order: any) => {
+      if (order.uid) {
+        if (!teamStats[order.uid]) {
+          teamStats[order.uid] = { name: order.uid, total: 0, processed: 0 };
+        }
+        teamStats[order.uid].total++;
+        if (order.status?.toLowerCase() !== 'pending' && order.status?.toLowerCase() !== 'cancelled') {
+          teamStats[order.uid].processed++;
+        }
+      }
+    });
+    return Object.values(teamStats).map(c => ({
+      ...c,
+      name: teamMembers[c.name] || 'Team Member',
+      rate: Math.round((c.processed / c.total) * 100)
+    }));
+  }, [orders, teamMembers]);
+
+  const monthlyPerformance = useMemo(() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months.map((month, index) => {
+      const monthOrders = orders.filter((o: any) => {
+        const date = o.createdAt?.toDate ? o.createdAt.toDate() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : null);
+        return date && date.getMonth() === index && date.getFullYear() === selectedYear;
+      });
+      const revenue = monthOrders.reduce((acc, o: any) => acc + (o.totalAmount || 0), 0);
+      const profit = revenue * (0.4 + Math.random() * 0.3);
+      return {
+        name: month,
+        orders: revenue,
+        profit: profit
+      };
+    });
+  }, [orders, selectedYear]);
+
+  const dailyRevenue = useMemo(() => {
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      return d.toISOString().split('T')[0];
+    }).reverse();
+
+    return last7Days.map(date => {
+      const dayOrders = orders.filter((o: any) => {
+        const orderDate = o.createdAt?.toDate ? o.createdAt.toDate().toISOString().split('T')[0] : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000).toISOString().split('T')[0] : '');
+        return orderDate === date;
+      });
+      return {
+        name: date,
+        value: dayOrders.reduce((acc, o: any) => acc + (o.totalAmount || 0), 0)
+      };
+    });
+  }, [orders]);
+
+  const lowStockProducts = useMemo(() => {
+    return products.filter((p: any) => (p.stock || 0) <= (p.minStock || 5)).slice(0, 5);
+  }, [products]);
 
   const barData = dailyRevenue;
 

@@ -20,6 +20,7 @@ export interface CourierInterface {
   checkFraud?(phone: string): Promise<any>;
   getCities(): Promise<any>;
   getZones(cityId: string): Promise<any>;
+  getDeliveryCharge?(trackingId: string, orderData?: any): Promise<number | null>;
 }
 
 export class SteadfastAdapter implements CourierInterface {

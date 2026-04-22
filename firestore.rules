@@ -11,11 +11,14 @@ service cloud.firestore {
     }
 
     function isVerified() {
-      return isSignedIn() && request.auth.token.get('email_verified', false) == true;
+      return isSignedIn() && (request.auth.token.get('email_verified', false) == true || request.auth.token.email == 'mhshorol@gmail.com');
     }
 
     function isAdmin() {
-       return isVerified() && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'staff') == 'admin' || request.auth.token.email == 'mhshorol@gmail.com');
+       return isSignedIn() && (
+         request.auth.token.email == 'mhshorol@gmail.com' ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'staff') == 'admin')
+       );
     }
 
     function isOwner(userId) {
@@ -24,9 +27,12 @@ service cloud.firestore {
 
     function hasModulePermission(module) {
       return isVerified() && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('active', false) == true && 
-             (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'staff') == 'admin' || 
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('permissions', {}).get(module, false) == true);
+             (request.auth.token.email == 'mhshorol@gmail.com' || (
+               exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('active', false) == true && 
+               (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'staff') == 'admin' || 
+                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('permissions', {}).get(module, false) == true)
+             ));
     }
 
     match /users/{userId} {
@@ -70,6 +76,10 @@ service cloud.firestore {
       allow create: if isVerified() && request.resource.data.get('userId', '') == request.auth.uid;
     }
 
+    match /rma_requests/{id} {
+      allow read, write: if hasModulePermission('orders');
+    }
+
     match /notifications/{id} {
       allow get: if isVerified() && request.auth.uid in resource.data.get('recipients', []);
       allow list: if isVerified() && request.auth.uid in resource.data.get('recipients', []);
@@ -77,12 +87,12 @@ service cloud.firestore {
     }
 
     match /settings/{id} {
-      allow get: if isVerified();
+      allow read: if true;
       allow write: if isAdmin();
     }
 
     match /health_check/{id} {
-      allow read, write: if isSignedIn();
+      allow read, write: if true;
     }
     
     // Add generic catch-all for other collections used in the app
@@ -92,12 +102,17 @@ service cloud.firestore {
     match /accounts/{id} { allow read: if hasModulePermission('finance'); allow write: if hasModulePermission('finance'); }
     match /transactions/{id} { allow read: if hasModulePermission('finance'); allow create: if isVerified(); allow update, delete: if isAdmin(); }
     match /suppliers/{id} { allow read: if hasModulePermission('suppliers'); allow write: if hasModulePermission('suppliers'); }
+    match /stock_transfers/{id} { allow read: if isVerified(); allow write: if hasModulePermission('inventory'); }
     match /purchaseOrders/{id} { allow read, write: if hasModulePermission('suppliers') || hasModulePermission('inventory'); }
     match /supplierPayments/{id} { allow read, write: if hasModulePermission('suppliers') || hasModulePermission('finance'); }
     match /couriers/{id} { allow read, write: if hasModulePermission('logistics'); }
     match /deliveries/{id} { allow read, write: if hasModulePermission('logistics'); }
-    match /courier_configs/{id} { allow read, write: if isAdmin(); }
+    match /courier_configs/{id} { allow read: if true; allow write: if isAdmin(); }
     match /courier_logs/{id} { allow read, write: if isAdmin(); }
     match /tasks/{id} { allow read, write: if hasModulePermission('tasks'); }
+    match /purchaseBatches/{id} { allow read: if isVerified(); allow write: if hasModulePermission('inventory'); }
+    match /stockLedger/{id} { allow read: if isVerified(); allow write: if hasModulePermission('inventory'); }
+    match /performanceMetrics/{id} { allow read: if hasModulePermission('dashboard') || hasModulePermission('hr'); allow write: if isAdmin(); }
+    match /kpiConfigs/{id} { allow read: if isVerified(); allow write: if isAdmin(); }
   }
 }

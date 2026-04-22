@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { 
   ShoppingCart,
@@ -53,6 +53,7 @@ import {
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import type { DraggableProvided, DraggableStateSnapshot, DroppableProvided } from '@hello-pangea/dnd';
 import { db, auth, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, Timestamp, doc, updateDoc, deleteDoc, writeBatch, getDocs, getDoc, where, arrayUnion, runTransaction, limit } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
 import { openPrintWindow } from '../utils/printHelper';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -108,6 +109,7 @@ const StatusBadge = ({ status, onClick, isOpen }: { status: string; onClick?: (e
 };
 
 export default function Orders() {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const { settings, currencySymbol } = useSettings();
   const [searchTerm, setSearchTerm] = useState('');
@@ -389,7 +391,7 @@ export default function Orders() {
   const statuses = ['urgent', 'hold', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'partial_delivered', 'cancelled', 'returned'];
 
   useEffect(() => {
-    if (!auth.currentUser) return;
+    if (!user) return;
     const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), source: 'local' })));
@@ -435,7 +437,7 @@ export default function Orders() {
       unsubInventory();
       unsubSettings();
     };
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     const fetchWooOrders = async () => {
@@ -1581,30 +1583,34 @@ export default function Orders() {
     toast.success('Orders exported successfully');
   };
 
-  const filteredOrders = [...orders, ...wooOrders].filter(order => {
-    const matchesSearch = 
-      order.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customerPhone?.includes(searchTerm) ||
-      order.orderNumber?.toString().includes(searchTerm);
-    
-    const matchesTab = activeTab === 'All' || order.status === activeTab;
-    
-    const date = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
-    const now = new Date();
-    let matchesDate = true;
-    if (dateFilter === 'today') {
-      matchesDate = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    } else if (dateFilter === 'month') {
-      matchesDate = date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    }
-    
-    return matchesSearch && matchesTab && matchesDate;
-  }).sort((a, b) => {
-    const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-    const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
-    return dateB.getTime() - dateA.getTime();
-  });
+  const combinedOrders = useMemo(() => [...orders, ...wooOrders], [orders, wooOrders]);
+
+  const filteredOrders = useMemo(() => {
+    return combinedOrders.filter(order => {
+      const matchesSearch = 
+        order.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.customerPhone?.includes(searchTerm) ||
+        order.orderNumber?.toString().includes(searchTerm);
+      
+      const matchesTab = activeTab === 'All' || order.status === activeTab;
+      
+      const date = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+      const now = new Date();
+      let matchesDate = true;
+      if (dateFilter === 'today') {
+        matchesDate = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+      } else if (dateFilter === 'month') {
+        matchesDate = date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+      }
+      
+      return matchesSearch && matchesTab && matchesDate;
+    }).sort((a, b) => {
+      const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+      const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+      return dateB.getTime() - dateA.getTime();
+    });
+  }, [combinedOrders, searchTerm, activeTab, dateFilter]);
 
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const paginatedOrders = filteredOrders.slice(
@@ -1612,7 +1618,7 @@ export default function Orders() {
     currentPage * itemsPerPage
   );
 
-  const allO = [...orders, ...wooOrders].filter(order => {
+  const allO = useMemo(() => combinedOrders.filter(order => {
     const date = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
     const now = new Date();
     if (dateFilter === 'today') {
@@ -1621,9 +1627,9 @@ export default function Orders() {
       return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
     }
     return true;
-  });
+  }), [combinedOrders, dateFilter]);
 
-  const getStats = (statusFilter?: string) => {
+  const getStats = useCallback((statusFilter?: string) => {
     const filterFn = (o: any) => !statusFilter || o.status === statusFilter;
     
     const currentOrders = allO.filter(filterFn);
@@ -1648,10 +1654,8 @@ export default function Orders() {
       prevStart = new Date(); prevStart.setDate(now.getDate() - 60);
       prevEnd = new Date(); prevEnd.setDate(now.getDate() - 30);
     }
-
-    const baseOrders = [...orders, ...wooOrders];
     
-    const previousPeriodCount = baseOrders.filter(o => {
+    const previousPeriodCount = combinedOrders.filter(o => {
       if (!filterFn(o)) return false;
       const d = o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt);
       return d >= prevStart && d < prevEnd;
@@ -1670,12 +1674,19 @@ export default function Orders() {
     }
 
     return { count, revenue, growth: { value: growthValueStr, isPositive } };
-  };
+  }, [allO, combinedOrders, dateFilter]);
 
-  const totalStats = getStats();
-  const completedStats = getStats('delivered');
-  const pendingStats = getStats('pending');
-  const cancelledStats = getStats('cancelled');
+  const statsMap = useMemo(() => ({
+    total: getStats(),
+    completed: getStats('delivered'),
+    pending: getStats('pending'),
+    cancelled: getStats('cancelled'),
+  }), [getStats]);
+
+  const totalStats = statsMap.total;
+  const completedStats = statsMap.completed;
+  const pendingStats = statsMap.pending;
+  const cancelledStats = statsMap.cancelled;
 
   const statCards = [
     { label: 'Total Orders', stats: totalStats, icon: Package, iconBg: 'bg-blue-100/50', iconColor: 'text-[#065F6B]' },

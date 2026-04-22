@@ -23,7 +23,9 @@ import {
   Barcode as BarcodeIcon
 } from 'lucide-react';
 import { db, auth, storage, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, writeBatch, getDoc, getDocs, where, ref, uploadBytes, getDownloadURL } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
 import { logActivity } from '../services/activityService';
+import { ValuationService } from '../services/valuationService';
 import Barcode from 'react-barcode';
 import { openPrintWindow } from '../utils/printHelper';
 import { toast } from 'sonner';
@@ -56,6 +58,7 @@ const StockBadge = ({ stock }: { stock: number }) => {
 };
 
 export default function Inventory() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { currencySymbol } = useSettings();
   const [activeTab, setActiveTab] = useState<'products' | 'warehouses' | 'stock' | 'purchases' | 'suppliers' | 'returns' | 'logs' | 'reports' | 'transfers'>('products');
@@ -97,7 +100,7 @@ export default function Inventory() {
   });
 
   useEffect(() => {
-    if (!auth.currentUser) return;
+    if (!user) return;
 
     const unsubscribes: (() => void)[] = [];
 
@@ -128,7 +131,7 @@ export default function Inventory() {
     });
 
     return () => unsubscribes.forEach(unsub => unsub());
-  }, []);
+  }, [user]);
 
   const handleDeleteProduct = async (id: string) => {
     setConfirmConfig({
@@ -555,9 +558,11 @@ function PurchasesTab({ pos, suppliers, products, variants, onAdd, setConfirmCon
             const inventoryRef = doc(db, 'inventory', inventoryId);
             const inventorySnap = await getDoc(inventoryRef);
 
+            const newQuantity = (inventorySnap.exists() ? inventorySnap.data().quantity : 0) + item.quantity;
+
             if (inventorySnap.exists()) {
               batch.update(inventoryRef, {
-                quantity: inventorySnap.data().quantity + item.quantity,
+                quantity: newQuantity,
                 updatedAt: serverTimestamp()
               });
             } else {
@@ -572,7 +577,35 @@ function PurchasesTab({ pos, suppliers, products, variants, onAdd, setConfirmCon
               });
             }
 
-            // Log
+            // Record Movement and Valuation Batch
+            const movementRef = doc(collection(db, 'stockLedger'));
+            batch.set(movementRef, {
+              productId: item.productId,
+              variantId: item.variantId || null,
+              warehouseId: targetWarehouseId,
+              type: 'purchase',
+              quantity: item.quantity,
+              unitCost: item.costPrice,
+              totalValue: item.quantity * item.costPrice,
+              referenceId: po.id,
+              uid: auth.currentUser?.uid,
+              timestamp: serverTimestamp()
+            });
+
+            const purchaseBatchRef = doc(collection(db, 'purchaseBatches'));
+            batch.set(purchaseBatchRef, {
+              productId: item.productId,
+              variantId: item.variantId || null,
+              warehouseId: targetWarehouseId,
+              quantity: item.quantity,
+              originalQuantity: item.quantity,
+              unitCost: item.costPrice,
+              supplierId: po.supplierId,
+              purchaseDate: serverTimestamp(),
+              uid: auth.currentUser?.uid
+            });
+
+            // Legacy log for backward compatibility
             const logRef = doc(collection(db, 'inventoryLogs'));
             batch.set(logRef, {
               productId: item.productId,
@@ -580,7 +613,7 @@ function PurchasesTab({ pos, suppliers, products, variants, onAdd, setConfirmCon
               warehouseId: targetWarehouseId,
               action: 'purchase',
               quantityChange: item.quantity,
-              newQuantity: (inventorySnap.exists() ? inventorySnap.data().quantity : 0) + item.quantity,
+              newQuantity: newQuantity,
               referenceId: po.id,
               uid: auth.currentUser?.uid,
               createdAt: serverTimestamp()
@@ -1009,6 +1042,7 @@ function AdjustmentModal({ isOpen, onClose, products, variants, warehouses }: an
     try {
       const batch = writeBatch(db);
       const adjQty = form.type === 'in' ? form.quantity : -form.quantity;
+      const unitCost = products.find((p: any) => p.id === form.productId)?.costPrice || 0;
       
       const inventoryId = `${form.warehouseId}_${form.productId}_${form.variantId || 'none'}`;
       const inventoryRef = doc(db, 'inventory', inventoryId);
@@ -1036,13 +1070,61 @@ function AdjustmentModal({ isOpen, onClose, products, variants, warehouses }: an
         productId: form.productId,
         variantId: form.variantId || null,
         warehouseId: form.warehouseId,
-        action: form.type === 'in' ? 'stock_in' : 'stock_out',
+        action: form.type === 'in' ? 'stock_in' : (form.type === 'damage' ? 'damage_out' : 'stock_out'),
         quantityChange: adjQty,
         newQuantity: (inventorySnap.exists() ? inventorySnap.data().quantity : 0) + adjQty,
-        reason: form.reason,
+        reason: form.reason || (form.type === 'damage' ? 'Damaged / Wastage' : ''),
         uid: auth.currentUser?.uid,
         createdAt: serverTimestamp()
       });
+
+      // Valuation Ledger
+      const movementRef = doc(collection(db, 'stockLedger'));
+      batch.set(movementRef, {
+        productId: form.productId,
+        variantId: form.variantId || null,
+        warehouseId: form.warehouseId,
+        type: form.type === 'damage' ? 'damage' : 'adjustment',
+        quantity: adjQty,
+        unitCost: unitCost,
+        totalValue: adjQty * unitCost,
+        referenceId: 'manual_adj',
+        uid: auth.currentUser?.uid,
+        timestamp: serverTimestamp()
+      });
+
+      if (form.type === 'in') {
+        const purchaseBatchRef = doc(collection(db, 'purchaseBatches'));
+        batch.set(purchaseBatchRef, {
+          productId: form.productId,
+          variantId: form.variantId || null,
+          warehouseId: form.warehouseId,
+          quantity: form.quantity,
+          originalQuantity: form.quantity,
+          unitCost: unitCost,
+          supplierId: 'adjustment',
+          purchaseDate: serverTimestamp(),
+          uid: auth.currentUser?.uid
+        });
+      }
+
+      // If damage, record an expense in Finance
+      if (form.type === 'damage') {
+        const txnRef = doc(collection(db, 'transactions'));
+        batch.set(txnRef, {
+          type: 'expense',
+          category: 'Expenses',
+          subCategory: 'Damage & Wastage',
+          amount: Math.abs(adjQty) * unitCost,
+          method: 'System', // Using System method
+          accountId: 'inventory_asset', // Virtual account for inventory adjustments
+          status: 'completed',
+          notes: form.reason || 'Damage/Wastage Adjustment',
+          date: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          uid: auth.currentUser?.uid
+        });
+      }
 
       await batch.commit();
       onClose();
@@ -1093,6 +1175,7 @@ function AdjustmentModal({ isOpen, onClose, products, variants, warehouses }: an
               <select className="w-full p-3 bg-gray-50 rounded-xl outline-none border border-transparent focus:border-gray-200" value={form.type} onChange={e => setForm({...form, type: e.target.value})}>
                 <option value="in">Stock In (+)</option>
                 <option value="out">Stock Out (-)</option>
+                <option value="damage">Damage / Wastage (-)</option>
               </select>
             </div>
             <div className="space-y-1">

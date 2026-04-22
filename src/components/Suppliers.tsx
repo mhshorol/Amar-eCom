@@ -21,12 +21,14 @@ import {
   X as CloseIcon
 } from 'lucide-react';
 import { db, auth, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy, where, runTransaction } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
 import { Supplier, PurchaseOrder, SupplierPayment, Account } from '../types';
 import { toast } from 'sonner';
 import ConfirmModal from './ConfirmModal';
 import { useSettings } from '../contexts/SettingsContext';
 
 export default function Suppliers() {
+  const { user } = useAuth();
   const { currencySymbol } = useSettings();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
@@ -71,7 +73,7 @@ export default function Suppliers() {
   });
 
   useEffect(() => {
-    if (!auth.currentUser) return;
+    if (!user) return;
     const unsubscribeSuppliers = onSnapshot(
       query(collection(db, 'suppliers'), orderBy('name')),
       (snapshot) => {
@@ -128,7 +130,7 @@ export default function Suppliers() {
       unsubscribePayments();
       unsubscribeAccounts();
     };
-  }, []);
+  }, [user]);
 
   const handleSupplierSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

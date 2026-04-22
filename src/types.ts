@@ -309,7 +309,66 @@ export interface SalaryRecord {
   bonus: number;
   netSalary: number;
   status: 'Paid' | 'Pending';
-  paidAt?: any;
   uid: string;
   createdAt: any;
+}
+
+export interface PerformanceMetric {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  role: 'Sales' | 'Support' | 'Operations' | 'Delivery';
+  period: string; // YYYY-MM or YYYY-WW
+  metrics: {
+    // Sales
+    ordersHandled?: number;
+    revenueGenerated?: number;
+    conversionRate?: number;
+    // Support
+    responseTime?: number; // minutes
+    resolutionRate?: number;
+    customerSatisfaction?: number;
+    // Operations
+    processingTime?: number;
+    errorRate?: number;
+    // Delivery
+    successRate?: number;
+    returnRatio?: number;
+  };
+  kpiScore: number;
+  rank?: number;
+  updatedAt: any;
+}
+
+export interface PurchaseBatch {
+  id: string;
+  productId: string;
+  variantId?: string;
+  quantity: number;
+  originalQuantity: number;
+  unitCost: number;
+  supplierId: string;
+  warehouseId: string;
+  purchaseDate: any;
+  expiryDate?: any;
+}
+
+export interface KPIConfig {
+  id: string;
+  role: string;
+  weights: Record<string, number>;
+  updatedAt: any;
+}
+
+export interface StockLedger {
+  id: string;
+  productId: string;
+  variantId?: string;
+  type: 'purchase' | 'sale' | 'return' | 'adjustment' | 'transfer' | 'damaged';
+  quantity: number;
+  unitCost: number;
+  totalValue: number;
+  warehouseId: string;
+  referenceId: string;
+  timestamp: any;
 }

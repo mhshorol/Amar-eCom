@@ -37,6 +37,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   Designation, 
   Employee, 
@@ -51,6 +52,7 @@ import ConfirmModal from './ConfirmModal';
 type HRTab = 'designations' | 'employees' | 'attendance' | 'salary';
 
 const HR: React.FC = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<HRTab>('employees');
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -110,7 +112,7 @@ const HR: React.FC = () => {
   });
 
   useEffect(() => {
-    if (!auth.currentUser) return;
+    if (!user) return;
     const unsubDesignations = onSnapshot(query(collection(db, 'designations'), orderBy('createdAt', 'desc')), (snapshot) => {
       setDesignations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Designation)));
     }, (error) => {
@@ -158,7 +160,7 @@ const HR: React.FC = () => {
       unsubAdvances();
       unsubSalaries();
     };
-  }, []);
+  }, [user]);
 
   // Designation Actions
   const handleDesignationSubmit = async (e: React.FormEvent) => {

@@ -1,6 +1,6 @@
 import { initializeApp, getApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { getFirestore, initializeFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, onSnapshot, updateDoc, deleteDoc, addDoc, serverTimestamp, Timestamp, getDocFromServer, orderBy, writeBatch, arrayUnion, runTransaction, limit } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, onSnapshot, updateDoc, deleteDoc, addDoc, serverTimestamp, Timestamp, getDocFromServer, orderBy, writeBatch, arrayUnion, runTransaction, limit, memoryLocalCache } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -25,9 +25,12 @@ export const getDb = () => {
   
   const dbId = firebaseConfig.firestoreDatabaseId;
   const settings = {
-    // Standardizing on forced long polling as experimentalAutoDetectLongPolling 
-    // cannot be used simultaneously with experimentalForceLongPolling.
+    // Forcing long polling is the most stable approach in proxied container environments
+    // where gRPC streams often time out or get abruptly disconnected.
     experimentalForceLongPolling: true,
+    // Using memory-only cache to prevent potential index/protocol corruption 
+    // on disk which can lead to internal SDK assertion failures.
+    localCache: memoryLocalCache(),
   };
 
   if (dbId) {

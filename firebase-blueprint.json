@@ -182,6 +182,55 @@
         "isActive": { "type": "boolean" },
         "updatedAt": { "type": "string", "format": "date-time" }
       }
+    },
+    "purchaseBatch": {
+      "title": "Purchase Batch",
+      "description": "Inventory stock batches for valuation (FIFO/LIFO)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "variantId": { "type": "string" },
+        "quantity": { "type": "number", "description": "Current quantity in this batch" },
+        "originalQuantity": { "type": "number" },
+        "unitCost": { "type": "number" },
+        "supplierId": { "type": "string" },
+        "warehouseId": { "type": "string" },
+        "purchaseDate": { "type": "string", "format": "date-time" },
+        "expiryDate": { "type": "string", "format": "date-time" }
+      }
+    },
+    "stockLedger": {
+      "title": "Stock Ledger",
+      "description": "Detailed log of every stock movement",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "variantId": { "type": "string" },
+        "type": { "type": "string", "enum": ["purchase", "sale", "return", "adjustment", "transfer", "damaged"] },
+        "quantity": { "type": "number", "description": "Positive for stock in, negative for stock out" },
+        "unitCost": { "type": "number" },
+        "totalValue": { "type": "number" },
+        "warehouseId": { "type": "string" },
+        "referenceId": { "type": "string", "description": "Order ID, Purchase ID, etc." },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "performanceMetric": {
+      "title": "Performance Metric",
+      "description": "Employee performance scores and KPIs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "role": { "type": "string" },
+        "period": { "type": "string" },
+        "kpiScore": { "type": "number" },
+        "metrics": { "type": "object" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "firestore": {
@@ -209,6 +258,10 @@
     "courier_configs": { "schema": "courier_config", "description": "Courier API settings" },
     "courier_logs": { "schema": "object", "description": "API request logs" },
     "hrm": { "schema": "object", "description": "HR module data" },
+    "performanceMetrics": { "schema": "performanceMetric", "description": "Employee KPI tracking" },
+    "kpiConfigs": { "schema": "object", "description": "KPI weight configurations" },
+    "purchaseBatches": { "schema": "purchaseBatch", "description": "Inventory cost batches" },
+    "stockLedger": { "schema": "stockLedger", "description": "Historical stock movements" },
     "settings": { "schema": "object", "description": "App settings" }
   }
 }

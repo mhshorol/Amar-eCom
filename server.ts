@@ -40,6 +40,16 @@ import {
 } from 'firebase/firestore';
 
 // Initialize Firebase Admin
+try {
+  admin.initializeApp({
+    credential: admin.credential.applicationDefault(),
+    projectId: firebaseConfig.projectId
+  });
+  console.log('Firebase Admin initialized with applicationDefault()');
+} catch (e: any) {
+  console.log('Admin initializeApp failed or already initialized:', e.message);
+}
+
 let db: any = null;
 let activeDbId: string | null = null;
 
