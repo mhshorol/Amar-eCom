@@ -699,21 +699,29 @@ export default function Orders() {
           headers: { Accept: "application/json" },
         });
 
-        const contentType = response.headers.get("content-type") || "";
-        if (!contentType.includes("application/json")) {
-          const text = await response.text();
-          throw new Error(
-            `Server returned non-JSON response (${response.status}). Please reload the page.`,
-          );
+        if (response.status === 429) {
+          console.warn("WooCommerce API rate limit exceeded (429).");
+          return;
         }
 
-        const data = await (response.headers
-          .get("content-type")
-          ?.includes("json")
-          ? response.json()
-          : Promise.reject(
-              new Error("Invalid non-JSON response from server."),
-            ));
+        let text = "";
+        try {
+          text = await response.text();
+        } catch (e) {
+           console.error("Failed to read response body", e);
+        }
+
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          console.warn(`Server returned invalid JSON (${response.status})`, text.slice(0, 500));
+          // If it's a 200 but not JSON, it might be an HTML error page from a proxy
+          if (response.status === 200) {
+              console.warn("Got 200 OK but HTML. Possible proxy interception.");
+          }
+          return;
+        }
 
         if (response.ok) {
           const mappedWooOrders = (data.orders || []).map((order: any) => ({
