@@ -6,14 +6,14 @@ import axios from 'axios';
 import admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import cors from 'cors';
-import { CourierFactory } from '../src/lib/courierAdapters.ts';
-import type { CourierOrderData } from '../src/lib/courierAdapters.ts';
+import { CourierFactory, CourierOrderData } from './src/lib/courierAdapters.ts';
 import fs from 'fs';
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const firebaseConfig = require('../firebase-applet-config.json');
 
 const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load Firebase Config
+const firebaseConfig = JSON.parse(fs.readFileSync(path.join(__dirname, 'firebase-applet-config.json'), 'utf8'));
 
 import { 
   initializeApp as initializeClientApp, 
@@ -222,45 +222,7 @@ async function getDb() {
   }
 }
 
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-app.use(async (req, res, next) => {
-  if (!db && req.path.startsWith('/api/')) {
-    try {
-      if (admin.apps.length === 0) {
-        if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-          try {
-            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-            admin.initializeApp({
-              credential: admin.credential.cert(serviceAccount),
-              projectId: firebaseConfig.projectId || serviceAccount.project_id
-            });
-            console.log('Initialized Firebase Admin with FIREBASE_SERVICE_ACCOUNT');
-          } catch (e) {
-            console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT:', e);
-            admin.initializeApp({
-              credential: admin.credential.applicationDefault(),
-              projectId: firebaseConfig.projectId
-            });
-          }
-        } else {
-          admin.initializeApp({
-            credential: admin.credential.applicationDefault(),
-            projectId: firebaseConfig.projectId
-          });
-        }
-      }
-      await getDb();
-    } catch (e) {
-      console.error("Express DB Init Error:", e);
-    }
-  }
-  next();
-});
-
-async function setupFirebase() {
+async function startServer() {
   try {
     log('Environment Check: ' + JSON.stringify({
       K_SERVICE: process.env.K_SERVICE,
@@ -268,12 +230,11 @@ async function setupFirebase() {
       NODE_ENV: process.env.NODE_ENV
     }));
     
+    const originalProject = process.env.GOOGLE_CLOUD_PROJECT;
+    
     if (admin.apps.length === 0) {
       log('Initializing Firebase Admin with default credentials');
-      admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
-        projectId: firebaseConfig.projectId
-      });
+      admin.initializeApp();
     }
     
     // Initial DB connection
@@ -309,12 +270,15 @@ async function setupFirebase() {
   } catch (error) {
     console.error('Firebase Admin initialization failed:', error);
   }
-} // End of setupFirebase()
 
-const PORT = 3000;
+  const app = express();
+  const PORT = 3000;
 
-// Test route
-app.get('/api/test', (req, res) => {
+  app.use(cors());
+  app.use(express.json());
+
+  // Test route
+  app.get('/api/test', (req, res) => {
     res.json({ message: 'API is working' });
   });
 
@@ -1008,9 +972,6 @@ app.get('/api/test', (req, res) => {
     res.status(404).json({ error: `API route ${req.method} ${req.url} not found` });
   });
 
-async function startServer() {
-  await setupFirebase();
-
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     console.log('Starting server in DEVELOPMENT mode');
@@ -1033,8 +994,4 @@ async function startServer() {
   });
 }
 
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-  startServer();
-}
-
-export default app;
+startServer();

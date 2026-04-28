@@ -97,7 +97,7 @@ const ProfileSummaryCard = ({ name, growth, todayOrders, todaySales, currencySym
         </div>
         <h2 className="text-3xl font-bold tracking-tight text-white leading-tight mb-2">
           Welcome back,<br />
-          <span className="text-white/90">{name?.split(' ')[0] || ''}</span>
+          <span className="text-white/90">{name.split(' ')[0]}</span>
         </h2>
         <p className="text-white/80 text-[13px] font-medium leading-relaxed max-w-[200px]">
           Your daily sales performance is {growth >= 0 ? 'up' : 'down'} <span className="text-white font-bold">{Math.abs(growth)}%</span> from yesterday.
@@ -288,16 +288,7 @@ export default function Dashboard() {
   }, [orders, customersCount, products.length]);
 
   const recentOrders = useMemo(() => {
-    return [...orders].sort((a: any, b: any) => {
-      const getMillis = (dateObj: any) => {
-        if (!dateObj) return 0;
-        if (typeof dateObj.toMillis === 'function') return dateObj.toMillis();
-        if (dateObj.seconds) return dateObj.seconds * 1000;
-        const time = new Date(dateObj).getTime();
-        return isNaN(time) ? 0 : time;
-      };
-      return getMillis(b.createdAt) - getMillis(a.createdAt);
-    }).slice(0, 10);
+    return [...orders].sort((a: any, b: any) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)).slice(0, 10);
   }, [orders]);
 
   const bestSellingProducts = useMemo(() => {

@@ -56,7 +56,7 @@ const navItems: {
   permission: keyof UserPermissions;
   subItems?: { name: string; path: string; permission: keyof UserPermissions }[]
 }[] = [
-  { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, permission: 'dashboard' },
+  { name: 'Dashboard', path: '/', icon: LayoutDashboard, permission: 'dashboard' },
   { name: 'Reports', path: '/reports', icon: BarChart3, permission: 'dashboard' },
   { name: 'POS', path: '/pos', icon: Calculator, permission: 'pos' },
   { 
