@@ -6,15 +6,14 @@ import axios from 'axios';
 import admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import cors from 'cors';
-import { CourierFactory } from './src/lib/courierAdapters.ts';
-import type { CourierOrderData } from './src/lib/courierAdapters.ts';
+import { CourierFactory } from '../src/lib/courierAdapters.ts';
+import type { CourierOrderData } from '../src/lib/courierAdapters.ts';
 import fs from 'fs';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const firebaseConfig = require('../firebase-applet-config.json');
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Load Firebase Config
-const firebaseConfig = JSON.parse(fs.readFileSync(path.join(__dirname, 'firebase-applet-config.json'), 'utf8'));
 
 import { 
   initializeApp as initializeClientApp, 
