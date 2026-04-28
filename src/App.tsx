@@ -1,6 +1,5 @@
 import React, { useEffect, useState, Component, ErrorInfo, ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Home from './pages/Home';
 import { onAuthStateChanged, signInWithPopup, googleProvider, auth, isFirebaseConfigured, db, doc, setDoc, getDoc, serverTimestamp, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from './firebase';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -81,6 +80,40 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
+function InactiveUserScreen() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#F8F9FA] p-6">
+      <div className="max-w-md w-full bg-white p-10 rounded-3xl border border-gray-100 shadow-xl text-center space-y-8">
+        <div className="space-y-2">
+          <h1 className="text-4xl font-bold tracking-tight text-[#141414]">Amar <span className="text-[#0066FF]">Supply</span></h1>
+          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em]">Account Pending</p>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="w-20 h-20 bg-orange-50 rounded-3xl flex items-center justify-center mx-auto text-orange-500 shadow-inner">
+            <AlertTriangle size={40} />
+          </div>
+          <h2 className="text-xl font-bold text-gray-800">Approval Required</h2>
+          <p className="text-sm text-gray-500">Your account has been created successfully, but it requires administrator approval before you can access the dashboard.</p>
+        </div>
+
+        <button 
+          onClick={() => signOut(auth)}
+          className="w-full flex items-center justify-center gap-3 py-4 px-6 bg-gray-100 text-gray-700 rounded-2xl font-bold hover:bg-gray-200 transition-all shadow-sm group"
+        >
+          <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
+          Sign Out
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RootRedirect() {
+  const { user } = useAuth();
+  return user ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />;
+}
+
 function AppContent() {
   const { user, loading, hasPermission } = useAuth();
 
@@ -95,65 +128,47 @@ function AppContent() {
     );
   }
 
-  if (!user) {
-    return <Login />;
-  }
-
-  if (user && !user.active) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F9FA] p-6">
-        <div className="max-w-md w-full bg-white p-10 rounded-3xl border border-gray-100 shadow-xl text-center space-y-8">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-bold tracking-tight text-[#141414]">Amar <span className="text-[#0066FF]">Supply</span></h1>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em]">Account Pending</p>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="w-20 h-20 bg-orange-50 rounded-3xl flex items-center justify-center mx-auto text-orange-500 shadow-inner">
-              <AlertTriangle size={40} />
-            </div>
-            <h2 className="text-xl font-bold text-gray-800">Approval Required</h2>
-            <p className="text-sm text-gray-500">Your account has been created successfully, but it requires administrator approval before you can access the dashboard.</p>
-          </div>
-
-          <button 
-            onClick={() => signOut(auth)}
-            className="w-full flex items-center justify-center gap-3 py-4 px-6 bg-gray-100 text-gray-700 rounded-2xl font-bold hover:bg-gray-200 transition-all shadow-sm group"
-          >
-            <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
-            Sign Out
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <Router>
-      <Layout user={user}>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/dashboard" element={hasPermission('dashboard') ? <Dashboard /> : <Navigate to="/" replace />} />
-          <Route path="/pos" element={hasPermission('pos') ? <POS /> : <Navigate to="/" replace />} />
-          <Route path="/orders" element={hasPermission('orders') ? <Orders /> : <Navigate to="/" replace />} />
-          <Route path="/orders/new" element={hasPermission('orders') ? <NewOrder /> : <Navigate to="/" replace />} />
-          <Route path="/inventory" element={hasPermission('inventory') ? <Inventory /> : <Navigate to="/" replace />} />
-          <Route path="/inventory/new" element={hasPermission('inventory') ? <NewProduct /> : <Navigate to="/" replace />} />
-          <Route path="/inventory/edit/:id" element={hasPermission('inventory') ? <NewProduct /> : <Navigate to="/" replace />} />
-          <Route path="/crm" element={hasPermission('crm') ? <CRM /> : <Navigate to="/" replace />} />
-          <Route path="/inbox" element={hasPermission('crm') ? <Inbox /> : <Navigate to="/" replace />} />
-          <Route path="/returns" element={hasPermission('orders') ? <Returns /> : <Navigate to="/" replace />} />
-          <Route path="/suppliers" element={hasPermission('suppliers') ? <Suppliers /> : <Navigate to="/" replace />} />
-          <Route path="/logistics" element={hasPermission('logistics') ? <Logistics /> : <Navigate to="/" replace />} />
-          <Route path="/finance" element={hasPermission('finance') ? <Finance /> : <Navigate to="/" replace />} />
-          <Route path="/hr" element={hasPermission('hr') ? <HR /> : <Navigate to="/" replace />} />
-          <Route path="/team" element={hasPermission('team') ? <Team /> : <Navigate to="/" replace />} />
-          <Route path="/tasks" element={hasPermission('tasks') ? <Tasks /> : <Navigate to="/" replace />} />
-          <Route path="/reports" element={hasPermission('dashboard') ? <Reports /> : <Navigate to="/" replace />} />
-          <Route path="/settings" element={hasPermission('settings') ? <Settings /> : <Navigate to="/" replace />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Layout>
+      <Routes>
+        <Route path="/" element={<RootRedirect />} />
+        
+        <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" replace />} />
+        
+        <Route path="/*" element={
+          user ? (
+            user.active ? (
+              <Layout user={user}>
+                <Routes>
+                  <Route path="/dashboard" element={hasPermission('dashboard') ? <Dashboard /> : <Navigate to="/tasks" replace />} />
+                  <Route path="/pos" element={hasPermission('pos') ? <POS /> : <Navigate to="/dashboard" replace />} />
+                  <Route path="/orders" element={hasPermission('orders') ? <Orders /> : <Navigate to="/dashboard" replace />} />
+                  <Route path="/orders/new" element={hasPermission('orders') ? <NewOrder /> : <Navigate to="/dashboard" replace />} />
+                  <Route path="/inventory" element={hasPermission('inventory') ? <Inventory /> : <Navigate to="/dashboard" replace />} />
+                  <Route path="/inventory/new" element={hasPermission('inventory') ? <NewProduct /> : <Navigate to="/dashboard" replace />} />
+                  <Route path="/inventory/edit/:id" element={hasPermission('inventory') ? <NewProduct /> : <Navigate to="/dashboard" replace />} />
+                  <Route path="/crm" element={hasPermission('crm') ? <CRM /> : <Navigate to="/dashboard" replace />} />
+                  <Route path="/inbox" element={hasPermission('crm') ? <Inbox /> : <Navigate to="/dashboard" replace />} />
+                  <Route path="/returns" element={hasPermission('orders') ? <Returns /> : <Navigate to="/dashboard" replace />} />
+                  <Route path="/suppliers" element={hasPermission('suppliers') ? <Suppliers /> : <Navigate to="/dashboard" replace />} />
+                  <Route path="/logistics" element={hasPermission('logistics') ? <Logistics /> : <Navigate to="/dashboard" replace />} />
+                  <Route path="/finance" element={hasPermission('finance') ? <Finance /> : <Navigate to="/dashboard" replace />} />
+                  <Route path="/hr" element={hasPermission('hr') ? <HR /> : <Navigate to="/dashboard" replace />} />
+                  <Route path="/team" element={hasPermission('team') ? <Team /> : <Navigate to="/dashboard" replace />} />
+                  <Route path="/tasks" element={hasPermission('tasks') ? <Tasks /> : <Navigate to="/dashboard" replace />} />
+                  <Route path="/reports" element={hasPermission('dashboard') ? <Reports /> : <Navigate to="/dashboard" replace />} />
+                  <Route path="/settings" element={hasPermission('settings') ? <Settings /> : <Navigate to="/dashboard" replace />} />
+                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+              </Layout>
+            ) : (
+              <InactiveUserScreen />
+            )
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        } />
+      </Routes>
     </Router>
   );
 }
