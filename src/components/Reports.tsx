@@ -654,8 +654,8 @@ export default function Reports() {
                     </div>
                   </div>
 
-                  {/* AI Sales Forecast */}
-                  <div className="bg-gradient-to-r from-[#2196F3] to-[#00BCD4] rounded-[20px] p-6 text-white shadow-md relative overflow-hidden flex-1 flex flex-col">
+                  {/* AI Sales Forecast (Disabled for now) * /}
+                  {/* <div className="bg-gradient-to-r from-[#2196F3] to-[#00BCD4] rounded-[20px] p-6 text-white shadow-md relative overflow-hidden flex-1 flex flex-col">
                     <div className="absolute top-4 right-4 text-white/50 cursor-pointer hover:text-white">
                       <Sparkles size={16} />
                     </div>
@@ -679,13 +679,13 @@ export default function Reports() {
                       </p>
                     </div>
 
-                    {/* Chart Illustration */}
+                    {/* Chart Illustration * /}
                     <div className="absolute bottom-0 left-0 right-0 h-16 flex items-end justify-between px-6 opacity-40">
                        {[0.3, 0.5, 0.4, 0.7, 0.5, 0.8, 0.6, 0.9, 0.7, 1.0, 0.8, 0.6, 0.9, 0.8, 0.6, 0.4].map((v, i) => (
                          <div key={i} className="w-[6px] rounded-t-sm bg-white" style={{ height: `${v * 100}%` }} />
                        ))}
                     </div>
-                  </div>
+                  </div> */}
                 </div>
               </div>
             </motion.div>
