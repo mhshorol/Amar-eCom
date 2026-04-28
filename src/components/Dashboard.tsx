@@ -288,7 +288,16 @@ export default function Dashboard() {
   }, [orders, customersCount, products.length]);
 
   const recentOrders = useMemo(() => {
-    return [...orders].sort((a: any, b: any) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)).slice(0, 10);
+    return [...orders].sort((a: any, b: any) => {
+      const getMillis = (dateObj: any) => {
+        if (!dateObj) return 0;
+        if (typeof dateObj.toMillis === 'function') return dateObj.toMillis();
+        if (dateObj.seconds) return dateObj.seconds * 1000;
+        const time = new Date(dateObj).getTime();
+        return isNaN(time) ? 0 : time;
+      };
+      return getMillis(b.createdAt) - getMillis(a.createdAt);
+    }).slice(0, 10);
   }, [orders]);
 
   const bestSellingProducts = useMemo(() => {

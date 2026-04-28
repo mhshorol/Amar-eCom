@@ -223,6 +223,27 @@ async function getDb() {
   }
 }
 
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+app.use(async (req, res, next) => {
+  if (!db && req.path.startsWith('/api/')) {
+    try {
+      if (admin.apps.length === 0) {
+        admin.initializeApp({
+          credential: admin.credential.applicationDefault(),
+          projectId: firebaseConfig.projectId
+        });
+      }
+      await getDb();
+    } catch (e) {
+      console.error("Express DB Init Error:", e);
+    }
+  }
+  next();
+});
+
 async function startServer() {
   try {
     log('Environment Check: ' + JSON.stringify({
@@ -231,11 +252,12 @@ async function startServer() {
       NODE_ENV: process.env.NODE_ENV
     }));
     
-    const originalProject = process.env.GOOGLE_CLOUD_PROJECT;
-    
     if (admin.apps.length === 0) {
       log('Initializing Firebase Admin with default credentials');
-      admin.initializeApp();
+      admin.initializeApp({
+        credential: admin.credential.applicationDefault(),
+        projectId: firebaseConfig.projectId
+      });
     }
     
     // Initial DB connection
@@ -272,11 +294,7 @@ async function startServer() {
     console.error('Firebase Admin initialization failed:', error);
   }
 
-  const app = express();
   const PORT = 3000;
-
-  app.use(cors());
-  app.use(express.json());
 
   // Test route
   app.get('/api/test', (req, res) => {
@@ -995,4 +1013,8 @@ async function startServer() {
   });
 }
 
-startServer();
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  startServer();
+}
+
+export default app;
