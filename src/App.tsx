@@ -1,5 +1,6 @@
 import React, { useEffect, useState, Component, ErrorInfo, ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Home from './pages/Home';
 import { onAuthStateChanged, signInWithPopup, googleProvider, auth, isFirebaseConfigured, db, doc, setDoc, getDoc, serverTimestamp, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from './firebase';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -131,7 +132,8 @@ function AppContent() {
     <Router>
       <Layout user={user}>
         <Routes>
-          <Route path="/" element={hasPermission('dashboard') ? <Dashboard /> : <Navigate to="/tasks" replace />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/dashboard" element={hasPermission('dashboard') ? <Dashboard /> : <Navigate to="/" replace />} />
           <Route path="/pos" element={hasPermission('pos') ? <POS /> : <Navigate to="/" replace />} />
           <Route path="/orders" element={hasPermission('orders') ? <Orders /> : <Navigate to="/" replace />} />
           <Route path="/orders/new" element={hasPermission('orders') ? <NewOrder /> : <Navigate to="/" replace />} />

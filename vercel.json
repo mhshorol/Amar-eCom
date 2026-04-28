@@ -18,8 +18,8 @@
       "destination": "/server.ts"
     },
     {
-      "source": "/((?!assets/|vite\\.svg|sw\\.js|manifest\\.json).*)",
-      "destination": "/index.html"
+      "source": "/((?!assets/|api/|vite\\.svg|sw\\.js|manifest\\.json).*)",
+      "destination": "/"
     }
   ]
 }
