@@ -20,7 +20,17 @@ import {
   PlusCircle,
   Image as ImageIcon,
   Printer,
-  Barcode as BarcodeIcon
+  Barcode as BarcodeIcon,
+  ArrowRightLeft,
+  HeartCrack,
+  ShoppingCart,
+  Users,
+  CornerUpLeft,
+  FileText,
+  PieChart,
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal
 } from 'lucide-react';
 import { db, auth, storage, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, writeBatch, getDoc, getDocs, where, ref, uploadBytes, getDownloadURL } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -29,6 +39,7 @@ import { ValuationService } from '../services/valuationService';
 import Barcode from 'react-barcode';
 import { openPrintWindow } from '../utils/printHelper';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'motion/react';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 import StockTransfers from './StockTransfers';
@@ -37,22 +48,22 @@ import ConfirmModal from './ConfirmModal';
 
 const StockBadge = ({ stock }: { stock: number }) => {
   let status = 'In Stock';
-  let colorClass = 'bg-green-50 text-green-600 border-green-100';
+  let colorClass = 'bg-emerald-50 text-emerald-600 border-emerald-100/50';
   
   if (stock <= 0) {
     status = 'Out of Stock';
-    colorClass = 'bg-red-50 text-red-600 border-red-100';
+    colorClass = 'bg-rose-50 text-rose-600 border-rose-100/50 shadow-sm shadow-rose-500/5';
   } else if (stock < 20) {
     status = 'Low Stock';
-    colorClass = 'bg-orange-50 text-orange-600 border-orange-100';
+    colorClass = 'bg-amber-50 text-amber-600 border-amber-100/50 shadow-sm shadow-amber-500/5';
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border w-fit ${colorClass}`}>
+    <div className="flex flex-col gap-1.5">
+      <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border leading-none w-fit ${colorClass}`}>
         {status}
       </span>
-      <span className="text-xs font-mono font-bold text-gray-500">{stock} units</span>
+      <span className="text-[11px] font-black text-gray-400 tabular-nums">{stock.toLocaleString()} UNITS</span>
     </div>
   );
 };
@@ -61,7 +72,7 @@ export default function Inventory() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { currencySymbol } = useSettings();
-  const [activeTab, setActiveTab] = useState<'products' | 'warehouses' | 'stock' | 'purchases' | 'suppliers' | 'returns' | 'logs' | 'reports' | 'transfers'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'warehouses' | 'stock' | 'purchases' | 'suppliers' | 'returns' | 'logs' | 'reports' | 'transfers' | 'wastage'>('products');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   
@@ -76,6 +87,7 @@ export default function Inventory() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [stockLogs, setStockLogs] = useState<any[]>([]);
+  const [wastageLogs, setWastageLogs] = useState<any[]>([]);
 
   // Modal States
   const [isWarehouseModalOpen, setIsWarehouseModalOpen] = useState(false);
@@ -85,6 +97,7 @@ export default function Inventory() {
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isBrandModalOpen, setIsBrandModalOpen] = useState(false);
+  const [isWastageModalOpen, setIsWastageModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
@@ -114,7 +127,8 @@ export default function Inventory() {
       { name: 'purchaseOrders', setter: setPurchaseOrders },
       { name: 'suppliers', setter: setSuppliers },
       { name: 'inventoryLogs', setter: setLogs },
-      { name: 'stock_logs', setter: setStockLogs }
+      { name: 'stock_logs', setter: setStockLogs },
+      { name: 'wastage_logs', setter: setWastageLogs }
     ];
 
     collections.forEach(col => {
@@ -218,6 +232,7 @@ export default function Inventory() {
       case 'logs': return <LogsTab logs={logs} products={products} variants={variants} warehouses={warehouses} />;
       case 'reports': return <ReportsTab products={products} inventory={inventory} logs={logs} />;
       case 'transfers': return <StockTransfers />;
+      case 'wastage': return <WastageTab wastageLogs={wastageLogs} products={products} variants={variants} warehouses={warehouses} onAdd={() => setIsWastageModalOpen(true)} />;
       default: return null;
     }
   };
@@ -246,15 +261,15 @@ export default function Inventory() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-[#141414] tracking-tight">Inventory Management</h2>
+          <h2 className="text-3xl font-bold text-gray-900 tracking-tight">Inventory Management</h2>
           <p className="text-sm text-gray-500 mt-1">Full-stack control over products, variants, warehouses, and stock movements.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button 
             onClick={handleExportCSV}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-colors shadow-sm text-gray-700"
           >
-            <Download size={16} />
+            <Download size={16} strokeWidth={2} />
             Export CSV
           </button>
           <button 
@@ -265,41 +280,82 @@ export default function Inventory() {
               if (activeTab === 'purchases') setIsPOModalOpen(true);
               if (activeTab === 'stock') setIsAdjustmentModalOpen(true);
             }}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-[#141414] text-white rounded-lg text-sm font-medium hover:bg-black transition-colors"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-[#0066FF] text-white rounded-lg text-sm font-semibold hover:bg-[#0052CC] transition-colors shadow-sm"
           >
-            <Plus size={16} />
-            Add {activeTab.slice(0, -1)}
+            <Plus size={16} strokeWidth={2.5} />
+            <span>Add {activeTab.charAt(0).toUpperCase() + activeTab.slice(1, -1)}</span>
           </button>
         </div>
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl w-fit overflow-x-auto max-w-full">
-        {(['products', 'warehouses', 'stock', 'transfers', 'purchases', 'suppliers', 'returns', 'logs', 'reports'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
-              activeTab === tab 
-                ? 'bg-white text-[#141414] shadow-sm' 
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
+      <div className="bg-white rounded-[14px] border border-gray-200 shadow-sm overflow-x-auto">
+        <div className="flex items-center min-w-max px-2">
+          {[
+            { id: 'products', label: 'Products', icon: Package },
+            { id: 'warehouses', label: 'Warehouses', icon: Warehouse },
+            { id: 'stock', label: 'Stock', icon: Tag },
+            { id: 'transfers', label: 'Transfers', icon: ArrowRightLeft },
+            { id: 'wastage', label: 'Wastage', icon: HeartCrack },
+            { id: 'purchases', label: 'Purchases', icon: ShoppingCart },
+            { id: 'suppliers', label: 'Suppliers', icon: Users },
+            { id: 'returns', label: 'Returns', icon: CornerUpLeft },
+            { id: 'logs', label: 'Logs', icon: FileText },
+            { id: 'reports', label: 'Reports', icon: PieChart },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-5 py-4 text-sm font-medium transition-all relative whitespace-nowrap ${
+                  isActive 
+                    ? 'text-[#0066FF]' 
+                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
+                }`}
+              >
+                <Icon size={16} strokeWidth={isActive ? 2.5 : 2} />
+                {tab.label}
+                {isActive && (
+                  <motion.div 
+                    layoutId="active-inventory-tab"
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0066FF]"
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Main Content Area */}
       <div className="min-h-[500px]">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <Loader2 className="animate-spin text-gray-400" size={32} />
-            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Loading {activeTab}...</p>
-          </div>
-        ) : (
-          renderTabContent()
-        )}
+        <AnimatePresence mode="wait">
+          {loading ? (
+            <motion.div 
+              key="loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex flex-col items-center justify-center py-20 gap-4"
+            >
+              <Loader2 className="animate-spin text-gray-400" size={32} />
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Loading {activeTab}...</p>
+            </motion.div>
+          ) : (
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              {renderTabContent()}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Modals Placeholder - Will implement detailed modals next */}
@@ -310,6 +366,7 @@ export default function Inventory() {
       {isSupplierModalOpen && <SupplierModal isOpen={isSupplierModalOpen} onClose={() => { setIsSupplierModalOpen(false); setEditingItem(null); }} editingItem={editingItem} />}
       {isCategoryModalOpen && <CategoryModal isOpen={isCategoryModalOpen} onClose={() => { setIsCategoryModalOpen(false); setEditingItem(null); }} editingItem={editingItem} />}
       {isBrandModalOpen && <BrandModal isOpen={isBrandModalOpen} onClose={() => { setIsBrandModalOpen(false); setEditingItem(null); }} editingItem={editingItem} />}
+      {isWastageModalOpen && <WastageModal isOpen={isWastageModalOpen} onClose={() => setIsWastageModalOpen(false)} products={products} variants={variants} warehouses={warehouses} />}
 
       <ConfirmModal 
         isOpen={confirmConfig.isOpen}
@@ -345,7 +402,7 @@ function ProductsTab({ products, variants, categories, brands, onEdit, onDelete,
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-[20px] border border-gray-200 shadow-sm overflow-hidden flex flex-col">
       <div style={{ position: 'absolute', top: '-9999px', left: '-9999px', opacity: 0, pointerEvents: 'none' }}>
         <div ref={printRef} className="p-8 flex flex-col items-center justify-center bg-white">
           {selectedProduct && (
@@ -362,79 +419,89 @@ function ProductsTab({ products, variants, categories, brands, onEdit, onDelete,
           )}
         </div>
       </div>
-      <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/30">
-        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest">Product Catalog</h3>
-        <div className="flex gap-2">
-          <button onClick={onAddCategory} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-gray-200 rounded-lg hover:bg-white transition-all">Categories</button>
-          <button onClick={onAddBrand} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-gray-200 rounded-lg hover:bg-white transition-all">Brands</button>
+      <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white">
+        <div className="flex flex-col">
+          <h3 className="text-lg font-bold text-gray-900 tracking-tight">Product Catalog</h3>
+          <p className="text-sm font-medium text-gray-500 mt-0.5">Manage global product registry</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={onAddCategory} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+            Categories
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <button onClick={onAddBrand} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+            Brands
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input type="text" placeholder="Search products..." className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0066FF]/20 focus:border-[#0066FF] transition-all w-[240px]" />
+          </div>
         </div>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left min-w-[800px] whitespace-nowrap">
+      <div className="overflow-x-auto flex-1">
+        <table className="w-full text-left min-w-[1000px] whitespace-nowrap">
           <thead>
-            <tr className="bg-gray-50 text-[10px] uppercase tracking-widest text-gray-500">
-              <th className="px-6 py-4 font-semibold">Product</th>
-              <th className="px-6 py-4 font-semibold">Type</th>
-              <th className="px-6 py-4 font-semibold">SKU</th>
-              <th className="px-6 py-4 font-semibold">Category/Brand</th>
-              <th className="px-6 py-4 font-semibold">Price</th>
-              <th className="px-6 py-4 font-semibold text-right">Actions</th>
+            <tr className="bg-white border-b border-gray-100 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+              <th className="px-6 py-4">Product Details</th>
+              <th className="px-6 py-4">Type</th>
+              <th className="px-6 py-4">SKU Identifier</th>
+              <th className="px-6 py-4">Classification</th>
+              <th className="px-6 py-4">Market Value</th>
+              <th className="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-gray-100 bg-white">
           {products.map((p: any) => (
             <tr key={p.id} className="hover:bg-gray-50 transition-colors group">
               <td className="px-6 py-4">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   {(p.images?.[0] || p.image) ? (
-                    <img src={p.images?.[0] || p.image} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-100" referrerPolicy="no-referrer" />
+                    <div className="w-12 h-12 rounded-xl overflow-hidden border border-gray-100 shadow-sm grow-0 shrink-0">
+                      <img src={p.images?.[0] || p.image} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    </div>
                   ) : (
-                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
-                      <Package size={20} />
+                    <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center text-gray-300 border border-gray-100 grow-0 shrink-0">
+                      <Package size={24} strokeWidth={1} />
                     </div>
                   )}
-                  <div className="flex flex-col">
-                    <span className="text-sm font-bold text-[#141414]">{p.name}</span>
-                    <span className="text-[10px] text-gray-400">{p.barcode || 'No Barcode'}</span>
-                    {(p.size || p.color) && (
-                      <span className="text-[10px] text-gray-500 mt-0.5">
-                        {p.size && `Size: ${p.size}`} {p.size && p.color && ' | '} {p.color && `Color: ${p.color}`}
-                      </span>
-                    )}
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[13.5px] font-bold text-gray-900 group-hover:text-[#0066FF] transition-colors truncate">{p.name}</span>
+                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-1">{p.barcode || 'NO-BARCODE'}</span>
                   </div>
                 </div>
               </td>
               <td className="px-6 py-4">
-                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border ${
-                  p.type === 'bundle' ? 'bg-purple-50 text-purple-600 border-purple-100' :
-                  p.type === 'variable' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                  'bg-gray-50 text-gray-600 border-gray-100'
+                <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-md ${
+                  p.type === 'bundle' ? 'bg-purple-50 text-purple-600' :
+                  p.type === 'variable' ? 'bg-[#F0F7FF] text-[#0066FF]' :
+                  'bg-[#F0F7FF] text-[#0066FF]' // Made simple blue to match screenshot
                 }`}>
-                  {p.type}
+                  {p.type || 'SIMPLE'}
                 </span>
               </td>
-              <td className="px-6 py-4 font-mono text-xs text-gray-500">{p.sku}</td>
+              <td className="px-6 py-4 font-medium text-[13px] text-gray-500">{p.sku}</td>
               <td className="px-6 py-4">
                 <div className="flex flex-col">
-                  <span className="text-xs text-gray-600">{categories.find((c: any) => c.id === p.categoryId)?.name || 'Uncategorized'}</span>
-                  <span className="text-[10px] text-gray-400">{brands.find((b: any) => b.id === p.brandId)?.name || 'No Brand'}</span>
+                  <span className="text-[13px] text-gray-500">{categories.find((c: any) => c.id === p.categoryId)?.name || 'Uncategorized'}</span>
+                  <span className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">{brands.find((b: any) => b.id === p.brandId)?.name || 'No Brand'}</span>
                 </div>
               </td>
-              <td className="px-6 py-4 font-bold text-sm">{currencySymbol}{(p.price || 0).toLocaleString()}</td>
+              <td className="px-6 py-4 font-bold text-[15px] text-gray-900">{currencySymbol}{(p.price || 0).toLocaleString()}</td>
               <td className="px-6 py-4 text-right">
                 <div className="flex items-center justify-end gap-2">
                   <button 
                     onClick={() => triggerPrint(p)}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-blue-600"
+                    className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-500"
                     title="Print Barcode"
                   >
-                    <Printer size={16} />
+                    <Printer size={15} />
                   </button>
-                  <button onClick={() => onEdit(p)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                    <Edit size={16} className="text-gray-400" />
+                  <button onClick={() => onEdit(p)} className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-500">
+                    <Edit size={15} />
                   </button>
-                  <button onClick={() => onDelete(p.id)} className="p-2 hover:bg-red-50 rounded-lg transition-colors text-gray-400 hover:text-red-600">
-                    <Trash2 size={16} />
+                  <button onClick={() => onDelete(p.id)} className="w-8 h-8 flex items-center justify-center border border-red-100 rounded-lg hover:bg-red-50 hover:border-red-200 transition-colors text-red-500">
+                    <Trash2 size={15} />
                   </button>
                 </div>
               </td>
@@ -442,6 +509,30 @@ function ProductsTab({ products, variants, categories, brands, onEdit, onDelete,
           ))}
         </tbody>
       </table>
+      </div>
+      <div className="px-6 py-4 border-t border-gray-100 bg-white flex items-center justify-between">
+         <span className="text-[13px] text-gray-500">Showing 1 to {Math.min(6, products.length)} of {products.length} products</span>
+         <div className="flex items-center gap-1">
+            <button className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-400 transition-colors">
+               <ChevronLeft size={16} />
+            </button>
+            <button className="w-8 h-8 flex items-center justify-center bg-[#0066FF] text-white rounded-lg font-medium text-sm transition-colors shadow-sm">
+               1
+            </button>
+            <button className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 font-medium text-sm transition-colors">
+               2
+            </button>
+            <button className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 font-medium text-sm transition-colors">
+               3
+            </button>
+            <span className="w-8 h-8 flex items-center justify-center text-gray-400">...</span>
+            <button className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 font-medium text-sm transition-colors">
+               20
+            </button>
+            <button className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors">
+               <ChevronRight size={16} />
+            </button>
+         </div>
       </div>
     </div>
   );
@@ -453,7 +544,7 @@ function WarehousesTab({ warehouses, onEdit, onDelete }: any) {
       {warehouses.map((w: any) => (
         <div key={w.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group">
           <div className="flex items-start justify-between mb-4">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+            <div className="p-3 bg-blue-50 text-[#0066FF] rounded-xl">
               <Warehouse size={24} />
             </div>
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -483,7 +574,7 @@ function StockTab({ inventory, products, variants, warehouses, onAdjust, onTrans
       <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/30">
         <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest">Stock Levels</h3>
         <div className="flex gap-2">
-          <button onClick={onAdjust} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all">Adjustment</button>
+          <button onClick={onAdjust} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest bg-[#0066FF] text-white rounded-lg hover:bg-[#0052CC] transition-all">Adjustment</button>
           <button onClick={onTransfer} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all">Transfer</button>
         </div>
       </div>
@@ -521,7 +612,7 @@ function StockTab({ inventory, products, variants, warehouses, onAdjust, onTrans
                 </td>
                 <td className="px-6 py-4 text-xs font-mono text-gray-500">{product?.minStock || 5}</td>
                 <td className="px-6 py-4 text-right">
-                  <button onClick={onAdjust} className="text-xs font-bold text-blue-600 hover:underline">Adjust</button>
+                  <button onClick={onAdjust} className="text-xs font-bold text-[#0066FF] hover:underline">Adjust</button>
                 </td>
               </tr>
             );
@@ -656,7 +747,7 @@ function PurchasesTab({ pos, suppliers, products, variants, onAdd, setConfirmCon
               <td className="px-6 py-4">
                 <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border ${
                   po.status === 'received' ? 'bg-green-50 text-green-600 border-green-100' :
-                  po.status === 'ordered' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                  po.status === 'ordered' ? 'bg-blue-50 text-[#0066FF] border-blue-100' :
                   'bg-gray-50 text-gray-600 border-gray-100'
                 }`}>
                   {po.status}
@@ -926,7 +1017,7 @@ function ReportsTab({ products, inventory, logs }: any) {
         </div>
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
           <p className="text-xs font-bold text-gray-400 uppercase mb-1">Potential Profit</p>
-          <p className="text-2xl font-bold text-blue-600">{currencySymbol}{(totalRetail - totalCost || 0).toLocaleString()}</p>
+          <p className="text-2xl font-bold text-[#0066FF]">{currencySymbol}{(totalRetail - totalCost || 0).toLocaleString()}</p>
         </div>
       </div>
 
@@ -1533,6 +1624,260 @@ function SupplierModal({ isOpen, onClose, editingItem }: any) {
         <div className="flex gap-4 pt-4">
           <button onClick={onClose} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold">Cancel</button>
           <button onClick={handleSave} className="flex-[2] py-3 bg-[#141414] text-white rounded-xl font-bold shadow-lg">Save Supplier</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WastageTab({ wastageLogs, products, variants, warehouses, onAdd }: any) {
+  const { currencySymbol } = useSettings();
+  return (
+    <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden animate-in fade-in duration-500">
+      <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gradient-to-r from-rose-50/30 to-white">
+        <div className="flex flex-col">
+          <h3 className="text-xs font-black text-rose-900 uppercase tracking-[0.2em]">Damage & Wastage Ledger</h3>
+          <p className="text-[9px] font-bold text-rose-400 uppercase tracking-widest mt-1">Track inventory losses and damaged assets</p>
+        </div>
+        <button onClick={onAdd} className="px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.15em] bg-rose-600 text-white rounded-xl shadow-lg shadow-rose-500/20 hover:bg-rose-700 transition-all active:scale-95 flex items-center gap-2">
+          <Plus size={14} strokeWidth={3} />
+          Report Loss
+        </button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left min-w-[800px] whitespace-nowrap">
+          <thead>
+            <tr className="bg-gray-50/50 text-[9px] uppercase tracking-[0.2em] text-gray-400">
+              <th className="px-8 py-5 font-black">Ref ID</th>
+              <th className="px-8 py-5 font-black">Item Details</th>
+              <th className="px-8 py-5 font-black">Warehouse</th>
+              <th className="px-8 py-5 font-black text-center">Qty</th>
+              <th className="px-8 py-5 font-black text-right">Value Loss</th>
+              <th className="px-8 py-5 font-black">Reason</th>
+              <th className="px-8 py-5 font-black text-right">Recorded At</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            <AnimatePresence mode="popLayout">
+              {wastageLogs.map((log: any, index: number) => {
+                const product = products.find((p: any) => p.id === log.productId);
+                const variant = variants.find((v: any) => v.id === log.variantId);
+                const warehouse = warehouses.find((w: any) => w.id === log.warehouseId);
+                return (
+                  <motion.tr 
+                    layout
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    transition={{ delay: index * 0.05 }}
+                    key={log.id} 
+                    className="hover:bg-rose-50/30 transition-colors group"
+                  >
+                    <td className="px-8 py-5 font-mono text-[10px] text-gray-400 uppercase">{log.id.slice(0, 8)}</td>
+                    <td className="px-8 py-5">
+                      <div className="flex flex-col">
+                        <span className="text-[11px] font-black text-gray-900 uppercase tracking-tight truncate max-w-[200px]">{product?.name || 'Unknown Item'}</span>
+                        {variant && <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{variant.size} / {variant.color}</span>}
+                      </div>
+                    </td>
+                    <td className="px-8 py-5 text-[10px] font-black text-gray-500 uppercase tracking-widest">{warehouse?.name || '---'}</td>
+                    <td className="px-8 py-5 text-center">
+                      <span className="px-2 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black tabular-nums">-{log.quantity}</span>
+                    </td>
+                    <td className="px-8 py-5 text-right font-black text-xs text-rose-600 tabular-nums">
+                      {currencySymbol}{((log.unitCost || 0) * log.quantity).toLocaleString()}
+                    </td>
+                    <td className="px-8 py-5 text-[10px] font-bold text-gray-500 italic max-w-[150px] truncate">{log.reason || 'N/A'}</td>
+                    <td className="px-8 py-5 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                      {log.createdAt?.toDate ? log.createdAt.toDate().toLocaleString() : '---'}
+                    </td>
+                  </motion.tr>
+                );
+              })}
+            </AnimatePresence>
+            {wastageLogs.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-8 py-20 text-center">
+                  <div className="mx-auto w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-200 mb-4 border border-gray-100 shadow-inner">
+                    <AlertTriangle size={32} strokeWidth={1} />
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-300">No wastage records found</p>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function WastageModal({ isOpen, onClose, products, variants, warehouses }: any) {
+  const [form, setForm] = useState({
+    productId: '',
+    variantId: '',
+    warehouseId: '',
+    quantity: 1,
+    reason: '',
+    type: 'damage'
+  });
+  const [loading, setLoading] = useState(false);
+  const { currencySymbol } = useSettings();
+
+  const handleReport = async () => {
+    if (!form.productId || !form.warehouseId || form.quantity <= 0) {
+      toast.error('Please fill all required fields');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const batch = writeBatch(db);
+      const inventoryId = `${form.warehouseId}_${form.productId}_${form.variantId || 'none'}`;
+      const inventoryRef = doc(db, 'inventory', inventoryId);
+      const inventorySnap = await getDoc(inventoryRef);
+
+      if (!inventorySnap.exists() || inventorySnap.data().quantity < form.quantity) {
+        toast.error('Insufficient stock in selected warehouse');
+        setLoading(false);
+        return;
+      }
+
+      const product = products.find((p: any) => p.id === form.productId);
+      const unitCost = product?.costPrice || 0;
+
+      // Update Inventory
+      batch.update(inventoryRef, {
+        quantity: inventorySnap.data().quantity - form.quantity,
+        updatedAt: serverTimestamp()
+      });
+
+      // Create Wastage Log
+      const wastageRef = doc(collection(db, 'wastage_logs'));
+      batch.set(wastageRef, {
+        ...form,
+        unitCost,
+        uid: auth.currentUser?.uid,
+        createdAt: serverTimestamp()
+      });
+
+      // Create Stock Movement Log
+      const logRef = doc(collection(db, 'inventoryLogs'));
+      batch.set(logRef, {
+        productId: form.productId,
+        variantId: form.variantId || null,
+        warehouseId: form.warehouseId,
+        action: 'wastage',
+        quantityChange: -form.quantity,
+        newQuantity: inventorySnap.data().quantity - form.quantity,
+        referenceId: wastageRef.id,
+        uid: auth.currentUser?.uid,
+        createdAt: serverTimestamp()
+      });
+
+      // Create Expense Record
+      const txnRef = doc(collection(db, 'transactions'));
+      batch.set(txnRef, {
+        type: 'expense',
+        category: 'Expenses',
+        subCategory: 'Damage & Wastage',
+        amount: form.quantity * unitCost,
+        method: 'Inventory Adjustment',
+        accountId: 'inventory_asset',
+        status: 'Completed',
+        notes: `Wastage Report: ${product?.name} (${form.reason})`,
+        date: new Date().toISOString().split('T')[0],
+        createdAt: serverTimestamp(),
+        uid: auth.currentUser?.uid
+      });
+
+      await batch.commit();
+      toast.success('Wastage reported and stock updated');
+      onClose();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, 'wastage_logs');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const selectedProduct = products.find((p: any) => p.id === form.productId);
+
+  return (
+    <div className="fixed inset-0 bg-[#141414]/90 backdrop-blur-xl z-[70] flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 flex flex-col max-h-[90vh]">
+        <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-rose-50/30">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-rose-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-rose-500/30">
+              <AlertTriangle size={24} strokeWidth={2.5} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-rose-900 uppercase tracking-tight">Report Inventory Loss</h3>
+              <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest mt-0.5">Asset damage & wastage record</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-3 hover:bg-white rounded-2xl transition-all"><X size={24} /></button>
+        </div>
+
+        <div className="p-10 space-y-8 overflow-y-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Product</label>
+              <select className="w-full p-4 bg-gray-50 border border-transparent rounded-[1.5rem] text-xs font-black uppercase tracking-widest outline-none focus:bg-white focus:border-rose-200 transition-all" value={form.productId} onChange={e => setForm({...form, productId: e.target.value, variantId: ''})}>
+                <option value="">Select Item</option>
+                {products.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Warehouse</label>
+              <select className="w-full p-4 bg-gray-50 border border-transparent rounded-[1.5rem] text-xs font-black uppercase tracking-widest outline-none focus:bg-white focus:border-rose-200 transition-all" value={form.warehouseId} onChange={e => setForm({...form, warehouseId: e.target.value})}>
+                <option value="">Select Origin</option>
+                {warehouses.map((w: any) => <option key={w.id} value={w.id}>{w.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {selectedProduct?.type === 'variable' && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Variant Selection</label>
+              <select className="w-full p-4 bg-gray-50 border border-transparent rounded-[1.5rem] text-xs font-black uppercase tracking-widest outline-none focus:bg-white focus:border-rose-200 transition-all" value={form.variantId} onChange={e => setForm({...form, variantId: e.target.value})}>
+                <option value="">Default Variant</option>
+                {variants.filter((v: any) => v.productId === form.productId).map((v: any) => <option key={v.id} value={v.id}>{v.size} / {v.color}</option>)}
+              </select>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Quantity Lost</label>
+              <input type="number" className="w-full p-4 bg-gray-50 border border-transparent rounded-[1.5rem] text-xs font-black uppercase tracking-widest outline-none focus:bg-white focus:border-rose-200 transition-all" value={form.quantity} onChange={e => setForm({...form, quantity: parseInt(e.target.value) || 0})} />
+            </div>
+            <div className="space-y-2 text-right">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-1">Estimated Loss</label>
+              <div className="p-4 bg-rose-50 text-rose-600 rounded-[1.5rem] font-black text-xl tracking-tighter">
+                {currencySymbol}{((selectedProduct?.costPrice || 0) * (form.quantity || 0)).toLocaleString()}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Damage Description</label>
+            <textarea className="w-full p-5 bg-gray-50 border border-transparent rounded-[2rem] text-[11px] font-bold outline-none focus:bg-white focus:border-rose-200 transition-all h-32 resize-none" placeholder="DESCRIBE THE REASON FOR WASTAGE..." value={form.reason} onChange={e => setForm({...form, reason: e.target.value})} />
+          </div>
+        </div>
+
+        <div className="p-10 bg-gray-50 border-t border-gray-100 flex gap-4">
+          <button onClick={onClose} className="flex-1 py-5 bg-white border border-gray-200 text-gray-400 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest hover:text-gray-900 transition-all active:scale-95">Cancel</button>
+          <button 
+            onClick={handleReport} 
+            disabled={loading}
+            className="flex-[2] py-5 bg-[#141414] text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-black/20 hover:bg-black transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
+          >
+            {loading ? <Loader2 className="animate-spin" /> : 'RECORD WASTAGE'}
+          </button>
         </div>
       </div>
     </div>

@@ -31,7 +31,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-orange-50 text-orange-600 border-orange-100',
-  processing: 'bg-blue-50 text-blue-600 border-blue-100',
+  processing: 'bg-blue-50 text-[#0066FF] border-blue-100',
   on_hold: 'bg-gray-50 text-gray-600 border-gray-100',
   completed: 'bg-green-50 text-green-600 border-green-100',
   cancelled: 'bg-red-50 text-red-600 border-red-100',
@@ -117,7 +117,7 @@ export default function WooCommerceOrders() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-3xl font-bold text-[#141414] tracking-tight flex items-center gap-3">
-            <ShoppingCart className="text-[#00AEEF]" size={32} />
+            <ShoppingCart className="text-[#0066FF]" size={32} />
             WooCommerce Orders
           </h2>
           <p className="text-sm text-gray-500 mt-1">Manage and sync orders from your WooCommerce store.</p>
@@ -145,14 +145,14 @@ export default function WooCommerceOrders() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && setPage(1)}
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-transparent rounded-xl text-sm focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all"
+              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-transparent rounded-xl text-sm focus:bg-white focus:border-[#0066FF]/20 outline-none transition-all"
             />
           </div>
           <div className="flex flex-wrap gap-4">
             <select 
               value={status}
               onChange={(e) => { setStatus(e.target.value); setPage(1); }}
-              className="px-4 py-2.5 bg-gray-50 border border-transparent rounded-xl text-sm focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all min-w-[160px]"
+              className="px-4 py-2.5 bg-gray-50 border border-transparent rounded-xl text-sm focus:bg-white focus:border-[#0066FF]/20 outline-none transition-all min-w-[160px]"
             >
               <option value="">All Statuses</option>
               <option value="pending">Pending</option>
@@ -165,7 +165,7 @@ export default function WooCommerceOrders() {
             </select>
             <button 
               onClick={() => { setStatus(''); setSearch(''); setPage(1); }}
-              className="px-4 py-2.5 text-sm font-bold text-gray-500 hover:text-[#00AEEF] transition-colors"
+              className="px-4 py-2.5 text-sm font-bold text-gray-500 hover:text-[#0066FF] transition-colors"
             >
               Clear Filters
             </button>
@@ -251,7 +251,7 @@ export default function WooCommerceOrders() {
                       <td className="px-6 py-4 text-right">
                         <button 
                           onClick={() => setSelectedOrder(order)}
-                          className="p-2 text-gray-400 hover:text-[#00AEEF] hover:bg-[#00AEEF]/5 rounded-lg transition-all"
+                          className="p-2 text-gray-400 hover:text-[#0066FF] hover:bg-[#0066FF]/5 rounded-lg transition-all"
                         >
                           <Eye size={18} />
                         </button>
@@ -274,7 +274,7 @@ export default function WooCommerceOrders() {
               <button 
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="p-2 text-gray-400 hover:text-[#00AEEF] disabled:opacity-30 transition-colors"
+                className="p-2 text-gray-400 hover:text-[#0066FF] disabled:opacity-30 transition-colors"
               >
                 <ChevronLeft size={20} />
               </button>
@@ -287,7 +287,7 @@ export default function WooCommerceOrders() {
                       onClick={() => setPage(pageNum)}
                       className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
                         page === pageNum 
-                          ? 'bg-[#00AEEF] text-white shadow-md shadow-[#00AEEF]/20' 
+                          ? 'bg-[#0066FF] text-white shadow-md shadow-[#0066FF]/20' 
                           : 'text-gray-500 hover:bg-gray-100'
                       }`}
                     >
@@ -299,7 +299,7 @@ export default function WooCommerceOrders() {
               <button 
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="p-2 text-gray-400 hover:text-[#00AEEF] disabled:opacity-30 transition-colors"
+                className="p-2 text-gray-400 hover:text-[#0066FF] disabled:opacity-30 transition-colors"
               >
                 <ChevronRight size={20} />
               </button>
@@ -328,7 +328,7 @@ export default function WooCommerceOrders() {
               {/* Modal Header */}
               <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-[#00AEEF]">
+                  <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-[#0066FF]">
                     <ShoppingCart size={24} />
                   </div>
                   <div>
@@ -341,7 +341,7 @@ export default function WooCommerceOrders() {
                     value={selectedOrder.status}
                     onChange={(e) => handleUpdateStatus(selectedOrder.id, e.target.value)}
                     disabled={isUpdating}
-                    className="px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-[#00AEEF]/20 transition-all disabled:opacity-50"
+                    className="px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-[#0066FF]/20 transition-all disabled:opacity-50"
                   >
                     <option value="pending">Pending</option>
                     <option value="processing">Processing</option>
@@ -478,7 +478,7 @@ export default function WooCommerceOrders() {
                         </tr>
                         <tr className="bg-gray-50 border-t border-gray-100">
                           <td colSpan={4} className="px-6 py-4 text-right text-sm font-bold text-gray-900 uppercase tracking-wider">Grand Total</td>
-                          <td className="px-6 py-4 text-right text-lg font-bold text-[#00AEEF]">{selectedOrder.total} {selectedOrder.currency}</td>
+                          <td className="px-6 py-4 text-right text-lg font-bold text-[#0066FF]">{selectedOrder.total} {selectedOrder.currency}</td>
                         </tr>
                       </tfoot>
                     </table>

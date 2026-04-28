@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   TrendingUp, 
   Users, 
@@ -23,7 +24,10 @@ import {
   Truck,
   RotateCcw,
   Zap,
-  ChevronDown
+  ChevronDown,
+  Sparkles,
+  ArrowRight,
+  PackageX
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -49,27 +53,88 @@ import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
 
-const StatCard = ({ title, value, icon: Icon, color, iconColor }: any) => (
-  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm transition-all hover:shadow-md flex items-center justify-between">
-    <div>
-      <h3 className="text-xl font-bold text-[#141414] mb-1">{value}</h3>
-      <p className="text-[10px] font-bold text-[#00AEEF] uppercase tracking-wider">{title}</p>
+const StatCard = ({ title, value, icon: Icon, trend, trendValue, delay = 0, iconBg, iconColor }: any) => (
+  <motion.div 
+    initial={{ opacity: 0, y: 12 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.4, delay }}
+    className="bg-white border border-gray-100 rounded-[20px] p-4 lg:p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow relative overflow-hidden"
+  >
+    <div className="flex flex-col mb-2 lg:mb-4">
+      <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-[14px] flex items-center justify-center ${iconBg} mb-3`}>
+        <Icon size={20} className={iconColor} strokeWidth={2} />
+      </div>
+      <div>
+        <p className="text-[10px] lg:text-[11px] font-bold text-gray-400 uppercase tracking-widest leading-tight">{title}</p>
+        <h3 className="text-xl lg:text-2xl 2xl:text-3xl font-black text-gray-900 mt-1 tracking-tight">{value}</h3>
+      </div>
     </div>
-    <div className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center text-white shadow-lg shadow-blue-100`}>
-      <Icon size={24} className={iconColor} />
+    
+    <div className="mt-auto text-[10px] xl:text-[11px] 2xl:text-[12px] font-medium flex items-center gap-1 flex-wrap">
+      <span className={trend === 'up' ? 'text-[#1DAB61] font-bold' : 'text-[#FF6347] font-bold'}>
+        {trend === 'up' ? '↗' : '↘'} {trendValue}
+      </span>
+      <span className="text-gray-400">vs month</span>
     </div>
-  </div>
+  </motion.div>
 );
 
-const SectionHeader = ({ title, showSelect = false }: { title: string, showSelect?: boolean }) => (
-  <div className="flex items-center justify-between mb-6">
-    <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest">{title}</h3>
+const ProfileSummaryCard = ({ name, growth, todayOrders, todaySales, currencySymbol }: { name: string, growth: number, todayOrders: number, todaySales: number, currencySymbol: string }) => {
+  const { user } = useAuth();
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="h-full rounded-[2.5rem] bg-accent text-white p-10 flex flex-col justify-between overflow-hidden relative shadow-2xl shadow-accent/20"
+    >
+      <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl opacity-40 animate-pulse" />
+      
+      <div className="relative z-10">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-ping" />
+          <h4 className="text-[11px] text-white/60 font-extrabold uppercase tracking-[.25em]">Live Stats</h4>
+        </div>
+        <h2 className="text-3xl font-bold tracking-tight text-white leading-tight mb-2">
+          Welcome back,<br />
+          <span className="text-white/90">{name.split(' ')[0]}</span>
+        </h2>
+        <p className="text-white/80 text-[13px] font-medium leading-relaxed max-w-[200px]">
+          Your daily sales performance is {growth >= 0 ? 'up' : 'down'} <span className="text-white font-bold">{Math.abs(growth)}%</span> from yesterday.
+        </p>
+      </div>
+
+      <div className="relative z-10 grid grid-cols-2 gap-8 border-t border-white/10 pt-8 mt-8">
+        <div>
+          <p className="text-[10px] text-white/50 font-extrabold uppercase tracking-widest mb-1">Today's Orders</p>
+          <p className="text-xl font-bold text-white">{todayOrders}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-white/50 font-extrabold uppercase tracking-widest mb-1">Today's Revenue</p>
+          <p className="text-xl font-bold text-white">{currencySymbol}{todaySales.toLocaleString()}</p>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+const SectionHeader = ({ title, showSelect = false, subtitle }: { title: string, showSelect?: boolean, subtitle?: string }) => (
+  <div className="flex items-center justify-between mb-8">
+    <div>
+      <h3 className="text-xl font-bold text-primary tracking-tight">{title}</h3>
+      {subtitle && <p className="text-xs font-semibold text-slate-400 mt-1 uppercase tracking-wider">{subtitle}</p>}
+    </div>
     {showSelect && (
-      <select className="text-xs font-bold text-gray-500 bg-gray-100 border-none rounded-lg px-3 py-1.5 outline-none cursor-pointer hover:bg-gray-200 transition-colors">
-        <option>This week</option>
-        <option>This month</option>
-        <option>This year</option>
-      </select>
+      <div className="flex items-center gap-3">
+        <select className="text-[11px] font-bold text-slate-500 bg-slate-50 border-none rounded-xl px-4 py-2.5 outline-none cursor-pointer hover:bg-slate-100 transition-all">
+          <option>This Week</option>
+          <option>This Month</option>
+          <option>This Year</option>
+        </select>
+        <button className="p-2.5 bg-primary text-white rounded-xl shadow-lg hover:scale-105 transition-all">
+          <Plus size={16} />
+        </button>
+      </div>
     )}
   </div>
 );
@@ -77,16 +142,19 @@ const SectionHeader = ({ title, showSelect = false }: { title: string, showSelec
 const CustomTooltip = ({ active, payload, label, currencySymbol }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-[#2D2D2D] p-3 rounded-xl shadow-2xl border border-white/5 animate-in fade-in zoom-in-95 duration-200">
-        <div className="space-y-2">
+      <div className="glass p-4 rounded-2xl shadow-2xl border-white/50 animate-in fade-in zoom-in-95 duration-200">
+        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">{label}</p>
+        <div className="space-y-3">
           {payload.map((entry: any, index: number) => (
-            <div key={index} className="flex items-center gap-3">
-              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.color }} />
-              <span className="text-[11px] font-black text-white/90">{currencySymbol} {entry.value.toLocaleString()}</span>
+            <div key={index} className="flex items-center justify-between gap-6">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                <span className="text-[11px] font-bold text-gray-600">{entry.name}</span>
+              </div>
+              <span className="text-xs font-black text-gray-900">{currencySymbol} {entry.value.toLocaleString()}</span>
             </div>
           ))}
         </div>
-        <div className="absolute left-1/2 -bottom-1 -translate-x-1/2 w-2 h-2 bg-[#2D2D2D] rotate-45 border-r border-b border-white/5" />
       </div>
     );
   }
@@ -105,7 +173,6 @@ export default function Dashboard() {
   const [teamMembers, setTeamMembers] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
-    // Fetch users for mapping names
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       const usersMap: { [key: string]: string } = {};
       snapshot.docs.forEach(doc => {
@@ -157,15 +224,49 @@ export default function Dashboard() {
       unsubCustomers();
       unsubProducts();
     };
-  }, [authUser]); // Removed teamMembers from dep array to avoid infinite loop
+  }, [authUser]);
 
-  const memoizedStats = useMemo(() => {
+  const stats = useMemo(() => {
     const totalAmount = orders.reduce((acc, o: any) => acc + (o.totalAmount || 0), 0);
     const totalPaid = orders.reduce((acc, o: any) => acc + (o.paidAmount || 0), 0);
     const totalDue = orders.reduce((acc, o: any) => acc + (o.dueAmount || 0), 0);
     const totalInvoice = orders.length;
-    const totalPaidInvoice = orders.filter((o: any) => o.status?.toLowerCase() === 'delivered').length;
-    const totalDueInvoice = orders.filter((o: any) => o.status?.toLowerCase() !== 'delivered' && o.status?.toLowerCase() !== 'cancelled').length;
+
+    // Growth calculation
+    const today = new Date().toISOString().split('T')[0];
+    const todayOrdersList = orders.filter((o: any) => {
+      try {
+        if (!o.createdAt) return false;
+        const createdAt = o.createdAt?.toDate?.() || (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt));
+        if (!createdAt || isNaN(createdAt.getTime())) return false;
+        return createdAt.toISOString().split('T')[0] === today;
+      } catch (e) {
+        return false;
+      }
+    });
+    const todaySales = todayOrdersList.reduce((acc, o: any) => acc + (o.totalAmount || 0), 0);
+    
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const yesterdayOrders = orders.filter((o: any) => {
+      try {
+        if (!o.createdAt) return false;
+        const createdAt = o.createdAt?.toDate?.() || (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000) : new Date(o.createdAt));
+        if (!createdAt || isNaN(createdAt.getTime())) return false;
+        return createdAt.toISOString().split('T')[0] === yesterdayStr;
+      } catch (e) {
+        return false;
+      }
+    });
+    const yesterdaySales = yesterdayOrders.reduce((acc, o: any) => acc + (o.totalAmount || 0), 0);
+    
+    let salesGrowth = 0;
+    if (yesterdaySales > 0) {
+      salesGrowth = ((todaySales - yesterdaySales) / yesterdaySales * 100);
+    } else if (todaySales > 0) {
+      salesGrowth = 100;
+    }
 
     const cancelledOrders = orders.filter((o: any) => o.status?.toLowerCase() === 'cancelled').length;
     const returnedOrders = orders.filter((o: any) => o.status?.toLowerCase() === 'returned').length;
@@ -177,29 +278,27 @@ export default function Dashboard() {
       totalPaid,
       totalDue,
       totalInvoice,
-      totalPaidInvoice,
-      totalDueInvoice,
       returnRate: returnRateCalc,
       totalCustomer: customersCount,
-      totalProduct: products.length
+      totalProduct: products.length,
+      todaySales,
+      todayInvoice: todayOrdersList.length,
+      salesGrowth: parseFloat(salesGrowth.toFixed(1))
     };
   }, [orders, customersCount, products.length]);
-
-  const stats = memoizedStats;
-  const returnRate = memoizedStats.returnRate;
 
   const recentOrders = useMemo(() => {
     return [...orders].sort((a: any, b: any) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)).slice(0, 10);
   }, [orders]);
 
   const bestSellingProducts = useMemo(() => {
-    const productSales: { [key: string]: { name: string, quantity: number, revenue: number } } = {};
+    const productSales: { [key: string]: { name: string, quantity: number, revenue: number, image?: string } } = {};
     orders.forEach((order: any) => {
       if (order.items && Array.isArray(order.items)) {
         order.items.forEach((item: any) => {
           const key = item.productId || item.id;
           if (!productSales[key]) {
-            productSales[key] = { name: item.name, quantity: 0, revenue: 0 };
+            productSales[key] = { name: item.name, quantity: 0, revenue: 0, image: item.image };
           }
           productSales[key].quantity += (item.quantity || 0);
           productSales[key].revenue += (item.price || 0) * (item.quantity || 0);
@@ -240,337 +339,354 @@ export default function Dashboard() {
         return date && date.getMonth() === index && date.getFullYear() === selectedYear;
       });
       const revenue = monthOrders.reduce((acc, o: any) => acc + (o.totalAmount || 0), 0);
-      const profit = revenue * (0.4 + Math.random() * 0.3);
       return {
         name: month,
         orders: revenue,
-        profit: profit
+        profit: revenue * 0.45
       };
     });
   }, [orders, selectedYear]);
-
-  const dailyRevenue = useMemo(() => {
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      return d.toISOString().split('T')[0];
-    }).reverse();
-
-    return last7Days.map(date => {
-      const dayOrders = orders.filter((o: any) => {
-        const orderDate = o.createdAt?.toDate ? o.createdAt.toDate().toISOString().split('T')[0] : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000).toISOString().split('T')[0] : '');
-        return orderDate === date;
-      });
-      return {
-        name: date,
-        value: dayOrders.reduce((acc, o: any) => acc + (o.totalAmount || 0), 0)
-      };
-    });
-  }, [orders]);
 
   const lowStockProducts = useMemo(() => {
     return products.filter((p: any) => (p.stock || 0) <= (p.minStock || 5)).slice(0, 5);
   }, [products]);
 
-  const barData = dailyRevenue;
-
-  const pieData = [
-    { name: 'Paid', value: stats.totalPaid, color: '#00AEEF' },
-    { name: 'Due', value: stats.totalDue, color: '#FF7F27' },
-  ];
-
-  const lineData = Array.from({ length: 30 }, (_, i) => ({
-    name: `${String(i + 1).padStart(2, '0')}-04-2026`,
-    value: i === 1 ? 300 : (i === 0 ? 50 : 0)
-  }));
-
-  const recentInvoices = [
-    { id: '81', customer: 'Fermin Prohaska', issue: '02-04-2026', due: '02-04-2026', total: '€ 22,00', status: 'Due' },
-    { id: '80', customer: 'Fermin Prohaska', issue: '02-04-2026', due: '04-04-2026', total: '€ 600,00', status: 'Due' },
-    { id: '79', customer: 'Tabitha Abernathy', issue: '01-04-2026', due: '05-04-2026', total: '€ 11.338,11', status: 'Due' },
-    { id: '78', customer: 'Fermin Prohaska', issue: '01-04-2026', due: '02-04-2026', total: '€ 630,00', status: 'Due' },
-    { id: '77', customer: 'Fermin Prohaska', issue: '05-03-2026', due: '31-03-2026', total: '€ 645,00', status: 'Due' },
-  ];
-
-  const recentQuotations = [
-    { id: 'quotation-147', customer: 'Fermin Prohaska', total: '€ 600,00', status: 'Pending' },
-    { id: 'quotation-146', customer: 'Wilfred Ratke', total: '€ 11.968,00', status: 'Pending' },
-    { id: 'quotation-143', customer: 'Fermin Prohaska', total: '€ 268,00', status: 'Pending' },
-    { id: 'quotation-142', customer: 'Wilfred Ratke', total: '€ 803,00', status: 'Pending' },
-    { id: 'quotation-141', customer: 'Jonatan Kuhn', total: '€ 924,35', status: 'Approved' },
-  ];
-
-  const recentTransactions = [
-    { id: 'payment-159', amount: '€ 57,91', date: '31-03-2026', customer: 'Customer User', method: 'Bank' },
-    { id: 'payment-158', amount: '€ 50,00', date: '31-03-2026', customer: 'Customer User', method: 'Bank' },
-    { id: 'payment-157', amount: '€ 99,00', date: '31-03-2026', customer: 'Customer User', method: 'Sslcommerz' },
-    { id: 'payment-156', amount: '€ 333,00', date: '31-03-2026', customer: 'Customer User', method: 'Paypal' },
-    { id: 'payment-155', amount: '€ 5.000,00', date: '31-03-2026', customer: 'Customer User', method: 'Paypal' },
-  ];
-
-  const recentExpenses = [
-    { title: 'Corporis recusandae est et illum.', date: '30-03-2026', amount: '€ 900,00', ref: '' },
-    { title: 'Minus eum aliquam facilis sed.', date: '15-02-2023', amount: '€ 363,15', ref: '3ab1897a-a2' },
-    { title: 'Maxime aperiam dolor aliquid illum rem ipsa.', date: '01-01-2021', amount: '€ 790,57', ref: '8b8c570b-4' },
-    { title: 'Repellendus non non velit repudiandae sed.', date: '07-12-2020', amount: '€ 151,26', ref: 'a820a15f-29' },
-    { title: 'Quo eaque nesciunt quidem velit placeat eligendi tempore.', date: '05-01-2022', amount: '€ 143,43', ref: '0c1bc821-db' },
-  ];
-
   const formatCurrency = (amount: number) => {
-    return `${currencySymbol} ${amount.toLocaleString()}`;
+    return `${currencySymbol}${amount.toLocaleString()}`;
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-[#00AEEF]" />
+      <div className="flex flex-col items-center justify-center h-screen bg-surface gap-4">
+        <motion.div 
+          animate={{ rotate: 360 }}
+          transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+          className="w-12 h-12 border-4 border-primary/10 border-t-primary rounded-full"
+        />
+        <p className="label-tiny animate-pulse">Syncing Dashboard...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 sm:space-y-8 pb-12">
-      {/* Quick Actions Bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Link to="/orders/new" className="flex items-center gap-2 px-4 py-2.5 bg-[#141414] text-white rounded-xl text-xs font-bold hover:bg-black transition-all shadow-lg shadow-gray-200">
-          <Plus size={16} />
-          New Order
-        </Link>
-        <Link to="/pos" className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-100 text-[#141414] rounded-xl text-xs font-bold hover:bg-gray-50 transition-all shadow-sm">
-          <Zap size={16} className="text-orange-500" />
-          POS Sale
-        </Link>
-        <Link to="/inventory/new" className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-100 text-[#141414] rounded-xl text-xs font-bold hover:bg-gray-50 transition-all shadow-sm">
-          <Package size={16} className="text-blue-500" />
-          Add Product
-        </Link>
-        <a href="https://wa.me/8801700000000" target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2.5 bg-[#25D366] text-white rounded-xl text-xs font-bold hover:bg-[#128C7E] transition-all shadow-lg shadow-green-100">
-          <MessageSquare size={16} />
-          WhatsApp Support
-        </a>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto space-y-8 pb-20">
+      {/* Header Section */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8">
+        <div className="space-y-1">
+          <h2 className="text-3xl font-bold text-gray-900 tracking-tight">Dashboard</h2>
+          <p className="text-gray-500 text-sm font-medium">Welcome back, <span className="text-[#0066FF] font-semibold">{authUser?.name || teamMembers[authUser?.uid || ''] || 'Mahmudul'}</span>! Here's what's happening with your business today.</p>
+        </div>
+        
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 lg:gap-3 w-full lg:w-auto">
+          {/* Date Picker Button */}
+          <div className="flex items-center justify-between min-w-[180px] lg:min-w-[200px] gap-2 bg-white border border-gray-200 rounded-lg shadow-sm px-3 lg:px-4 py-2 lg:py-2.5 cursor-pointer text-xs lg:text-sm font-medium text-gray-700">
+            <span>May 17 - May 24, 2026</span>
+            <Calendar size={16} className="text-gray-400" />
+          </div>
+
+          {/* List/Grid View Toggle */}
+          <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg shadow-sm p-1">
+            <button className="p-1.5 lg:p-2 rounded-md transition-colors text-gray-400 hover:text-gray-600">
+               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+            </button>
+            <button className="p-1.5 lg:p-2 rounded-md transition-colors bg-gray-100 text-gray-800">
+               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+            </button>
+          </div>
+          
+          <Link to="/orders/new" className="flex items-center gap-2 px-4 lg:px-5 py-2 lg:py-2.5 bg-[#0066FF] text-white rounded-lg text-xs lg:text-sm font-semibold hover:bg-[#0052CC] transition-colors shadow-sm whitespace-nowrap shrink-0">
+            <Plus size={16} strokeWidth={2.5} />
+            <span>New Order</span>
+          </Link>
+        </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <StatCard title="Total Revenue" value={formatCurrency(stats.totalAmount)} icon={Wallet} color="bg-blue-50" iconColor="text-blue-600" />
-        <StatCard title="Total Paid" value={formatCurrency(stats.totalPaid)} icon={CheckCircle2} color="bg-green-50" iconColor="text-green-600" />
-        <StatCard title="Return Rate" value={`${returnRate}%`} icon={RotateCcw} color="bg-red-50" iconColor="text-red-600" />
-        <StatCard title="Total Customers" value={stats.totalCustomer} icon={Users} color="bg-purple-50" iconColor="text-purple-600" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <StatCard 
+          title="TOTAL ORDERS" 
+          value={stats.totalInvoice.toLocaleString()} 
+          icon={ShoppingCart} 
+          trend="up" 
+          trendValue={`${stats.salesGrowth}%`} 
+          iconBg="bg-[#F0F7FF]"
+          iconColor="text-[#0066FF]"
+          delay={0.1}
+        />
+        <StatCard 
+          title="TOTAL SALES" 
+          value={formatCurrency(stats.totalAmount)} 
+          icon={DollarSign} 
+          trend="down" 
+          trendValue="7.2%" 
+          iconBg="bg-emerald-50"
+          iconColor="text-emerald-500"
+          delay={0.2}
+        />
+        <StatCard 
+          title="TOTAL PRODUCTS" 
+          value={stats.totalProduct.toLocaleString()} 
+          icon={Package} 
+          trend="up" 
+          trendValue="4.7%" 
+          iconBg="bg-orange-50"
+          iconColor="text-orange-500"
+          delay={0.3}
+        />
+        <StatCard 
+          title="TOTAL CUSTOMERS" 
+          value={stats.totalCustomer.toLocaleString()} 
+          icon={Users} 
+          trend="up" 
+          trendValue="2.1%" 
+          iconBg="bg-purple-50"
+          iconColor="text-purple-500"
+          delay={0.4}
+        />
+        <StatCard 
+          title="TOTAL COLLECTION" 
+          value={formatCurrency(stats.totalPaid)} 
+          icon={CheckCircle2} 
+          trend="up" 
+          trendValue="2.6%" 
+          iconBg="bg-pink-50"
+          iconColor="text-pink-500"
+          delay={0.5}
+        />
+        <StatCard 
+          title="OUTSTANDING" 
+          value={formatCurrency(stats.totalDue)} 
+          icon={Clock} 
+          trend="up" 
+          trendValue="1.9%" 
+          iconBg="bg-red-50"
+          iconColor="text-red-500"
+          delay={0.6}
+        />
       </div>
 
-      {/* Charts Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
-        <div className="lg:col-span-2 bg-white p-6 sm:p-8 rounded-[2rem] border border-gray-100 shadow-sm relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-            <div>
-              <h3 className="text-xl font-black text-gray-900 leading-tight">Orders Overview</h3>
-              <div className="flex items-center gap-6 mt-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#8E87F1]" />
-                  <span className="text-[11px] font-black text-gray-400 uppercase tracking-wider">Orders</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#4AD3B1]" />
-                  <span className="text-[11px] font-black text-gray-400 uppercase tracking-wider">Profit</span>
-                </div>
+
+      {/* Middle Row - Alerts, Top Sellers, Recent Traffic */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 xl:gap-8">
+        {/* Stock Alerts Card */}
+        <div className="bg-white border border-gray-100 rounded-[20px] p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-50">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-red-50 flex items-center justify-center text-red-500">
+                <AlertCircle size={14} />
               </div>
+              <h3 className="text-[16px] font-bold text-gray-900">Stock Alerts</h3>
             </div>
-            <div className="relative">
-              <select 
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(Number(e.target.value))}
-                className="appearance-none bg-gray-50 border border-gray-100 rounded-xl px-5 py-2.5 pr-10 text-[11px] font-black text-gray-600 outline-none hover:bg-gray-100 transition-all cursor-pointer shadow-sm"
-              >
-                <option value={2026}>2026</option>
-                <option value={2025}>2025</option>
-                <option value={2024}>2024</option>
-              </select>
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                <ChevronDown size={14} strokeWidth={3} />
+            <Link to="/products" className="text-[13px] font-medium text-[#0066FF] hover:text-blue-700">View All</Link>
+          </div>
+          <div className="space-y-4">
+            {lowStockProducts.map((p, i) => (
+              <div key={i} className="flex items-center gap-4 group cursor-pointer">
+                <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500 shrink-0">
+                  <Package size={18} />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-[13px] font-bold text-gray-900 truncate mb-0.5">{p.name}</h4>
+                  <p className="text-[11px] font-medium text-red-500">{p.stock || 0} units left</p>
+                </div>
               </div>
+            ))}
+            {lowStockProducts.length === 0 && (
+              <div className="py-8 text-center">
+                <p className="text-sm text-gray-400 italic">Inventory healthy</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Top Sellers Card */}
+        <div className="bg-white border border-gray-100 rounded-[20px] p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-50">
+            <h3 className="text-[16px] font-bold text-gray-900">Top Sellers</h3>
+            <Link to="/products" className="text-[13px] font-medium text-[#0066FF] hover:text-blue-700">View All</Link>
+          </div>
+          <div className="space-y-5">
+            {bestSellingProducts.slice(0, 5).map((p, i) => (
+              <div key={i} className="flex items-center gap-4 group cursor-pointer">
+                <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-[#0066FF] text-xs font-bold shrink-0">
+                  #{i + 1}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-[13px] font-bold text-gray-900 truncate mb-0.5">{p.name}</h4>
+                  <p className="text-[11px] font-medium text-gray-500">{p.quantity} units · {formatCurrency(p.revenue)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent Traffic Card */}
+        <div className="bg-white border border-gray-100 rounded-[20px] p-6 shadow-sm flex flex-col h-full">
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-50">
+            <h3 className="text-[16px] font-bold text-gray-900">Recent Order</h3>
+            <Link to="/orders" className="text-[13px] font-medium text-[#0066FF] hover:text-blue-700 bg-blue-50 px-3 py-1 rounded-full">View All</Link>
+          </div>
+          <div className="flex-1 space-y-5">
+            {recentOrders.slice(0, 5).map((order) => (
+              <div key={order.id} className="flex items-center justify-between gap-2 group cursor-pointer">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 shrink-0">
+                    <ShoppingCart size={18} />
+                  </div>
+                  <div>
+                    <h4 className="text-[13px] font-bold text-gray-900 truncate leading-tight mb-0.5 max-w-[100px]">{order.customerName}</h4>
+                    <p className="text-[11px] text-gray-400">#{order.orderNumber || order.id.slice(0, 6)}</p>
+                  </div>
+                </div>
+                <div className="text-right flex-1">
+                  <div className="flex items-center justify-end gap-4">
+                    <span className="text-[13px] font-bold text-gray-900">{formatCurrency(order.totalAmount)}</span>
+                    <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                         order.status?.toLowerCase() === 'delivered' ? 'bg-emerald-50 text-emerald-600' : 
+                         order.status?.toLowerCase() === 'shipped' ? 'bg-blue-50 text-[#0066FF]' :
+                         order.status?.toLowerCase() === 'cancelled' ? 'bg-rose-50 text-rose-600' :
+                         'bg-orange-50 text-orange-500' /* Pending style */
+                       }`}>
+                      {order.status || 'PENDING'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 pt-4 border-t border-gray-50 flex items-center justify-center gap-2">
+            <div className="flex gap-1.5">
+               <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+               <div className="w-1.5 h-1.5 rounded-full bg-gray-200" />
+               <div className="w-1.5 h-1.5 rounded-full bg-gray-200" />
+            </div>
+            <span className="text-[11px] font-medium text-gray-400">Live data sync</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Insights Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Large Chart Card */}
+        <div className="lg:col-span-8 bg-white border border-gray-100 rounded-[20px] p-8 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
+            <div>
+              <h3 className="text-[16px] font-bold text-gray-900">Sales Intelligence</h3>
+              <p className="text-sm text-gray-500 font-medium mt-1">Market trajectory and revenue velocity</p>
+            </div>
+            <div className="flex items-center border border-gray-200 rounded-lg p-1">
+              {[2024, 2025, 2026].map(year => (
+                <button 
+                  key={year}
+                  onClick={() => setSelectedYear(year)}
+                  className={`px-4 py-1.5 rounded-md text-[13px] font-semibold transition-colors ${selectedYear === year ? 'bg-[#F0F7FF] text-[#0066FF]' : 'text-gray-500 hover:text-gray-900'}`}
+                >
+                  {year}
+                </button>
+              ))}
             </div>
           </div>
-          
-          <div className="h-[320px] sm:h-[380px] w-full">
+
+          <div className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={monthlyPerformance} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="colorOrders" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8E87F1" stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor="#8E87F1" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4AD3B1" stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor="#4AD3B1" stopOpacity={0}/>
+                  <linearGradient id="velocityGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0066FF" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#0066FF" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F2F4" />
+                <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#F1F5F9" />
                 <XAxis 
                   dataKey="name" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fontSize: 11, fill: '#A0AEC0', fontWeight: 800 }} 
-                  dy={15}
+                  tick={{ fontSize: 11, fill: '#64748B', fontWeight: 500 }} 
+                  dy={10}
                 />
                 <YAxis 
                   axisLine={false} 
                   tickLine={false} 
-                  tickFormatter={(value) => value >= 1000 ? `${value / 1000}k` : value}
-                  tick={{ fontSize: 11, fill: '#A0AEC0', fontWeight: 800 }} 
+                  tickFormatter={(p) => `${currencySymbol}${p > 999 ? p/1000 + 'k' : p}`}
+                  tick={{ fontSize: 11, fill: '#64748B', fontWeight: 500 }} 
                 />
-                <Tooltip 
-                  content={<CustomTooltip currencySymbol={currencySymbol} />}
-                  cursor={{ stroke: '#141414', strokeWidth: 1, strokeDasharray: '4 4' }}
-                />
+                <Tooltip content={<CustomTooltip currencySymbol={currencySymbol} />} cursor={false} />
                 <Area 
                   type="monotone" 
                   dataKey="orders" 
-                  name="Orders"
-                  stroke="#8E87F1" 
-                  strokeWidth={2.5} 
-                  fillOpacity={1} 
-                  fill="url(#colorOrders)" 
+                  name="Revenue" 
+                  stroke="#0066FF" 
+                  strokeWidth={3} 
+                  fill="url(#velocityGrad)" 
+                  animationDuration={1500}
                 />
                 <Area 
                   type="monotone" 
                   dataKey="profit" 
-                  name="Profit"
-                  stroke="#4AD3B1" 
-                  strokeWidth={2.5} 
-                  fillOpacity={1} 
-                  fill="url(#colorProfit)" 
+                  name="Target" 
+                  stroke="#94A3B8" 
+                  strokeWidth={2} 
+                  strokeDasharray="6 6"
+                  fill="transparent" 
+                  animationDuration={2000}
                 />
               </AreaChart>
             </ResponsiveContainer>
           </div>
+          <div className="flex items-center justify-center gap-6 mt-4">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-0.5 bg-[#0066FF]" />
+              <span className="text-[12px] font-medium text-gray-500">Revenue</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-0.5 bg-gray-400 border-t-2 border-dashed border-gray-400" />
+              <span className="text-[12px] font-medium text-gray-500">Target</span>
+            </div>
+          </div>
         </div>
 
-        <div className="bg-white p-4 sm:p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col">
-          <SectionHeader title="Team Performance" />
-          <div className="flex-1 space-y-4">
+        {/* Team Activity Card */}
+        <div className="lg:col-span-4 bg-white border border-gray-100 rounded-[20px] p-8 shadow-sm flex flex-col">
+          <div className="mb-8">
+            <h3 className="text-[16px] font-bold text-gray-900">Staff Velocity</h3>
+            <p className="text-sm text-gray-500 font-medium mt-1">Order processing efficiency</p>
+          </div>
+          <div className="flex-1">
             {teamPerformance.length > 0 ? (
-              teamPerformance.map((c, i) => (
-                <div key={i} className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-gray-700 uppercase">{c.name}</span>
-                    <span className="text-xs font-black text-[#00AEEF]">{c.rate}% Success</span>
+              teamPerformance.slice(0, 1).map((member, i) => (
+                <div key={i} className="group">
+                  <div className="flex justify-between items-end mb-4">
+                    <div>
+                      <h4 className="text-[13px] font-bold text-gray-900 uppercase tracking-widest mb-1">{member.name}</h4>
+                      <p className="text-[12px] text-gray-500 font-medium">{member.processed} operations completed</p>
+                    </div>
+                    <span className="text-[13px] font-bold text-gray-900">{member.rate}%</span>
                   </div>
-                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-[#00AEEF] rounded-full transition-all duration-1000" 
-                      style={{ width: `${c.rate}%` }}
+                  <div className="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${member.rate}%` }}
+                      transition={{ duration: 1.5, delay: 0.5 }}
+                      className="h-full bg-[#0066FF] rounded-full"
                     />
                   </div>
-                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">{c.processed} Processed / {c.total} Assigned</p>
                 </div>
               ))
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-gray-300 gap-2">
-                <Users size={48} strokeWidth={1} />
-                <p className="text-xs font-medium">No team data yet</p>
-              </div>
+               <div className="flex flex-col items-center justify-center text-gray-300 py-10">
+                 <Users size={32} />
+                 <p className="text-sm font-medium mt-4 uppercase tracking-widest">Awaiting Data</p>
+               </div>
             )}
           </div>
-          <div className="mt-6 pt-6 border-t border-gray-50">
-            <Link to="/team" className="text-xs font-bold text-[#00AEEF] hover:underline flex items-center gap-1">
-              Manage Team <ArrowUpRight size={14} />
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Alerts & Best Selling */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
-        {/* Low Stock Alerts */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-gray-50 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest">Low Stock Alerts</h3>
-            <span className="px-2 py-1 bg-red-50 text-red-600 text-[10px] font-black rounded-lg uppercase">{lowStockProducts.length} Items</span>
-          </div>
-          <div className="p-6 space-y-4">
-            {lowStockProducts.map((p, i) => (
-              <div key={i} className="flex items-center gap-4 p-3 bg-gray-50 rounded-2xl border border-transparent hover:border-red-100 transition-all">
-                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
-                  <Package size={20} className="text-red-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-xs font-bold text-gray-900 truncate">{p.name}</h4>
-                  <p className="text-[10px] text-red-500 font-black uppercase tracking-wider">Only {p.stock || 0} left</p>
-                </div>
-                <Link to={`/inventory/edit/${p.id}`} className="p-2 text-gray-400 hover:text-[#00AEEF] transition-colors">
-                  <ArrowUpRight size={16} />
-                </Link>
-              </div>
-            ))}
-            {lowStockProducts.length === 0 && (
-              <div className="text-center py-8 text-gray-400 text-xs">All stock levels are healthy.</div>
-            )}
-          </div>
-          <div className="p-4 bg-gray-50 border-t border-gray-100 text-center">
-            <Link to="/inventory" className="text-[10px] font-bold text-gray-500 uppercase tracking-widest hover:text-[#00AEEF]">View Full Inventory</Link>
-          </div>
-        </div>
-
-        {/* Best Selling Products */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-gray-50">
-            <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest">Best Selling Products</h3>
-          </div>
-          <div className="p-6 space-y-6">
-            {bestSellingProducts.map((product, index) => (
-              <div key={index} className="flex items-center gap-4 group">
-                <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-xs font-black text-gray-400 group-hover:bg-[#00AEEF] group-hover:text-white transition-all">
-                  #{index + 1}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-xs font-bold text-gray-900 truncate">{product.name}</h4>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">{product.quantity} Units Sold</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-black text-[#00AEEF]">{formatCurrency(product.revenue)}</p>
-                </div>
-              </div>
-            ))}
-            {bestSellingProducts.length === 0 && (
-              <div className="text-center py-12 text-gray-400 text-xs">No sales data yet.</div>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Orders */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-gray-50 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest">Recent Orders</h3>
-            <Link to="/orders" className="text-[10px] font-bold text-[#00AEEF] hover:underline">View All</Link>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {recentOrders.slice(0, 5).map((order) => (
-              <div key={order.id} className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-[#00AEEF]">
-                    <ShoppingCart size={14} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-gray-900 truncate">{order.customerName}</p>
-                    <p className="text-[10px] text-gray-400 font-medium">#{order.orderNumber || order.id.slice(0, 8)}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-black text-gray-900">{formatCurrency(order.totalAmount)}</p>
-                  <span className={`text-[8px] font-black uppercase tracking-widest ${
-                    order.status?.toLowerCase() === 'delivered' ? 'text-green-500' : 
-                    order.status?.toLowerCase() === 'cancelled' ? 'text-red-500' : 'text-[#00AEEF]'
-                  }`}>{order.status}</span>
-                </div>
-              </div>
-            ))}
-            {recentOrders.length === 0 && (
-              <div className="p-12 text-center text-gray-400 text-xs">No orders found.</div>
-            )}
-          </div>
+          <Link to="/team" className="mt-auto pt-6 border-t border-gray-50 flex items-center justify-between text-gray-600 hover:text-gray-900 transition-colors group">
+            <span className="text-[13px] font-medium">Full Report</span>
+            <ArrowRight size={18} className="translate-x-0 group-hover:translate-x-1 transition-transform" />
+          </Link>
         </div>
       </div>
     </div>
   );
 }
+
 

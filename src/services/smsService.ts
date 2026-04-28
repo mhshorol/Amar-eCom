@@ -15,9 +15,6 @@ export async function sendOrderConfirmationSMS(order: any) {
       .replace('{orderNumber}', order.orderNumber || order.id || 'N/A')
       .replace('{totalAmount}', order.totalAmount || '0')
       .replace('{companyName}', globalSettings.companyName || 'Our Store');
-      
-    console.log('Sending SMS to:', order.customerPhone);
-    console.log('Message:', message);
     
     const response = await fetch('/api/sms/send', {
       method: 'POST',

@@ -25,9 +25,6 @@ export const getDb = () => {
   
   const dbId = firebaseConfig.firestoreDatabaseId;
   const settings = {
-    // Forcing long polling is the most stable approach in proxied container environments
-    // where gRPC streams often time out or get abruptly disconnected.
-    experimentalForceLongPolling: true,
     // Using memory-only cache to prevent potential index/protocol corruption 
     // on disk which can lead to internal SDK assertion failures.
     localCache: memoryLocalCache(),

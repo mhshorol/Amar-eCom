@@ -6,7 +6,8 @@ import axios from 'axios';
 import admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import cors from 'cors';
-import { CourierFactory, CourierOrderData } from './src/lib/courierAdapters.ts';
+import { CourierFactory } from './src/lib/courierAdapters.ts';
+import type { CourierOrderData } from './src/lib/courierAdapters.ts';
 import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -74,16 +75,17 @@ async function getDb() {
   
   try {
     // Prefer Admin SDK as it bypasses security rules and is more robust for server-side logic
-    log(`[getDb] Initializing Admin SDK Firestore for database: ${dbId}`);
+    // We only log if it's explicitly set, to avoid scary logs on default Compute Engine credentials
     db = getFirestore(admin.app(), dbId);
     
     // Health check verification
     const snapshot = await db.collection('health_check').limit(1).get();
-    log(`[getDb] Admin SDK Health check success. Found ${snapshot.size || 0} docs.`);
     activeDbId = dbId;
     return db;
   } catch (adminErr: any) {
-    log(`[getDb] Admin SDK initialization failed: ${adminErr.message}. Attempting Client SDK shim as fallback...`);
+    if (!adminErr.message.includes('PERMISSION_DENIED')) {
+      log(`[getDb] Admin SDK fallback due to: ${adminErr.message}`);
+    }
     
     try {
       const clientApp = getClientApps().length > 0 

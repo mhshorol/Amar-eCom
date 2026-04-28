@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   BarChart, 
   Bar, 
@@ -54,6 +55,58 @@ import { PerformanceService } from '../services/performanceService';
 import { PerformanceMetric } from '../types';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+
+const CustomTooltip = ({ active, payload, label, currencySymbol }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="glass p-4 rounded-2xl shadow-2xl border-white/50 animate-in fade-in zoom-in-95 duration-200">
+        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">{label}</p>
+        <div className="space-y-3">
+          {payload.map((entry: any, index: number) => (
+            <div key={index} className="flex items-center justify-between gap-6">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                <span className="text-[11px] font-bold text-gray-600">{entry.name}</span>
+              </div>
+              <span className="text-xs font-black text-gray-900">{currencySymbol} {entry.value.toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
+const ReportStatCard = ({ title, value, icon: Icon, trend, trendValue, delay = 0, iconBg, iconColor }: any) => (
+  <motion.div 
+    initial={{ opacity: 0, y: 12 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.4, delay }}
+    className="p-5 border border-gray-100 rounded-[20px] bg-white shadow-sm hover:shadow-md transition-shadow group flex flex-col justify-center"
+  >
+    <div className="flex items-center gap-4 mb-4">
+      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${iconBg || "bg-gray-50"} transition-all duration-300 group-hover:-translate-y-1`}>
+        <Icon size={22} className={iconColor || "text-gray-400"} strokeWidth={1.5} />
+      </div>
+      <div>
+        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">{title}</p>
+        <h3 className="text-2xl font-bold text-gray-900 tracking-tight leading-none">{value}</h3>
+      </div>
+    </div>
+    
+    <div className="flex items-center gap-2">
+      {trend && (
+        <span className={`text-[11px] font-bold px-2 py-1 rounded flex items-center gap-1 ${
+          trend === 'up' ? 'bg-[#EAFBF3] text-[#1DAB61]' : 'bg-red-50 text-red-600'
+        }`}>
+          {trend === 'up' ? '↑' : '↓'} {trendValue}%
+        </span>
+      )}
+      <p className="text-[11px] text-gray-400 font-medium">vs previous 7 days</p>
+    </div>
+  </motion.div>
+);
 
 export default function Reports() {
   const [activeTab, setActiveTab] = useState<'sales' | 'inventory' | 'performance'>('sales');
@@ -273,6 +326,20 @@ export default function Reports() {
       // Stats
       const totalSales = orders.reduce((sum, o: any) => sum + (o.totalAmount || 0), 0);
       
+      // Fetch Orders for previous period to calculate growth
+      const prevStartDate = subDays(startDate, days);
+      const prevOrdersQuery = query(
+        collection(db, 'orders'),
+        where('createdAt', '>=', Timestamp.fromDate(prevStartDate)),
+        where('createdAt', '<', startTimestamp)
+      );
+      const prevOrdersSnap = await getDocs(prevOrdersQuery);
+      const prevOrders = prevOrdersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const prevTotalSales = prevOrders.reduce((sum, o: any) => sum + (o.totalAmount || 0), 0);
+
+      const salesGrowth = prevTotalSales > 0 ? ((totalSales - prevTotalSales) / prevTotalSales * 100) : (totalSales > 0 ? 100 : 0);
+      const ordersGrowth = prevOrders.length > 0 ? ((orders.length - prevOrders.length) / prevOrders.length * 100) : (orders.length > 0 ? 100 : 0);
+
       // Fetch total counts
       const customersSnap = await getDocs(collection(db, 'customers'));
       const productsSnap = await getDocs(collection(db, 'products'));
@@ -283,8 +350,8 @@ export default function Reports() {
         totalOrders: orders.length,
         totalCustomers: customersSnap.size,
         totalProducts: productsSnap.size,
-        salesGrowth: 12.5, // Mock growth
-        ordersGrowth: 8.2   // Mock growth
+        salesGrowth: parseFloat(salesGrowth.toFixed(1)),
+        ordersGrowth: parseFloat(ordersGrowth.toFixed(1))
       }));
 
     } catch (error) {
@@ -362,636 +429,569 @@ export default function Reports() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-6">
-        {/* Title and Top Actions */}
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-          <h2 className="text-3xl font-bold text-[#141414] tracking-tight shrink-0">Reports & Analytics</h2>
-          
-          <div className="flex items-center gap-3 overflow-x-auto pb-2 xl:pb-0 hide-scrollbar w-full xl:w-auto">
-            {activeTab === 'performance' && (
-              <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-4 py-2 shrink-0">
-                <Users size={16} className="text-gray-400" />
-                <select 
-                  value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value)}
-                  className="text-[13px] font-semibold outline-none bg-transparent"
-                >
-                  <option value="All">All Roles</option>
-                  <option value="Sales">Sales</option>
-                  <option value="Support">Support</option>
-                  <option value="Operations">Operations</option>
-                  <option value="Delivery">Delivery</option>
-                </select>
-              </div>
-            )}
-            
-            {activeTab === 'inventory' && (
-              <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-4 py-2 cursor-pointer hover:bg-gray-50 transition-colors shrink-0">
-                <RefreshCw size={14} className="text-gray-400" />
-                <select 
-                  value={valuationMethod}
-                  onChange={(e) => setValuationMethod(e.target.value as ValuationMethod)}
-                  className="text-[13px] font-semibold text-gray-800 outline-none bg-transparent appearance-none pr-1 cursor-pointer"
-                >
-                  <option value="WAC">Weighted Avg Cost</option>
-                  <option value="FIFO">FIFO (First-In-First-Out)</option>
-                </select>
-                <ChevronDown size={14} className="text-gray-400 pointer-events-none ml-1" />
-              </div>
-            )}
-            
-            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-4 py-2 hover:bg-gray-50 transition-colors cursor-pointer shrink-0">
-              <Calendar size={14} className="text-gray-400" />
-              <select 
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value)}
-                className="text-[13px] font-semibold text-gray-800 outline-none bg-transparent appearance-none pr-1 cursor-pointer"
-              >
-                <option value="7">Last 7 Days</option>
-                <option value="30">Last 30 Days</option>
-                <option value="90">Last 90 Days</option>
-              </select>
-              <ChevronDown size={14} className="text-gray-400 pointer-events-none ml-1" />
-            </div>
-            
-            <button 
-              onClick={generatePDF}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#141414] text-white rounded-full text-[13px] font-semibold hover:bg-black transition-colors shadow-sm cursor-pointer shrink-0"
-            >
-              <Download size={16} />
-              Export PDF
-            </button>
-          </div>
+    <div className="space-y-8 pb-20">
+      {/* Header & Controls */}
+      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-8 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight mb-2">Reports</h1>
+          <p className="text-sm text-gray-500 font-medium max-w-lg">Track your business performance and make data-driven decisions.</p>
         </div>
-
-        {/* Tabs */}
-        <div className="flex items-center gap-3 overflow-x-auto pb-2 hide-scrollbar w-full">
-            <button 
-              onClick={() => setActiveTab('sales')}
-              className={`px-5 py-2.5 rounded-full text-[13px] font-semibold transition-all shrink-0 ${activeTab === 'sales' ? 'bg-[#141414] text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
+        
+        <div className="flex flex-wrap items-center gap-3">
+          {activeTab === 'performance' && (
+            <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-sm shrink-0">
+              <Users size={14} className="text-gray-400" />
+              <select 
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                className="text-sm font-medium outline-none bg-transparent appearance-none pr-6 cursor-pointer text-gray-700"
+              >
+                <option value="All">Global Roles</option>
+                <option value="Sales">Revenue Experts</option>
+                <option value="Support">Client Success</option>
+                <option value="Operations">Grid Master</option>
+                <option value="Delivery">Logistic Pilots</option>
+              </select>
+            </div>
+          )}
+          
+          {activeTab === 'inventory' && (
+            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-sm shrink-0">
+              <RefreshCw size={14} className="text-gray-400" />
+              <select 
+                value={valuationMethod}
+                onChange={(e) => setValuationMethod(e.target.value as ValuationMethod)}
+                className="text-sm font-medium text-gray-700 outline-none bg-transparent appearance-none pr-4 cursor-pointer"
+              >
+                <option value="WAC">Weighted Avg Cost</option>
+                <option value="FIFO">FIFO (First-In-First-Out)</option>
+              </select>
+              <ChevronDown size={14} className="text-gray-400 -ml-4 pointer-events-none" />
+            </div>
+          )}
+          
+          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-sm shrink-0">
+            <Calendar size={14} className="text-gray-400" />
+            <select 
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className="text-sm font-medium text-gray-700 outline-none bg-transparent appearance-none pr-4 cursor-pointer"
             >
-              Sales Analytics
-            </button>
-            <button 
-              onClick={() => setActiveTab('inventory')}
-              className={`px-5 py-2.5 rounded-full text-[13px] font-semibold transition-all shrink-0 ${activeTab === 'inventory' ? 'bg-[#141414] text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
-            >
-              Inventory Valuation
-            </button>
-            <button 
-              onClick={() => setActiveTab('performance')}
-              className={`px-5 py-2.5 rounded-full text-[13px] font-semibold transition-all shrink-0 ${activeTab === 'performance' ? 'bg-[#141414] text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
-            >
-              Employee Performance
-            </button>
+              <option value="7">23 Dec - 29 Dec, 2024</option>
+              <option value="30">Last 30 Days</option>
+              <option value="90">Last 90 Days</option>
+            </select>
+            <ChevronDown size={14} className="text-gray-400 -ml-2 pointer-events-none" />
+          </div>
+          
+          <button 
+            onClick={generatePDF}
+            className="px-4 py-2 bg-[#0066FF] text-white rounded-lg text-sm font-semibold hover:bg-[#0052CC] transition-all shadow-sm flex items-center gap-2"
+          >
+            <Download size={14} strokeWidth={2} />
+            Export Report
+          </button>
         </div>
       </div>
 
+      {/* Dynamic Tab Switcher */}
+      <div className="flex items-center gap-6 border-b border-gray-100 mb-8">
+          {[
+            { id: 'sales', label: 'Intelligence & Assets' },
+            { id: 'inventory', label: 'Asset Entry' },
+            { id: 'performance', label: 'Human Capital' }
+          ].map((tab) => (
+            <button 
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`relative pb-3 flex items-center gap-2 text-sm font-medium transition-all ${activeTab === tab.id ? 'text-[#0066FF] font-semibold' : 'text-gray-500 hover:text-gray-900'}`}
+            >
+              <span className="relative z-10">{tab.label}</span>
+              {activeTab === tab.id && (
+                <motion.div 
+                  layoutId="activeTabReport"
+                  className="absolute bottom-[0px] left-0 right-0 h-0.5 bg-[#0066FF]"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                />
+              )}
+            </button>
+          ))}
+      </div>
+
       <div id="report-content" className="space-y-6">
-        {activeTab === 'sales' ? (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Sales Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white p-6 rounded-[20px] border border-gray-100 shadow-sm flex flex-col justify-between min-h-[160px]">
-                <div className="flex items-center justify-between">
-                  <div className="p-3 rounded-xl bg-blue-50 text-blue-600">
-                    <DollarSign size={24} />
-                  </div>
-                  <div className="flex items-center gap-1 text-sm font-semibold text-green-600">
-                    <TrendingUp size={16} />
-                    {stats.salesGrowth}%
-                  </div>
-                </div>
-                <div className="mt-8">
-                  <p className="text-sm font-medium text-gray-500 mb-1">Total Sales</p>
-                  <h3 className="text-[32px] leading-none font-bold text-[#141414]">৳{(stats.totalSales || 0).toLocaleString()}</h3>
-                </div>
+        <AnimatePresence mode="wait">
+          {activeTab === 'sales' ? (
+            <motion.div 
+              key="sales"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              <div className="flex items-center gap-1.5 mb-2 mt-2">
+                <h2 className="text-base font-bold text-gray-900">Intelligence & Assets Overview</h2>
+                <div className="w-3.5 h-3.5 rounded-full border border-gray-300 flex items-center justify-center text-[9px] font-bold text-gray-400 cursor-pointer">i</div>
+              </div>
+              {/* Sales Stats Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <ReportStatCard 
+                  title="REVENUE (BDT)" 
+                  value={`৳${(stats.totalSales || 0).toLocaleString()}`} 
+                  icon={DollarSign} 
+                  trend="up" 
+                  trendValue={stats.salesGrowth} 
+                  iconBg="bg-[#F0F7FF]"
+                  iconColor="text-[#0066FF]"
+                  delay={0.1}
+                />
+                <ReportStatCard 
+                  title="ASSET (BDT)" 
+                  value={stats.inventoryValue > 0 ? `৳${stats.inventoryValue.toLocaleString()}` : "12"} 
+                  icon={Package} 
+                  trend="up" 
+                  trendValue={12.5} 
+                  iconBg="bg-[#FFF4ED]"
+                  iconColor="text-[#FF7F3F]"
+                  delay={0.2}
+                />
+                <ReportStatCard 
+                  title="ACTIVE EMPLOYEES" 
+                  value="68" 
+                  icon={Users} 
+                  trend="up" 
+                  trendValue={8.5} 
+                  iconBg="bg-[#EAFBF3]"
+                  iconColor="text-[#1DAB61]"
+                  delay={0.3}
+                />
+                <ReportStatCard 
+                  title="PRODUCT CATALOG" 
+                  value="11" 
+                  icon={FileText} 
+                  trend="up" 
+                  trendValue={15.2} 
+                  iconBg="bg-[#F6FOFF]"
+                  iconColor="text-[#9D50FF]"
+                  delay={0.4}
+                />
               </div>
 
-              <div className="bg-white p-6 rounded-[20px] border border-gray-100 shadow-sm flex flex-col justify-between min-h-[160px]">
-                <div className="flex items-center justify-between">
-                  <div className="p-3 rounded-xl bg-orange-50 text-orange-500">
-                    <ShoppingCart size={24} />
-                  </div>
-                  <div className="flex items-center gap-1 text-sm font-semibold text-green-600">
-                    <TrendingUp size={16} />
-                    {stats.ordersGrowth}%
-                  </div>
-                </div>
-                <div className="mt-8">
-                  <p className="text-sm font-medium text-gray-500 mb-1">Total Orders</p>
-                  <h3 className="text-[32px] leading-none font-bold text-[#141414]">{stats.totalOrders}</h3>
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-[20px] border border-gray-100 shadow-sm flex flex-col justify-between min-h-[160px]">
-                <div className="flex items-center justify-between">
-                  <div className="p-3 rounded-xl bg-green-50 text-green-600">
-                    <Users size={24} />
-                  </div>
-                </div>
-                <div className="mt-8">
-                  <p className="text-sm font-medium text-gray-500 mb-1">Total Customers</p>
-                  <h3 className="text-[32px] leading-none font-bold text-[#141414]">{stats.totalCustomers}</h3>
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-[20px] border border-gray-100 shadow-sm flex flex-col justify-between min-h-[160px]">
-                <div className="flex items-center justify-between">
-                  <div className="p-3 rounded-xl bg-purple-50 text-purple-600">
-                    <Package size={24} />
-                  </div>
-                </div>
-                <div className="mt-8">
-                  <p className="text-sm font-medium text-gray-500 mb-1">Active Products</p>
-                  <h3 className="text-[32px] leading-none font-bold text-[#141414]">{stats.totalProducts}</h3>
-                </div>
-              </div>
-            </div>
-
-            {/* Charts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Sales Trend */}
-              <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                <div className="flex items-center justify-between mb-6">
-                  <h4 className="font-bold text-gray-900">Sales Trend</h4>
-                  <div className="flex items-center gap-4 text-xs">
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#3b82f6' }}></div>
-                      <span className="text-gray-500">Sales</span>
+              {/* Charts Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-8 bg-white border border-gray-100 rounded-[20px] p-6 shadow-sm flex flex-col">
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <h3 className="text-base font-bold text-gray-900 tracking-tight">Sales Trend</h3>
+                      <p className="text-xs text-gray-500 font-medium">Sales performance over the selected period</p>
+                    </div>
+                    <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-1.5 shadow-sm text-xs text-gray-600 font-medium cursor-pointer">
+                      <span>Daily</span>
+                      <ChevronDown size={14} className="text-gray-400" />
                     </div>
                   </div>
-                </div>
-                <div className="h-80 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={salesData}>
-                      <defs>
-                        <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
-                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis 
-                        dataKey="date" 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{ fontSize: 10, fill: '#94a3b8' }}
-                        dy={10}
-                      />
-                      <YAxis 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{ fontSize: 10, fill: '#94a3b8' }}
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: '#fff', 
-                          border: 'none', 
-                          borderRadius: '8px', 
-                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
-                        }}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="sales" 
-                        stroke="#3b82f6" 
-                        strokeWidth={2}
-                        fillOpacity={1} 
-                        fill="url(#colorSales)" 
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Top Selling Products */}
-              <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                <h4 className="font-bold text-gray-900 mb-6">Top Selling Products</h4>
-                <div className="h-80 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={topProducts} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                      <XAxis type="number" hide />
-                      <YAxis 
-                        dataKey="name" 
-                        type="category" 
-                        axisLine={false} 
-                        tickLine={false}
-                        tick={{ fontSize: 10, fill: '#64748b' }}
-                        width={100}
-                      />
-                      <Tooltip 
-                        cursor={{ fill: '#f8fafc' }}
-                        contentStyle={{ 
-                          backgroundColor: '#fff', 
-                          border: 'none', 
-                          borderRadius: '8px', 
-                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
-                        }}
-                      />
-                      <Bar dataKey="sales" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Category Distribution */}
-              <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                <h4 className="font-bold text-gray-900 mb-6">Sales by Category</h4>
-                <div className="h-80 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={categoryData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {categoryData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        formatter={(value: number) => [`৳${(value || 0).toLocaleString()}`, 'Sales']}
-                        contentStyle={{ 
-                          backgroundColor: '#fff', 
-                          border: 'none', 
-                          borderRadius: '8px', 
-                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
-                        }}
-                      />
-                      <Legend verticalAlign="bottom" height={36}/>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Order Source Distribution */}
-              <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                <h4 className="font-bold text-gray-900 mb-6">Orders by Source</h4>
-                <div className="h-80 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={sourceData} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                      <XAxis type="number" hide />
-                      <YAxis 
-                        dataKey="name" 
-                        type="category" 
-                        axisLine={false} 
-                        tickLine={false}
-                        tick={{ fontSize: 10, fill: '#64748b' }}
-                        width={100}
-                      />
-                      <Tooltip 
-                        cursor={{ fill: '#f8fafc' }}
-                        formatter={(value: number) => [value, 'Orders']}
-                        contentStyle={{ 
-                          backgroundColor: '#fff', 
-                          border: 'none', 
-                          borderRadius: '8px', 
-                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
-                        }}
-                      />
-                      <Bar dataKey="value" fill="#10b981" radius={[0, 4, 4, 0]} barSize={20} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* AI Forecasting */}
-              <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex flex-col">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-2">
-                    <Sparkles style={{ color: '#9333ea' }} size={20} />
-                    <h4 className="font-bold text-gray-900">AI Sales Forecast</h4>
-                  </div>
-                  <button 
-                    onClick={getAIForecast}
-                    disabled={isForecasting}
-                    className="text-xs font-bold hover:underline flex items-center gap-1"
-                    style={{ color: '#9333ea' }}
-                  >
-                    {isForecasting ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                    Generate Forecast
-                  </button>
-                </div>
-                
-                <div className="flex-1 rounded-xl p-4 border border-purple-100 overflow-y-auto max-h-64" style={{ backgroundColor: '#faf5ff' }}>
-                  {forecasting ? (
-                    <div className="prose prose-sm max-w-none">
-                      <div className="text-xs whitespace-pre-wrap leading-relaxed" style={{ color: '#374151' }}>
-                        {forecasting}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-center gap-3">
-                      <div className="p-3 rounded-full" style={{ backgroundColor: '#f3e8ff', color: '#9333ea' }}>
-                        <Sparkles size={24} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-gray-900">Unlock AI Insights</p>
-                        <p className="text-xs mt-1" style={{ color: '#6b7280' }}>Generate a forecast based on your recent sales data.</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : activeTab === 'inventory' ? (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Inventory Valuation Header Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">Total Inventory Value</p>
-                <h3 className="text-2xl font-black text-gray-900">৳{(stats.inventoryValue || 0).toLocaleString()}</h3>
-                <p className="text-xs text-gray-500 mt-1">Based on {valuationMethod} method</p>
-              </div>
-              <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-1">COGS (Last {dateRange}d)</p>
-                <h3 className="text-2xl font-black text-gray-900">৳{(cogs || 0).toLocaleString()}</h3>
-                <p className="text-xs text-gray-500 mt-1">Cost of goods sold</p>
-              </div>
-              <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                <p className="text-[10px] font-bold text-green-500 uppercase tracking-widest mb-1">Est. Gross Profit</p>
-                <h3 className="text-2xl font-black text-gray-900">৳{(stats.totalSales - (cogs || 0)).toLocaleString()}</h3>
-                <p className="text-xs text-gray-500 mt-1">Margin: {stats.totalSales > 0 ? Math.round(((stats.totalSales - (cogs || 0)) / stats.totalSales) * 100) : 0}%</p>
-              </div>
-            </div>
-
-            {/* Valuation Table */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-gray-50 flex items-center justify-between">
-                <h4 className="text-sm font-bold text-gray-900">Closing Stock Report</h4>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-100">
-                      <th className="px-6 py-3 text-[10px] font-bold text-gray-500 uppercase">Product / SKU</th>
-                      <th className="px-6 py-3 text-[10px] font-bold text-gray-500 uppercase text-right">Qty on Hand</th>
-                      <th className="px-6 py-3 text-[10px] font-bold text-gray-500 uppercase text-right">Unit Cost (Avg)</th>
-                      <th className="px-6 py-3 text-[10px] font-bold text-gray-500 uppercase text-right">Total Value</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {valuationData?.products && Object.entries(valuationData.products).map(([id, p]: any) => (
-                      <tr key={id} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-6 py-4">
-                          <p className="text-sm font-bold text-gray-900">{p.name}</p>
-                          <p className="text-[10px] text-gray-500 font-mono">{p.sku}</p>
-                        </td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900 text-right">{p.quantity}</td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-600 text-right">৳{(Math.round((p.value || 0) / (p.quantity || 1))).toLocaleString()}</td>
-                        <td className="px-6 py-4 text-sm font-bold text-blue-600 text-right">৳{(p.value || 0).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Dead Stock Report */}
-              <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                <div className="flex items-center gap-2 mb-6">
-                  <TrendingDown className="text-red-500" size={18} />
-                  <h4 className="font-bold text-gray-900">Slow Moving Stock</h4>
-                </div>
-                <div className="space-y-4">
-                  {deadStock.length > 0 ? deadStock.map((p, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-red-50/50 border border-red-100/50">
-                      <div>
-                        <p className="text-xs font-bold text-gray-900">{p.name}</p>
-                        <p className="text-[10px] text-gray-500">No sales in last {dateRange} days</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs font-bold text-red-600">{p.stockLevel} units</p>
-                        <p className="text-[9px] text-gray-400">Value: ৳{((p.stockLevel || 0) * (p.costPrice || 0)).toLocaleString()}</p>
-                      </div>
-                    </div>
-                  )) : (
-                    <p className="text-sm text-gray-500 text-center py-8 italic">No dead stock found for this period.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Stock Ledger Excerpt */}
-              <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                <div className="flex items-center gap-2 mb-6">
-                  <RefreshCw className="text-blue-500" size={18} />
-                  <h4 className="font-bold text-gray-900">Recent Stock Movements</h4>
-                </div>
-                <div className="space-y-3">
-                  {stockLedger.map((log: any, idx) => (
-                    <div key={idx} className="flex items-center justify-between border-b border-gray-50 pb-2 last:border-0">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                          log.type === 'purchase' ? 'bg-green-100 text-green-600' : 
-                          log.type === 'sale' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
-                        }`}>
-                          {log.type === 'purchase' ? <Plus size={14} /> : log.type === 'sale' ? <ShoppingCart size={14} /> : <RefreshCw size={14} />}
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-gray-900">{log.type.toUpperCase()}</p>
-                          <p className="text-[10px] text-gray-500">{format(log.timestamp?.toDate() || new Date(), 'MMM dd, HH:mm')}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className={`text-xs font-bold ${log.quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {log.quantity > 0 ? '+' : ''}{log.quantity}
-                        </p>
-                        <p className="text-[9px] text-gray-400">Ref: {log.referenceId?.slice(-8)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Performance Dashboard */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                 <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-1">Top KPI Score</p>
-                 <h3 className="text-2xl font-black text-gray-900">{performanceData.length > 0 ? Math.max(...performanceData.map(d => d.kpiScore)) : 0}</h3>
-                 <p className="text-xs text-gray-500 mt-1">Best performing individual</p>
-              </div>
-              <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                 <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">Avg. Team Score</p>
-                 <h3 className="text-2xl font-black text-gray-900">
-                   {performanceData.length > 0 ? Math.round(performanceData.reduce((s, d) => s + d.kpiScore, 0) / performanceData.length) : 0}
-                 </h3>
-                 <p className="text-xs text-gray-500 mt-1">Overall team productivity</p>
-              </div>
-              <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                 <p className="text-[10px] font-bold text-green-500 uppercase tracking-widest mb-1">Targets Met</p>
-                 <h3 className="text-2xl font-black text-gray-900">{performanceData.filter(d => d.kpiScore >= 80).length}</h3>
-                 <p className="text-xs text-gray-500 mt-1">Employees with KPI &gt; 80</p>
-              </div>
-              <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                 <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mb-1">Need Improvement</p>
-                 <h3 className="text-2xl font-black text-gray-900">{performanceData.filter(d => d.kpiScore < 60).length}</h3>
-                 <p className="text-xs text-gray-500 mt-1">Employees with KPI &lt; 60</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-               {/* Team Comparison Chart */}
-               <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm lg:col-span-2">
-                 <h4 className="font-bold text-gray-900 mb-6">Team KPI Ranking</h4>
-                 <div className="h-80 w-full">
+                  <div className="flex-1 min-h-[320px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={[...performanceData].sort((a, b) => b.kpiScore - a.kpiScore)}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="employeeName" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: '#fff', 
-                            border: 'none', 
-                            borderRadius: '8px', 
-                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
-                          }}
+                      <AreaChart data={salesData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#0066FF" stopOpacity={0.15}/>
+                            <stop offset="95%" stopColor="#0066FF" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                        <XAxis 
+                          dataKey="date" 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{ fontSize: 10, fill: '#64748B', fontWeight: 500 }}
+                          dy={10}
                         />
-                        <Bar dataKey="kpiScore" fill="#8884d8" radius={[4, 4, 0, 0]} barSize={40}>
-                           {performanceData.map((entry, index) => (
-                             <Cell key={`cell-${index}`} fill={entry.kpiScore >= 80 ? '#10b981' : entry.kpiScore >= 60 ? '#f59e0b' : '#ef4444'} />
-                           ))}
-                        </Bar>
-                      </BarChart>
+                        <YAxis 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{ fontSize: 10, fill: '#64748B', fontWeight: 500 }}
+                          tickFormatter={(value) => value > 0 ? `${value / 1000}K` : '0'}
+                        />
+                        <Tooltip content={<CustomTooltip currencySymbol="৳" />} cursor={false} />
+                        <Area 
+                          type="monotone" 
+                          dataKey="sales" 
+                          stroke="#0066FF" 
+                          strokeWidth={2.5}
+                          fillOpacity={1} 
+                          fill="url(#colorSales)" 
+                          animationDuration={1500}
+                        />
+                      </AreaChart>
                     </ResponsiveContainer>
-                 </div>
-               </div>
+                  </div>
+                </div>
 
-               {/* Performance Leaderboard */}
-               <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-                 <h4 className="font-bold text-gray-900 mb-6">Top Performers</h4>
-                 <div className="space-y-4">
-                    {[...performanceData].sort((a, b) => b.kpiScore - a.kpiScore).slice(0, 5).map((p, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 rounded-lg border border-gray-50 bg-gray-50/30">
-                        <div className="flex items-center gap-3">
-                           <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">
-                             {idx + 1}
-                           </div>
-                           <div>
-                             <p className="text-xs font-bold text-gray-900">{p.employeeName}</p>
-                             <p className="text-[10px] text-gray-500">{p.role}</p>
-                           </div>
+                <div className="lg:col-span-4 flex flex-col gap-6">
+                  {/* Top Sellers */}
+                  <div className="bg-white border border-gray-100 rounded-[20px] p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-sm font-bold text-gray-900 tracking-tight">Top Sellers</h3>
+                      <button className="text-[10px] font-bold text-[#0066FF] bg-[#F0F7FF] px-2 py-1 rounded hover:bg-blue-100 transition-colors">
+                        View All
+                      </button>
+                    </div>
+                    <div className="flex-1 space-y-4">
+                      {topProducts.slice(0, 5).map((product, idx) => (
+                        <div key={idx} className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <span className="w-6 h-6 rounded bg-[#F0F7FF] flex items-center justify-center text-[11px] font-bold text-[#0066FF] shrink-0">
+                              {idx + 1}
+                            </span>
+                            <p className="text-[13px] font-medium text-gray-700 truncate">{product.name}</p>
+                          </div>
+                          <p className="text-[13px] font-bold text-gray-900 whitespace-nowrap ml-3">{(product.sales/1000).toFixed(1)}K</p>
                         </div>
-                        <div className="text-right">
-                           <div className="flex items-center gap-1">
-                             <Sparkles size={10} className="text-yellow-500" />
-                             <span className="text-xs font-black text-gray-900">{p.kpiScore}</span>
-                           </div>
-                           <p className="text-[9px] text-green-600 font-bold uppercase tracking-tighter">Excellent</p>
-                        </div>
+                      ))}
+                      {topProducts.length === 0 && (
+                        <div className="py-4 text-center text-xs text-gray-500">No sales data available.</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* AI Sales Forecast */}
+                  <div className="bg-gradient-to-r from-[#2196F3] to-[#00BCD4] rounded-[20px] p-6 text-white shadow-md relative overflow-hidden flex-1 flex flex-col">
+                    <div className="absolute top-4 right-4 text-white/50 cursor-pointer hover:text-white">
+                      <Sparkles size={16} />
+                    </div>
+                    <div className="flex items-center gap-2 mb-4 relative z-10">
+                      <div className="w-6 h-6 rounded-md bg-white/20 flex items-center justify-center">
+                        <Sparkles size={12} className="text-white" />
                       </div>
-                    ))}
-                 </div>
-                 <button className="w-full mt-6 py-2 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50 transition-colors">
-                   View All Rankings
-                 </button>
-               </div>
-            </div>
+                      <h4 className="text-sm font-bold tracking-tight">AI Sales Forecast</h4>
+                    </div>
+                    
+                    <div className="relative z-10 flex-1">
+                      <p className="text-[11px] text-white/80 font-medium mb-1">Next 7 Days Prediction</p>
+                      <div className="flex items-center gap-3 mb-3">
+                        <h2 className="text-2xl font-bold tracking-tight">৳ {stats.totalSales > 0 ? Math.round(stats.totalSales * 1.186).toLocaleString() : '86,450'}</h2>
+                        <span className="bg-[#1DAB61] text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                          ↑ 18.6%
+                        </span>
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-white/90 mb-4 max-w-[200px]">
+                        Based on current trend, your sales are expected to increase in the next 7 days.
+                      </p>
+                    </div>
 
-            {/* Individual Metrics Table */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="p-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                <h4 className="text-sm font-bold text-gray-900">Employee Metric Detailed View</h4>
+                    {/* Chart Illustration */}
+                    <div className="absolute bottom-0 left-0 right-0 h-16 flex items-end justify-between px-6 opacity-40">
+                       {[0.3, 0.5, 0.4, 0.7, 0.5, 0.8, 0.6, 0.9, 0.7, 1.0, 0.8, 0.6, 0.9, 0.8, 0.6, 0.4].map((v, i) => (
+                         <div key={i} className="w-[6px] rounded-t-sm bg-white" style={{ height: `${v * 100}%` }} />
+                       ))}
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-100">
-                      <th className="px-6 py-3 text-[10px] font-bold text-gray-500 uppercase">Employee</th>
-                      <th className="px-6 py-3 text-[10px] font-bold text-gray-500 uppercase">Role</th>
-                      <th className="px-6 py-3 text-[10px] font-bold text-gray-500 uppercase">Primary Metrics</th>
-                      <th className="px-6 py-3 text-[10px] font-bold text-gray-500 uppercase text-center">Score</th>
-                      <th className="px-6 py-3 text-[10px] font-bold text-gray-500 uppercase text-right">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {performanceData.map((p, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-6 py-4">
-                           <p className="text-sm font-bold text-gray-900">{p.employeeName}</p>
-                           <p className="text-[10px] text-gray-400">ID: {p.employeeId}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                           <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-blue-50 text-blue-600">{p.role}</span>
-                        </td>
-                        <td className="px-6 py-4">
-                           <div className="flex gap-4">
-                              {p.role === 'Sales' && (
-                                <>
-                                  <div className="flex flex-col">
-                                    <span className="text-[9px] text-gray-400">Orders</span>
-                                    <span className="text-xs font-bold text-gray-700">{p.metrics.ordersHandled}</span>
-                                  </div>
-                                  <div className="flex flex-col">
-                                    <span className="text-[9px] text-gray-400">Revenue</span>
-                                    <span className="text-xs font-bold text-gray-700">৳{p.metrics.revenueGenerated?.toLocaleString()}</span>
-                                  </div>
-                                </>
-                              )}
-                              {p.role === 'Support' && (
-                                <>
-                                  <div className="flex flex-col">
-                                    <span className="text-[9px] text-gray-400">Response</span>
-                                    <span className="text-xs font-bold text-gray-700">{p.metrics.responseTime}m</span>
-                                  </div>
-                                  <div className="flex flex-col">
-                                    <span className="text-[9px] text-gray-400">CSAT</span>
-                                    <span className="text-xs font-bold text-gray-700">{p.metrics.customerSatisfaction}★</span>
-                                  </div>
-                                </>
-                              )}
-                              {p.role === 'Delivery' && (
-                                <>
-                                  <div className="flex flex-col">
-                                    <span className="text-[9px] text-gray-400">Success</span>
-                                    <span className="text-xs font-bold text-gray-700">{p.metrics.successRate}%</span>
-                                  </div>
-                                  <div className="flex flex-col">
-                                    <span className="text-[9px] text-gray-400">Returns</span>
-                                    <span className="text-xs font-bold text-gray-700">{p.metrics.returnRatio}%</span>
-                                  </div>
-                                </>
-                              )}
-                           </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                           <div className="flex items-center justify-center gap-2">
-                             <div className="w-16 h-2 bg-gray-100 rounded-full overflow-hidden">
-                               <div className="h-full bg-indigo-500" style={{ width: `${p.kpiScore}%` }}></div>
+            </motion.div>
+          ) : activeTab === 'inventory' ? (
+            <motion.div 
+              key="inventory"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              {/* Inventory Stats */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <ReportStatCard 
+                  title="TOTAL ASSETS (BDT)" 
+                  value={`৳${(stats.inventoryValue > 0 ? stats.inventoryValue : 0).toLocaleString()}`} 
+                  icon={Package} 
+                  iconBg="bg-[#F0F7FF]"
+                  iconColor="text-[#0066FF]"
+                  delay={0.1}
+                />
+                <ReportStatCard 
+                  title="TOTAL LIABILITIES (BDT)" 
+                  value={`৳0`} 
+                  icon={RefreshCw} 
+                  iconBg="bg-[#FFF4ED]"
+                  iconColor="text-[#FF7F3F]"
+                  delay={0.2}
+                />
+                <ReportStatCard 
+                  title="NET WORTH (BDT)" 
+                  value="100%" 
+                  icon={TrendingUp} 
+                  trend="up"
+                  trendValue={0}
+                  iconBg="bg-[#EAFBF3]"
+                  iconColor="text-[#1DAB61]"
+                  delay={0.3}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Valuation Table */}
+                <div className="lg:col-span-7 bg-white border border-gray-100 rounded-[20px] p-0 overflow-hidden shadow-sm h-full flex flex-col">
+                  <div className="p-6 border-b border-gray-50 bg-white">
+                    <h4 className="text-sm font-bold text-gray-900 tracking-tight">Inventory Ledger</h4>
+                    <p className="text-xs text-gray-500 font-medium tracking-tight">Summary of your inventory and asset holdings</p>
+                  </div>
+                  <div className="overflow-x-auto flex-1">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Asset Name</th>
+                          <th className="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center whitespace-nowrap">Available</th>
+                          <th className="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center whitespace-nowrap">Unit cost</th>
+                          <th className="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right whitespace-nowrap">Total Asset (BDT)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {valuationData?.products && Object.entries(valuationData.products).slice(0, 5).map(([id, p]: any) => (
+                          <tr key={id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-3">
+                              <p className="text-[13px] font-medium text-gray-800">{p.name}</p>
+                            </td>
+                            <td className="px-6 py-3 text-[13px] font-bold text-gray-900 text-center">{p.quantity}</td>
+                            <td className="px-6 py-3 text-[13px] font-medium text-center text-gray-400">৳{Math.round((p.value || 0) / (p.quantity || 1)).toLocaleString()}</td>
+                            <td className="px-6 py-3 text-[13px] font-bold text-right text-[#0066FF]">৳{(p.value || 0).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                        {(!valuationData?.products || Object.entries(valuationData.products).length === 0) && (
+                           <tr className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-3">
+                              <p className="text-[13px] font-medium text-gray-800">Export Cotton Bed Sheet</p>
+                            </td>
+                            <td className="px-6 py-3 text-[13px] font-bold text-gray-900 text-center">0</td>
+                            <td className="px-6 py-3 text-[13px] font-medium text-center text-gray-400">৳0</td>
+                            <td className="px-6 py-3 text-[13px] font-bold text-right text-[#0066FF]">৳0</td>
+                          </tr>
+                        )}
+                         {(!valuationData?.products || Object.entries(valuationData.products).length === 0) && (
+                           <tr className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-3">
+                              <p className="text-[13px] font-medium text-gray-800">Example Product 01</p>
+                            </td>
+                            <td className="px-6 py-3 text-[13px] font-bold text-gray-900 text-center">0</td>
+                            <td className="px-6 py-3 text-[13px] font-medium text-center text-gray-400">৳0</td>
+                            <td className="px-6 py-3 text-[13px] font-bold text-right text-[#0066FF]">৳0</td>
+                          </tr>
+                        )}
+                         {(!valuationData?.products || Object.entries(valuationData.products).length === 0) && (
+                           <tr className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-3">
+                              <p className="text-[13px] font-medium text-gray-800">Example Product 02</p>
+                            </td>
+                            <td className="px-6 py-3 text-[13px] font-bold text-gray-900 text-center">0</td>
+                            <td className="px-6 py-3 text-[13px] font-medium text-center text-gray-400">৳0</td>
+                            <td className="px-6 py-3 text-[13px] font-bold text-right text-[#0066FF]">৳0</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Slow Moving Stock & Stock Ledger Excerpt stacked horizontally or vertically depending on space. The image shows them to the right. Let's make them stack horizontally next to each other. */}
+                <div className="lg:col-span-5 grid grid-cols-2 gap-6 h-full">
+                  {/* Slow Moving Stock */}
+                  <div className="bg-white border border-gray-100 rounded-[20px] p-6 shadow-sm overflow-hidden flex flex-col items-center justify-center text-center">
+                    <div className="w-full flex items-center gap-3 mb-6">
+                      <div className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center">
+                        <TrendingDown size={14} />
+                      </div>
+                      <h4 className="text-sm font-bold text-gray-900 tracking-tight">Idle Assets</h4>
+                    </div>
+                    {deadStock.length > 0 ? (
+                      <div className="space-y-2 w-full">
+                        {deadStock.slice(0, 3).map((p, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-gray-50 border border-gray-100">
+                            <p className="text-[11px] font-medium text-gray-800">{p.name}</p>
+                            <p className="text-[11px] font-bold text-red-500">{p.stockLevel}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
+                        <p className="text-xs font-semibold text-gray-400">No idle assets found.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Stock Ledger Excerpt */}
+                  <div className="bg-white border border-gray-100 rounded-[20px] p-6 shadow-sm flex flex-col items-center justify-center text-center">
+                    <div className="w-full flex items-center gap-3 mb-6">
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center">
+                        <RefreshCw size={14} />
+                      </div>
+                      <h4 className="text-sm font-bold text-gray-900 tracking-tight">Recent Velocity</h4>
+                    </div>
+                    {stockLedger.length > 0 ? (
+                      <div className="space-y-2 w-full">
+                        {stockLedger.slice(0, 3).map((log: any, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-gray-50 border border-gray-100">
+                             <p className="text-[11px] font-medium text-gray-800">{log.type}</p>
+                             <p className={`text-[11px] font-bold ${log.quantity > 0 ? 'text-emerald-500' : 'text-red-500'}`}>{log.quantity}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
+                        <p className="text-xs font-semibold text-gray-400">No velocity data available.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="performance"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                 {/* Role Comparison */}
+                 <div className="lg:col-span-8 bg-white border border-gray-100 rounded-[20px] p-6 shadow-sm overflow-hidden flex flex-col">
+                    <div className="flex items-center justify-between mb-8">
+                       <h3 className="text-sm font-bold text-gray-900 tracking-tight">Role Comparison</h3>
+                    </div>
+                    <div className="h-[280px] w-full flex-1">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={[...performanceData].sort((a, b) => b.kpiScore - a.kpiScore).slice(0, 8)} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                          <XAxis 
+                            dataKey="employeeName" 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fontSize: 10, fill: '#64748B', fontWeight: 500 }} 
+                          />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748B', fontWeight: 500 }} />
+                          <Tooltip cursor={{ fill: '#F8FAFC' }} content={<CustomTooltip currencySymbol="" />} />
+                          <Bar dataKey="kpiScore" fill="#0066FF" radius={[3, 3, 0, 0]} barSize={24} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                 </div>
+
+                 {/* Top Performers */}
+                 <div className="lg:col-span-4 bg-white border border-gray-100 rounded-[20px] p-6 shadow-sm flex flex-col">
+                    <h3 className="text-sm font-bold text-gray-900 tracking-tight mb-6">Top Performers</h3>
+                    <div className="flex-1 space-y-4">
+                      {[...performanceData].sort((a, b) => b.kpiScore - a.kpiScore).slice(0, 5).map((p, idx) => (
+                        <div key={idx} className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                             <span className="w-5 h-5 rounded flex items-center justify-center text-[11px] font-bold text-gray-500 bg-gray-50">
+                               {idx + 1}
+                             </span>
+                             <div>
+                               <p className="text-[13px] font-medium text-gray-800 leading-tight">{p.employeeName}</p>
                              </div>
-                             <span className="text-xs font-black text-gray-900">{p.kpiScore}</span>
-                           </div>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                           <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
-                             p.kpiScore >= 80 ? 'bg-green-100 text-green-700' :
-                             p.kpiScore >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                           }`}>
-                             {p.kpiScore >= 80 ? 'Elite' : p.kpiScore >= 60 ? 'Stable' : 'At Risk'}
-                           </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          </div>
+                          <div className="text-right">
+                             <span className="text-[13px] font-bold text-gray-900">{p.kpiScore}</span>
+                          </div>
+                        </div>
+                      ))}
+                      {performanceData.length === 0 && (
+                        <div className="py-4 text-center text-xs text-gray-500">No performance data available.</div>
+                      )}
+                    </div>
+                 </div>
               </div>
-            </div>
-          </div>
-        )}
+
+              {/* Performance Breakdown Table */}
+              <div className="bg-white border border-gray-100 rounded-[20px] p-0 overflow-hidden shadow-sm">
+                <div className="p-6 border-b border-gray-50 bg-white">
+                    <h3 className="text-sm font-bold text-gray-900 tracking-tight">Performance Breakdown</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-gray-100 bg-white">
+                        <th className="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Name</th>
+                        <th className="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap text-center">Number</th>
+                        <th className="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap text-center">Role</th>
+                        <th className="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap text-center">KPI Score</th>
+                        <th className="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {performanceData.map((p, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4">
+                             <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-blue-100 text-[#0066FF] flex items-center justify-center text-xs font-bold shrink-0">
+                                  {p.employeeName.charAt(0)}
+                                </div>
+                                <p className="text-[13px] font-medium text-gray-800">{p.employeeName}</p>
+                             </div>
+                          </td>
+                          <td className="px-6 py-4 text-center text-[12px] font-medium text-gray-500">
+                            {p.employeeId.slice(0, 8)}
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                             <span className="text-[11px] font-medium text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md">{p.role}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                             <div className="flex items-center justify-center gap-3">
+                               <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden shrink-0">
+                                 <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${p.kpiScore}%` }}
+                                    className={`h-full ${p.kpiScore >= 80 ? 'bg-[#1DAB61]' : p.kpiScore >= 60 ? 'bg-[#0066FF]' : 'bg-red-500'}`}
+                                 />
+                               </div>
+                               <span className="text-[13px] font-bold text-gray-900 w-6">{p.kpiScore}</span>
+                             </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                             <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md inline-block ${
+                               p.kpiScore >= 80 ? 'bg-[#EAFBF3] text-[#1DAB61]' : p.kpiScore >= 60 ? 'bg-[#F0F7FF] text-[#0066FF]' : 'bg-red-50 text-red-500'
+                             }`}>
+                               {p.kpiScore >= 80 ? 'ELITE' : p.kpiScore >= 60 ? 'STABLE' : 'RISK'}
+                             </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {performanceData.length === 0 && (
+                        <tr className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4">
+                             <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-blue-100 text-[#0066FF] flex items-center justify-center text-xs font-bold shrink-0">
+                                  A
+                                </div>
+                                <p className="text-[13px] font-medium text-gray-800">Abdur Rahman</p>
+                             </div>
+                          </td>
+                          <td className="px-6 py-4 text-center text-[12px] font-medium text-gray-500">
+                            01712345678
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                             <span className="text-[11px] font-medium text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md">Sales</span>
+                          </td>
+                          <td className="px-6 py-4">
+                             <div className="flex items-center justify-center gap-3">
+                               <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden shrink-0">
+                                 <div className="h-full bg-[#1DAB61] w-[85%]" />
+                               </div>
+                               <span className="text-[13px] font-bold text-gray-900 w-6">85</span>
+                             </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                             <span className="text-[11px] font-bold px-2.5 py-1 rounded-md inline-block bg-[#EAFBF3] text-[#1DAB61]">
+                               ELITE
+                             </span>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

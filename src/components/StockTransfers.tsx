@@ -184,7 +184,7 @@ export default function StockTransfers() {
         </div>
         <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+            <div className="p-2 bg-blue-50 text-[#0066FF] rounded-lg">
               <Truck size={20} />
             </div>
             <span className="text-sm font-bold text-gray-900">In Transit</span>
@@ -274,7 +274,7 @@ export default function StockTransfers() {
                         transfer.status === 'received' ? 'bg-green-50 text-green-600' :
                         transfer.status === 'cancelled' ? 'bg-red-50 text-red-600' :
                         transfer.status === 'pending' ? 'bg-orange-50 text-orange-600' :
-                        'bg-blue-50 text-blue-600'
+                        'bg-blue-50 text-[#0066FF]'
                       }`}>
                         {transfer.status.toUpperCase()}
                       </span>
@@ -284,7 +284,7 @@ export default function StockTransfers() {
                         {transfer.status === 'pending' && (
                           <button 
                             onClick={() => handleUpdateStatus(transfer.id, 'approved')}
-                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                            className="p-1 text-[#0066FF] hover:bg-blue-50 rounded"
                             title="Approve"
                           >
                             <CheckCircle2 size={16} />

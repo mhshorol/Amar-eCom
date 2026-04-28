@@ -165,7 +165,7 @@ export default function PettyCash() {
         </div>
         <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+            <div className="p-2 bg-blue-50 text-[#0066FF] rounded-lg">
               <FileText size={20} />
             </div>
             <span className="text-sm font-bold text-gray-900">Total Records</span>

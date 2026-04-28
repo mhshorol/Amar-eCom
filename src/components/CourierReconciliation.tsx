@@ -228,7 +228,7 @@ export default function CourierReconciliation() {
   const getStatusBadge = (status?: string) => {
     switch(status) {
       case 'matched': return <span className="px-2 py-1 bg-green-50 text-green-600 rounded-full text-xs font-bold items-center flex gap-1"><CheckCircle2 size={12}/> Matched</span>;
-      case 'adjusted': return <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-bold items-center flex gap-1"><RefreshCw size={12}/> Adjusted</span>;
+      case 'adjusted': return <span className="px-2 py-1 bg-blue-50 text-[#0066FF] rounded-full text-xs font-bold items-center flex gap-1"><RefreshCw size={12}/> Adjusted</span>;
       case 'error': return <span className="px-2 py-1 bg-red-50 text-red-600 rounded-full text-xs font-bold items-center flex gap-1"><AlertCircle size={12}/> Error</span>;
       default: return <span className="px-2 py-1 bg-gray-50 text-gray-600 rounded-full text-xs font-bold items-center flex gap-1"><Clock size={12}/> Pending</span>;
     }

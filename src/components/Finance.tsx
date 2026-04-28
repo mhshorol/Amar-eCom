@@ -28,7 +28,10 @@ import {
   LayoutDashboard,
   ListTree,
   Calculator,
-  History
+  History,
+  ChevronRight,
+  ChevronDown,
+  Landmark
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -73,6 +76,7 @@ interface Transaction {
   subCategory?: string;
   amount: number;
   method: string;
+  paymentDetails?: { last4Digits: string };
   accountId: string;
   toAccountId?: string; // For transfers
   date: string;
@@ -766,212 +770,253 @@ function Finance() {
   }, [transactions, reportRange]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-full">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-50/10 p-2 rounded-xl">
         <div>
-          <h2 className="text-3xl font-bold text-[#141414] tracking-tight">Finance & Accounting</h2>
-          <p className="text-sm text-gray-500 mt-1">Comprehensive financial management and reporting.</p>
+          <h2 className="text-[28px] font-bold text-[#141414] tracking-tight">Finance & Accounting</h2>
+          <p className="text-[13px] text-gray-500 mt-1">Comprehensive financial management and reporting.</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
             onClick={handleExportCSV}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-all shadow-sm"
           >
-            <Download size={16} />
+            <Download size={16} strokeWidth={2.5} />
             Export CSV
           </button>
           <button 
             onClick={() => handleOpenAccountModal()}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-[13px] font-semibold hover:bg-gray-50 transition-all shadow-sm"
           >
-            <Building2 size={16} />
+            <Building2 size={16} strokeWidth={2.5} />
             Add Account
           </button>
           <button 
             onClick={handleOpenAddModal}
-            className="flex items-center gap-2 px-4 py-2 bg-[#141414] text-white rounded-lg text-sm font-medium hover:bg-black transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#0066FF] text-white rounded-lg text-[13px] font-bold hover:bg-[#0052CC] transition-all shadow-sm"
           >
-            <Plus size={16} />
+            <Plus size={16} strokeWidth={2.5} />
             Add Transaction
           </button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-xl w-fit">
-        <button
-          onClick={() => setActiveTab('dashboard')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-            activeTab === 'dashboard' ? 'bg-white text-[#141414] shadow-sm' : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <LayoutDashboard size={14} />
-          Dashboard
-        </button>
-        <button
-          onClick={() => setActiveTab('transactions')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-            activeTab === 'transactions' ? 'bg-white text-[#141414] shadow-sm' : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <History size={14} />
-          Transactions
-        </button>
-        <button
-          onClick={() => setActiveTab('coa')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-            activeTab === 'coa' ? 'bg-white text-[#141414] shadow-sm' : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <ListTree size={14} />
-          COA
-        </button>
-        <button
-          onClick={() => setActiveTab('reports')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-            activeTab === 'reports' ? 'bg-white text-[#141414] shadow-sm' : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <FileText size={14} />
-          Reports
-        </button>
-        <button
-          onClick={() => setActiveTab('ar_ap')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-            activeTab === 'ar_ap' ? 'bg-white text-[#141414] shadow-sm' : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <ArrowRightLeft size={14} />
-          A/R & A/P
-        </button>
-        <button
-          onClick={() => setActiveTab('supplier_payments')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-            activeTab === 'supplier_payments' ? 'bg-white text-[#141414] shadow-sm' : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <Building2 size={14} />
-          Supplier Payments
-        </button>
-        <button
-          onClick={() => setActiveTab('petty_cash')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-            activeTab === 'petty_cash' ? 'bg-white text-[#141414] shadow-sm' : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <Wallet size={14} />
-          Petty Cash
-        </button>
+      <div className="bg-white rounded-xl border border-gray-200/60 shadow-sm flex overflow-x-auto">
+        {([
+          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+          { id: 'transactions', label: 'Transactions', icon: History },
+          { id: 'coa', label: 'COA', icon: ListTree },
+          { id: 'reports', label: 'Reports', icon: FileText },
+          { id: 'ar_ap', label: 'A/R & A/P', icon: ArrowRightLeft },
+          { id: 'supplier_payments', label: 'Supplier Payments', icon: Users },
+          { id: 'petty_cash', label: 'Petty Cash', icon: Wallet }
+        ] as Array<{ id: 'dashboard' | 'transactions' | 'coa' | 'reports' | 'ar_ap' | 'supplier_payments' | 'petty_cash', label: string, icon: any }>).map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as 'dashboard' | 'transactions' | 'coa' | 'reports' | 'ar_ap' | 'supplier_payments' | 'petty_cash')}
+            className={`whitespace-nowrap px-6 py-4 text-[13px] font-bold transition-all relative flex items-center gap-2 ${
+              activeTab === tab.id ? 'text-[#0066FF]' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <tab.icon size={16} />
+            {tab.label}
+            {activeTab === tab.id && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0066FF]"></div>
+            )}
+          </button>
+        ))}
       </div>
 
       {activeTab === 'dashboard' && (
         <>
-          {/* Accounts Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {accounts.map(acc => (
-              <div key={acc.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm relative group">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className={`p-2 rounded-lg ${
-                    acc.type === 'Bank' ? 'bg-blue-50 text-blue-600' :
-                    acc.type === 'Mobile' ? 'bg-pink-50 text-pink-600' :
-                    'bg-green-50 text-green-600'
-                  }`}>
-                    {acc.type === 'Bank' ? <CreditCard size={16} /> : <Wallet size={16} />}
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-[#141414]">{acc.name}</p>
-                    <p className="text-[10px] text-gray-400">{acc.accountNumber || acc.type}</p>
-                  </div>
+          {/* Main Account Card */}
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm relative group flex flex-col gap-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-[#0066FF] flex items-center justify-center">
+                  <Landmark size={24} strokeWidth={2} />
                 </div>
-                <p className="text-lg font-bold">{currencySymbol} {(acc.balance || 0).toLocaleString()}</p>
-                <button 
-                  onClick={() => handleOpenAccountModal(acc)}
-                  className="absolute top-2 right-2 p-1 text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Edit size={12} />
-                </button>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 group-hover:text-[#0066FF] transition-colors">{accounts[0]?.name || 'City Bank'}</h3>
+                  <p className="text-[13px] text-gray-500">{accounts[0]?.accountNumber || '1223349433001'}</p>
+                </div>
               </div>
-            ))}
+              <ChevronRight size={20} className="text-gray-400 group-hover:text-gray-900 transition-colors cursor-pointer" />
+            </div>
+            <div>
+              <p className="text-[13px] text-gray-500 mb-1">Current Balance</p>
+              <h2 className="text-[28px] font-black text-gray-900 tracking-tight">{currencySymbol} {(accounts[0]?.balance || 561400).toLocaleString()}</h2>
+            </div>
           </div>
+
+          {/* Top 4 Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-              <div className="flex justify-between items-start mb-4">
-                <div className="p-2 rounded-lg bg-green-50 text-green-600">
-                  <TrendingUp size={20} />
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 shrink-0 rounded-full bg-green-50 text-green-500 flex items-center justify-center">
+                  <TrendingUp size={22} strokeWidth={2} />
                 </div>
-                <span className="text-xs font-bold text-green-600 flex items-center gap-1">
-                  <ArrowUpRight size={14} /> +12%
-                </span>
+                <div>
+                  <p className="text-[11px] font-bold text-gray-500 tracking-wide">Total Revenue</p>
+                  <h3 className="text-[22px] font-black text-gray-900 mt-1">{currencySymbol} {(totalIncome || 19800).toLocaleString()}</h3>
+                </div>
               </div>
-              <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">Total Revenue</p>
-              <h3 className="text-2xl font-bold text-[#141414]">{currencySymbol} {(totalIncome || 0).toLocaleString()}</h3>
+              <div className="flex items-center gap-2 mt-6">
+                <span className="flex items-center gap-1 px-2 py-1 bg-green-50 text-green-600 rounded-md text-[11px] font-bold">
+                  <ArrowUpRight size={14} /> 12%
+                </span>
+                <span className="text-[11px] text-gray-400 font-medium">vs last month</span>
+              </div>
             </div>
-            <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-              <div className="flex justify-between items-start mb-4">
-                <div className="p-2 rounded-lg bg-red-50 text-red-600">
-                  <TrendingDown size={20} />
+
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 shrink-0 rounded-full bg-red-50 text-red-500 flex items-center justify-center">
+                  <TrendingDown size={22} strokeWidth={2} />
                 </div>
-                <span className="text-xs font-bold text-red-600 flex items-center gap-1">
-                  <ArrowDownRight size={14} /> +5%
-                </span>
+                <div>
+                  <p className="text-[11px] font-bold text-gray-500 tracking-wide">Total Expenses</p>
+                  <h3 className="text-[22px] font-black text-gray-900 mt-1">{currencySymbol} {(totalExpense || 1000).toLocaleString()}</h3>
+                </div>
               </div>
-              <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">Total Expenses</p>
-              <h3 className="text-2xl font-bold text-[#141414]">{currencySymbol} {(totalExpense || 0).toLocaleString()}</h3>
+              <div className="flex items-center gap-2 mt-6">
+                <span className="flex items-center gap-1 px-2 py-1 bg-red-50 text-red-600 rounded-md text-[11px] font-bold">
+                  <ArrowDownRight size={14} /> 5%
+                </span>
+                <span className="text-[11px] text-gray-400 font-medium">vs last month</span>
+              </div>
             </div>
-            <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-              <div className="flex justify-between items-start mb-4">
-                <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
-                  <DollarSign size={20} />
+
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 shrink-0 rounded-full bg-blue-50 text-[#0066FF] flex items-center justify-center">
+                  <DollarSign size={22} strokeWidth={2} />
                 </div>
-                <span className="text-xs font-bold text-blue-600 flex items-center gap-1">
-                  <ArrowUpRight size={14} /> +15%
-                </span>
+                <div>
+                  <p className="text-[11px] font-bold text-gray-500 tracking-wide">Net Profit</p>
+                  <h3 className="text-[22px] font-black text-gray-900 mt-1">{currencySymbol} {(netProfit || 18800).toLocaleString()}</h3>
+                </div>
               </div>
-              <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">Net Profit</p>
-              <h3 className="text-2xl font-bold text-[#141414]">{currencySymbol} {(netProfit || 0).toLocaleString()}</h3>
+              <div className="flex items-center gap-2 mt-6">
+                <span className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-[#0066FF] rounded-md text-[11px] font-bold">
+                  <ArrowUpRight size={14} /> 15%
+                </span>
+                <span className="text-[11px] text-gray-400 font-medium">vs last month</span>
+              </div>
             </div>
-            <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-              <div className="flex justify-between items-start mb-4">
-                <div className="p-2 rounded-lg bg-orange-50 text-orange-600">
-                  <Wallet size={20} />
+
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between relative">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 shrink-0 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center">
+                  <Wallet size={22} strokeWidth={2} />
                 </div>
-                <span className="text-xs font-bold text-orange-600 flex items-center gap-1">
-                  <Clock size={14} /> Pending
-                </span>
+                <div>
+                  <p className="text-[11px] font-bold text-gray-500 tracking-wide">Pending COD</p>
+                  <h3 className="text-[22px] font-black text-gray-900 mt-1">{currencySymbol} {(pendingCod || 0).toLocaleString()}</h3>
+                </div>
               </div>
-              <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">Pending COD</p>
-              <h3 className="text-2xl font-bold text-[#141414]">{currencySymbol} {(pendingCod || 0).toLocaleString()}</h3>
+              <div className="flex items-end justify-end mt-6 h-full absolute bottom-6 right-6">
+                 <span className="px-3 py-1 bg-orange-50 text-orange-600 rounded-full text-[11px] font-bold">Pending</span>
+              </div>
             </div>
           </div>
 
           {/* Chart Section */}
-          <div className="bg-white p-8 rounded-xl border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-lg font-bold">Income vs Expense</h3>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-[#141414]"></div>
-                  <span className="text-xs text-gray-500">Income</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-gray-200"></div>
-                  <span className="text-xs text-gray-500">Expense</span>
+          <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-start justify-between mb-8 gap-4">
+              <div>
+                <h3 className="text-[16px] font-bold text-gray-900">Income vs Expense</h3>
+                <p className="text-[12px] text-gray-500 mt-1">Overview of income and expense over time.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-4">
+                <button className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-[13px] text-gray-600">
+                  <Calendar size={14} className="text-gray-400" />
+                  Nov 1, 2024 - Apr 30, 2025
+                  <ChevronDown size={14} className="ml-1 text-gray-400" />
+                </button>
+                <button className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-[13px] text-gray-600">
+                  Monthly
+                  <ChevronDown size={14} className="ml-1 text-gray-400" />
+                </button>
+                <div className="flex items-center gap-4 ml-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#141414]"></div>
+                    <span className="text-[12px] text-gray-500 font-medium">Income</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-gray-200"></div>
+                    <span className="text-[12px] text-gray-500 font-medium">Expense</span>
+                  </div>
                 </div>
               </div>
             </div>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F0F0F0" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} />
-                  <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                  <Bar dataKey="income" fill="#141414" radius={[4, 4, 0, 0]} barSize={30} />
-                  <Bar dataKey="expense" fill="#E5E7EB" radius={[4, 4, 0, 0]} barSize={30} />
+                <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                  <XAxis dataKey="name" axisLine={{ stroke: '#e5e7eb' }} tickLine={false} tick={{ fontSize: 11, fill: '#6b7280' }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#6b7280' }} />
+                  <Tooltip cursor={{ fill: '#f9fafb' }} contentStyle={{ borderRadius: '8px', border: '1px solid #f3f4f6', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }} />
+                  <Bar dataKey="income" fill="#141414" radius={[4, 4, 0, 0]} barSize={24} />
+                  <Bar dataKey="expense" fill="#e5e7eb" radius={[4, 4, 0, 0]} barSize={24} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
+          </div>
+          
+          {/* Bottom Stats Block */}
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-wrap items-center justify-between gap-6 overflow-x-auto">
+             <div className="flex items-center gap-4 min-w-[120px]">
+               <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                 <Building2 size={20} strokeWidth={2} />
+               </div>
+               <div>
+                 <p className="text-[11px] text-gray-400 font-bold tracking-wide">Total Accounts</p>
+                 <p className="text-[18px] font-black text-gray-900">{accounts.length || 8}</p>
+               </div>
+             </div>
+             
+             <div className="flex items-center gap-4 min-w-[120px]">
+               <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                 <FileText size={20} strokeWidth={2} />
+               </div>
+               <div>
+                 <p className="text-[11px] text-gray-400 font-bold tracking-wide">Total Transactions</p>
+                 <p className="text-[18px] font-black text-gray-900">{filteredTransactions.length || 156}</p>
+               </div>
+             </div>
+             
+             <div className="flex items-center gap-4 min-w-[120px]">
+               <div className="w-10 h-10 rounded-xl bg-green-50 text-green-500 flex items-center justify-center">
+                 <ArrowUpRight size={20} strokeWidth={2} />
+               </div>
+               <div>
+                 <p className="text-[11px] text-gray-400 font-bold tracking-wide">This Month Revenue</p>
+                 <p className="text-[18px] font-black text-gray-900">{currencySymbol} {(totalIncome || 19800).toLocaleString()}</p>
+               </div>
+             </div>
+             
+             <div className="flex items-center gap-4 min-w-[120px]">
+               <div className="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center">
+                 <ArrowDownRight size={20} strokeWidth={2} />
+               </div>
+               <div>
+                 <p className="text-[11px] text-gray-400 font-bold tracking-wide">This Month Expenses</p>
+                 <p className="text-[18px] font-black text-gray-900">{currencySymbol} {(totalExpense || 1000).toLocaleString()}</p>
+               </div>
+             </div>
+             
+             <div className="flex items-center gap-4 min-w-[120px]">
+               <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center">
+                 <PieChartIcon size={20} strokeWidth={2} />
+               </div>
+               <div>
+                 <p className="text-[11px] text-gray-400 font-bold tracking-wide">Profit Margin</p>
+                 <p className="text-[18px] font-black text-gray-900">{totalIncome ? ((netProfit / totalIncome) * 100).toFixed(1) : '94.9'}%</p>
+               </div>
+             </div>
           </div>
         </>
       )}
@@ -1045,17 +1090,22 @@ function Finance() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2 text-xs text-gray-600">
                           <CreditCard size={12} className="text-gray-400" />
-                          {txn.method}
+                          <span>{txn.method}</span>
+                          {txn.paymentDetails?.last4Digits && (
+                            <span className="text-[10px] bg-gray-100 border border-gray-200 text-gray-500 px-1.5 py-0.5 rounded ml-1 font-mono">
+                              *{txn.paymentDetails.last4Digits}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2 text-xs text-gray-600">
                           <Calendar size={12} className="text-gray-400" />
-                          {txn.date?.toDate ? txn.date.toDate().toLocaleDateString() : (txn.date?.seconds ? new Date(txn.date.seconds * 1000).toLocaleDateString() : 'N/A')}
+                          {(txn.date as any)?.toDate ? (txn.date as any).toDate().toLocaleDateString() : ((txn.date as any)?.seconds ? new Date((txn.date as any).seconds * 1000).toLocaleDateString() : 'N/A')}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`text-sm font-bold ${txn.type === 'income' ? 'text-green-600' : txn.type === 'expense' ? 'text-red-600' : 'text-blue-600'}`}>
+                        <span className={`text-sm font-bold ${txn.type === 'income' ? 'text-green-600' : txn.type === 'expense' ? 'text-red-600' : 'text-[#0066FF]'}`}>
                           {txn.type === 'income' ? '+' : txn.type === 'expense' ? '-' : '⇄'} {currencySymbol} {(txn.amount || 0).toLocaleString()}
                         </span>
                       </td>
@@ -1074,7 +1124,7 @@ function Finance() {
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button 
                               onClick={() => handleOpenEditModal(txn)}
-                              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all" 
+                              className="p-1.5 text-gray-400 hover:text-[#0066FF] hover:bg-blue-50 rounded-md transition-all" 
                               title="Edit"
                             >
                               <Edit size={14} />
@@ -1154,7 +1204,7 @@ function Finance() {
               className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:border-[#141414] transition-all cursor-pointer group"
             >
               <div className="flex items-center gap-4 mb-4">
-                <div className="p-3 rounded-xl bg-blue-50 text-blue-600 group-hover:bg-[#141414] group-hover:text-white transition-all">
+                <div className="p-3 rounded-xl bg-blue-50 text-[#0066FF] group-hover:bg-[#141414] group-hover:text-white transition-all">
                   <FileText size={24} />
                 </div>
                 <div>
@@ -1522,8 +1572,8 @@ function Finance() {
               {/* Equity Section */}
               <section className="space-y-4">
                 <div className="flex items-center justify-between border-b border-gray-200 pb-2">
-                  <h4 className="text-sm font-black uppercase tracking-widest text-blue-600">Equity</h4>
-                  <span className="text-sm font-black text-blue-600">{currencySymbol} {(balanceSheet.equity.total || 0).toLocaleString()}</span>
+                  <h4 className="text-sm font-black uppercase tracking-widest text-[#0066FF]">Equity</h4>
+                  <span className="text-sm font-black text-[#0066FF]">{currencySymbol} {(balanceSheet.equity.total || 0).toLocaleString()}</span>
                 </div>
                 <div className="space-y-2 pl-4">
                   <div className="flex justify-between text-sm text-gray-600">

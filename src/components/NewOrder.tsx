@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Plus, 
+  Minus,
+  Package,
   Truck,
   CreditCard,
   X,
@@ -13,7 +15,16 @@ import {
   Search,
   ChevronDown,
   Smartphone,
-  ShieldCheck
+  ShieldCheck,
+  Phone,
+  User,
+  CheckCircle,
+  ScanBarcode,
+  ShoppingCart,
+  ShoppingBag,
+  ListFilter,
+  Banknote,
+  Facebook
 } from 'lucide-react';
 import { db, auth, collection, query, serverTimestamp, Timestamp, doc, getDocs, where, runTransaction, limit } from '../firebase';
 import { toast } from 'sonner';
@@ -45,6 +56,7 @@ export default function NewOrder() {
     customerAddress: '',
     customerCity: 'Dhaka',
     customerZone: 'Inside Dhaka',
+    division: '',
     district: '',
     area: '',
     landmark: '',
@@ -68,6 +80,9 @@ export default function NewOrder() {
     pathao_city_id: '',
     pathao_zone_id: '',
     pathao_area_id: '',
+    carrybee_city_id: '',
+    carrybee_zone_id: '',
+    carrybee_area_id: '',
   });
 
   const [cities, setCities] = useState<any[]>([]);
@@ -91,7 +106,7 @@ export default function NewOrder() {
     message: '',
     onConfirm: () => {},
   });
-  const [newItem, setNewItem] = useState({ productId: '', variantId: '', quantity: 1, price: 0 });
+  const [newItem, setNewItem] = useState({ productId: '', variantId: '', quantity: 1, price: 0, image: '' });
 
   const statuses = ['urgent', 'hold', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'partial_delivered', 'cancelled', 'returned'];
 
@@ -574,506 +589,715 @@ export default function NewOrder() {
 
   const { subtotal, totalAmount, dueAmount } = calculateTotals(orderForm.items, orderForm.deliveryCharge, orderForm.discount, orderForm.paidAmount);
 
+  const totalCost = orderForm.items.reduce((sum, item) => {
+    const p = products.find(prod => prod.id === item.productId);
+    return sum + ((p?.costPrice || 0) * item.quantity);
+  }, 0);
+  const profit = (subtotal - orderForm.discount) - totalCost;
+  const marginPercentage = (subtotal - orderForm.discount) > 0 ? ((profit / (subtotal - orderForm.discount)) * 100).toFixed(1) : 0;
+
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
     p.sku?.toLowerCase().includes(productSearch.toLowerCase())
   );
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 max-w-5xl mx-auto">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3 sm:gap-4">
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 max-w-6xl mx-auto pb-20 lg:pb-8">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
           <button 
             onClick={() => navigate('/orders')}
-            className="p-2 hover:bg-gray-100 rounded-xl transition-all shrink-0"
+            className="p-2 hover:bg-slate-100 text-slate-500 rounded-xl transition-all shrink-0"
           >
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-[#141414] tracking-tight">Create Order</h2>
-            <p className="text-xs sm:text-sm text-[#6b7280]">Fill in the details for a new order.</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Create Order</h2>
+            <p className="text-sm font-medium text-slate-500 mt-1">Create a new order by adding customer and products.</p>
           </div>
         </div>
-        <button 
-          onClick={handleSubmit}
-          disabled={loading}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-[#00AEEF] text-white rounded-xl text-sm font-bold hover:bg-[#0095cc] transition-all shadow-lg hover:shadow-xl disabled:opacity-50"
-        >
-          {loading ? 'Saving...' : (
-            <>
-              <Save size={18} />
-              Save Order
-            </>
-          )}
-        </button>
+        <div className="flex gap-3">
+          <button 
+            type="button"
+            className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2"
+          >
+            <Save size={16} /> <span>Save Draft</span>
+          </button>
+          <button 
+            onClick={handleSubmit}
+            disabled={loading}
+            className="flex items-center justify-center gap-2 px-5 py-2 bg-[#2563EB] text-white rounded-lg text-sm font-semibold hover:bg-[#0052CC] transition-all shadow-sm disabled:opacity-50"
+          >
+            {loading ? 'Saving...' : (
+              <>
+                <ShoppingBag size={16} /> Place Order
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
-        <div className="lg:col-span-2 space-y-6 sm:space-y-8">
+        <div className="lg:col-span-2 space-y-6">
           {/* Customer Section */}
-          <div className="bg-white p-4 sm:p-8 rounded-3xl border border-[#f3f4f6] shadow-sm space-y-6">
-            <h4 className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-[#9ca3af] flex items-center gap-2">
-              <UserCheck size={14} /> Customer Information
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
+            <h4 className="text-base font-bold text-slate-900 flex items-center gap-2 mb-6">
+              <UserCheck size={20} className="text-[#0066FF]" /> Customer Information
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+              {/* Row 1: Phone */}
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Customer Name *</label>
-                <input 
-                  required
-                  className="w-full px-4 py-2.5 sm:py-3 bg-[#f9fafb] border border-transparent rounded-xl text-sm focus:bg-[#ffffff] focus:border-[#00AEEF]/20 outline-none transition-all"
-                  value={orderForm.customerName}
-                  onChange={e => setOrderForm({...orderForm, customerName: e.target.value})}
-                />
-              </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Phone Number *</label>
-                  <div className="flex gap-2">
+                <label className="mb-2 block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Phone Number *</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
                     <input 
                       required
-                      className="flex-1 px-4 py-2.5 sm:py-3 bg-[#f9fafb] border border-transparent rounded-xl text-sm focus:bg-[#ffffff] focus:border-[#00AEEF]/20 outline-none transition-all"
+                      className={`w-full pl-11 ${orderForm.customerPhone.length >= 11 ? 'pr-11 border-emerald-500 focus:border-emerald-500 ring-emerald-500/20' : 'pr-4 border-slate-300 focus:border-blue-500 focus:ring-blue-500/20'} py-2.5 bg-white text-sm rounded-lg outline-none transition-all border`}
                       value={orderForm.customerPhone}
                       onChange={e => handlePhoneChange(e.target.value)}
+                      placeholder="01XXX-XXXXXX"
                     />
+                    <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                     {orderForm.customerPhone.length >= 11 && (
-                      <a 
-                        href={`https://wa.me/88${orderForm.customerPhone.replace(/\D/g, '')}`} 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="p-2.5 sm:p-3 bg-[#25D366] text-white rounded-xl hover:bg-[#128C7E] transition-all shadow-md flex items-center justify-center"
-                        title="Chat on WhatsApp"
-                      >
-                        <Smartphone size={20} />
-                      </a>
+                      <CheckCircle size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-500" />
                     )}
                   </div>
-                
-                {isFetchingHistory && (
-                  <div className="flex items-center gap-2 mt-1 px-2">
-                    <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-[10px] text-blue-500 font-medium italic">Checking courier history...</span>
-                  </div>
-                )}
+                  {orderForm.customerPhone.length >= 11 && (
+                    <a 
+                      href={`https://wa.me/88${orderForm.customerPhone.replace(/\D/g, '')}`} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="p-3 bg-[#25D366] text-white rounded-xl hover:bg-[#128C7E] transition-all shadow-md flex items-center justify-center shrink-0"
+                      title="Chat on WhatsApp"
+                    >
+                      <Smartphone size={20} />
+                    </a>
+                  )}
+                </div>
+              </div>
 
-                {courierHistory && (
-                  <div className="mt-2 p-3 bg-white border border-gray-100 rounded-2xl shadow-sm animate-in fade-in slide-in-from-top-1 duration-300">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-1.5">
-                        <ShieldCheck size={14} className="text-green-500" />
-                        <span className="text-[10px] font-bold text-gray-900 uppercase tracking-tight">Courier Trust Score</span>
-                      </div>
-                      <span className="text-[9px] font-bold text-gray-400 uppercase bg-gray-50 px-1.5 py-0.5 rounded-md border border-gray-100">{courierHistory.courier}</span>
+              {/* Row 1: Existing Customer History */}
+              <div className="flex items-end min-h-[76px] sm:min-h-0 sm:pt-6">
+                <div className="w-full">
+                  {isFetchingHistory ? (
+                    <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 rounded-xl">
+                      <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs font-medium text-blue-500">Checking customer history...</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="bg-green-50/50 p-2 rounded-xl border border-green-100/50">
-                        <p className="text-[8px] font-bold text-green-600 uppercase tracking-wider mb-0.5">Delivered</p>
-                        <p className="text-sm font-black text-green-700">{courierHistory.total_delivered || 0}</p>
+                  ) : courierHistory ? (
+                    <div className="p-3 sm:p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                          <CheckCircle size={16} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                            Existing Customer Found
+                          </p>
+                          <p className="text-[10px] sm:text-xs text-emerald-600 mt-0.5">
+                            {courierHistory.total_delivered} Orders • {courierHistory.success_rate || 100}% Success
+                          </p>
+                        </div>
                       </div>
-                      <div className="bg-red-50/50 p-2 rounded-xl border border-red-100/50">
-                        <p className="text-[8px] font-bold text-red-600 uppercase tracking-wider mb-0.5">Canceled</p>
-                        <p className="text-sm font-black text-red-700">{courierHistory.total_cancelled || 0}</p>
-                      </div>
-                      <div className="bg-blue-50/50 p-2 rounded-xl border border-blue-100/50">
-                        <p className="text-[8px] font-bold text-blue-600 uppercase tracking-wider mb-0.5">Success Rate</p>
-                        <p className="text-sm font-black text-blue-700">
-                          {courierHistory.success_rate || '0%'}
-                        </p>
-                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          if (courierHistory.customer_name || courierHistory.customer_address || courierHistory.address) {
+                            setOrderForm(prev => ({
+                              ...prev,
+                              customerName: courierHistory.customer_name || prev.customerName,
+                              customerAddress: courierHistory.address || courierHistory.customer_address || prev.customerAddress
+                            }));
+                            toast.success("Autofilled from courier network");
+                          } else {
+                            toast.error("No names/addresses found in courier network");
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-white text-[#0066FF] text-[11px] font-bold rounded-lg border border-blue-200 shadow-sm hover:bg-slate-50 transition-colors active:scale-95 whitespace-nowrap"
+                      >
+                        Autofill Data
+                      </button>
                     </div>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Row 2: Name */}
+              <div className="space-y-2">
+                <label className="mb-2 block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Customer Name *</label>
+                <div className="relative">
+                  <input 
+                    required
+                    className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all text-slate-900"
+                    value={orderForm.customerName}
+                    onChange={e => setOrderForm({...orderForm, customerName: e.target.value})}
+                    placeholder="Enter full name"
+                  />
+                  <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                </div>
+              </div>
+
+              {/* Row 2: Full Address */}
+              <div className="space-y-2 relative">
+                <label className="mb-2 block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Full Address *</label>
+                <textarea 
+                  required
+                  className="w-full pl-4 pr-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all resize-none text-slate-900"
+                  rows={1}
+                  placeholder="House 10, Dhanmondi, Dhaka"
+                  value={orderForm.customerAddress}
+                  onChange={e => handleAddressChange(e.target.value)}
+                />
+              </div>
+
+              {/* Row 3: District */}
+              <div className="space-y-2">
+                <label className="mb-2 block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">District</label>
+                <div className="relative">
+                  <select 
+                    className="w-full pl-4 pr-10 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all text-slate-900 appearance-none cursor-pointer"
+                    value={orderForm.district}
+                    onChange={e => {
+                      setOrderForm({...orderForm, district: e.target.value, area: ''});
+                      if (courierConfigs.pathao?.isActive) autoMatchPathao(e.target.value, '');
+                    }}
+                  >
+                    <option value="">Select District</option>
+                    {districts.map(d => (
+                      <option key={d.id} value={d.nameEn}>{d.nameEn}</option>
+                    ))}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                    <ChevronDown size={16} strokeWidth={3} />
                   </div>
-                )}
+                </div>
               </div>
-            </div>
-            <div className="space-y-2 relative">
-              <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Full Address</label>
-              <textarea 
-                className="w-full px-4 py-2.5 sm:py-3 bg-[#f9fafb] border border-transparent rounded-xl text-sm focus:bg-[#ffffff] focus:border-[#00AEEF]/20 outline-none transition-all resize-none"
-                rows={2}
-                placeholder="Type or paste full address (e.g. House 10, Dhanmondi, Dhaka)"
-                value={orderForm.customerAddress}
-                onChange={e => handleAddressChange(e.target.value)}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4 sm:gap-6">
+
+              {/* Row 3: Area */}
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">District</label>
-                <select 
-                  className="w-full px-4 py-2.5 sm:py-3 bg-[#f9fafb] border border-transparent rounded-xl text-sm focus:bg-[#ffffff] focus:border-[#00AEEF]/20 outline-none transition-all"
-                  value={orderForm.district}
-                  onChange={e => {
-                    setOrderForm({...orderForm, district: e.target.value, area: ''});
-                    if (courierConfigs.pathao?.isActive) autoMatchPathao(e.target.value, '');
-                  }}
-                >
-                  <option value="">Select District</option>
-                  {districts.map(d => (
-                    <option key={d.id} value={d.nameEn}>{d.nameEn}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Area</label>
-                <select 
-                  className="w-full px-4 py-2.5 sm:py-3 bg-[#f9fafb] border border-transparent rounded-xl text-sm focus:bg-[#ffffff] focus:border-[#00AEEF]/20 outline-none transition-all"
-                  value={orderForm.area}
-                  onChange={e => {
-                    setOrderForm({...orderForm, area: e.target.value});
-                    if (courierConfigs.pathao?.isActive) autoMatchPathao(orderForm.district, e.target.value);
-                  }}
-                  disabled={!orderForm.district}
-                >
-                  <option value="">Select Area</option>
-                  {upazilas
-                    .filter(u => orderForm.district && districts.find(d => d.nameEn === orderForm.district)?.id === u.districtId)
-                    .map(u => (
-                      <option key={u.id} value={u.nameEn}>{u.nameEn}</option>
-                    ))
-                  }
-                </select>
+                <label className="mb-2 block text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Area</label>
+                <div className="relative">
+                  <select 
+                    className="w-full pl-4 pr-10 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all text-slate-900 appearance-none cursor-pointer disabled:opacity-50 disabled:bg-slate-50"
+                    value={orderForm.area}
+                    onChange={e => {
+                      setOrderForm({...orderForm, area: e.target.value});
+                      if (courierConfigs.pathao?.isActive) autoMatchPathao(orderForm.district, e.target.value);
+                    }}
+                    disabled={!orderForm.district}
+                  >
+                    <option value="">Select Area</option>
+                    {upazilas
+                      .filter(u => orderForm.district && districts.find(d => d.nameEn === orderForm.district)?.id === u.districtId)
+                      .map(u => (
+                        <option key={u.id} value={u.nameEn}>{u.nameEn}</option>
+                      ))
+                    }
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                    <ChevronDown size={16} strokeWidth={3} />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Items Section */}
-          <div className="bg-white p-4 sm:p-8 rounded-3xl border border-[#f3f4f6] shadow-sm space-y-6">
-            <h4 className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-[#9ca3af] flex items-center gap-2">
-              <Truck size={14} /> Order Items & Fulfillment
-            </h4>
-            
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Fulfillment Warehouse</label>
-              <select 
-                required
-                className="w-full px-4 py-2.5 sm:py-3 bg-[#f9fafb] border border-transparent rounded-xl text-sm focus:bg-[#ffffff] focus:border-[#00AEEF]/20 outline-none transition-all"
-                value={orderForm.warehouseId}
-                onChange={e => setOrderForm({...orderForm, warehouseId: e.target.value})}
-              >
-                <option value="">Select Warehouse</option>
-                {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-              </select>
-            </div>
-
-            <div className="bg-[#f9fafb] p-4 sm:p-6 rounded-2xl space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
-                {/* Searchable Product Select */}
-                <div className="sm:col-span-5 space-y-1 relative" ref={dropdownRef}>
-                  <label className="text-[8px] font-bold text-[#9ca3af] uppercase">Search Product</label>
-                  <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                      <Search size={14} />
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="Search by name or SKU..."
-                      className="w-full pl-9 pr-4 py-2.5 sm:py-3 bg-white border border-[#f3f4f6] rounded-xl text-xs outline-none focus:border-[#00AEEF]/20 focus:ring-4 focus:ring-[#00AEEF]/5 transition-all"
-                      value={productSearch}
-                      onFocus={() => setShowProductDropdown(true)}
-                      onChange={(e) => {
-                        setProductSearch(e.target.value);
-                        setShowProductDropdown(true);
-                      }}
-                    />
-                    {showProductDropdown && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-[#f3f4f6] rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
-                        {filteredProducts.length > 0 ? (
-                          filteredProducts.map(p => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              className="w-full text-left px-4 py-3 hover:bg-[#f9fafb] flex items-center gap-3 transition-colors border-b border-[#f3f4f6] last:border-0"
-                              onClick={() => {
-                                setNewItem({...newItem, productId: p.id, variantId: '', price: p.price || 0, image: p.images?.[0] || p.image || ''});
-                                setProductSearch(p.name);
-                                setShowProductDropdown(false);
-                              }}
-                            >
-                              {(p.images?.[0] || p.image) && (
-                                <img src={p.images?.[0] || p.image} alt="" className="w-8 h-8 rounded-lg object-cover bg-gray-100" referrerPolicy="no-referrer" />
-                              )}
-                              <div>
-                                <div className="text-xs font-bold text-[#141414]">{p.name}</div>
-                                <div className="text-[10px] text-[#9ca3af]">
-                                  {p.sku || 'No SKU'} • {currencySymbol}{p.price}
-                                  {(p.size || p.color) && ` • ${p.size ? `Size: ${p.size}` : ''}${p.size && p.color ? ' | ' : ''}${p.color ? `Color: ${p.color}` : ''}`}
-                                </div>
-                              </div>
-                            </button>
-                          ))
-                        ) : (
-                          <div className="p-4 text-center text-xs text-gray-400">No products found</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Variant Select */}
-                <div className="sm:col-span-3 space-y-1">
-                  <label className="text-[8px] font-bold text-[#9ca3af] uppercase">Variant</label>
+          {/* Add Products Section */}
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <h4 className="text-base font-bold text-slate-900 flex items-center gap-2 mb-2 sm:mb-0">
+                <Package size={20} className="text-[#0066FF]" /> Add Products
+              </h4>
+              <div className="w-full sm:w-64">
+                <div className="relative">
                   <select 
-                    disabled={!newItem.productId || products.find(p => p.id === newItem.productId)?.type !== 'variable'}
-                    className="w-full p-2.5 sm:p-3 bg-white border border-[#f3f4f6] rounded-xl text-xs outline-none focus:border-[#00AEEF]/20 disabled:opacity-50 disabled:bg-gray-50 transition-all"
-                    value={newItem.variantId}
-                    onChange={e => {
-                      const v = variants.find(varnt => varnt.id === e.target.value);
-                      setNewItem({...newItem, variantId: e.target.value, price: v?.price || newItem.price});
-                    }}
+                    required
+                    className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all text-slate-900 appearance-none cursor-pointer"
+                    value={orderForm.warehouseId}
+                    onChange={e => setOrderForm({...orderForm, warehouseId: e.target.value})}
                   >
-                    <option value="">Default Variant</option>
-                    {newItem.productId && variants.filter(v => v.productId === newItem.productId).map(v => (
-                      <option key={v.id} value={v.id}>{v.size} / {v.color} - {currencySymbol}{v.price}</option>
-                    ))}
+                    <option value="">Select Warehouse...</option>
+                    {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
-                </div>
-
-                {/* Quantity */}
-                <div className="sm:col-span-2 space-y-1">
-                  <label className="text-[8px] font-bold text-[#9ca3af] uppercase">Qty</label>
-                  <div className="flex items-center bg-white border border-[#f3f4f6] rounded-xl overflow-hidden">
-                    <button 
-                      type="button"
-                      onClick={() => setNewItem(prev => ({...prev, quantity: Math.max(1, prev.quantity - 1)}))}
-                      className="px-3 py-2.5 sm:py-3 hover:bg-gray-50 text-gray-500 transition-colors"
-                    >
-                      -
-                    </button>
-                    <input 
-                      type="number" 
-                      className="w-full text-center py-2.5 sm:py-3 text-xs outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
-                      value={newItem.quantity === 0 ? '' : newItem.quantity}
-                      onChange={e => {
-                        const val = parseInt(e.target.value);
-                        setNewItem({...newItem, quantity: isNaN(val) ? 0 : val});
-                      }}
-                    />
-                    <button 
-                      type="button"
-                      onClick={() => setNewItem(prev => ({...prev, quantity: prev.quantity + 1}))}
-                      className="px-3 py-2.5 sm:py-3 hover:bg-gray-50 text-gray-500 transition-colors"
-                    >
-                      +
-                    </button>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                    <ChevronDown size={14} strokeWidth={3} />
                   </div>
-                </div>
-
-                {/* Add Button */}
-                <div className="sm:col-span-2">
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      if (!newItem.productId) {
-                        toast.error("Please select a product");
-                        return;
-                      }
-                      const p = products.find(prod => prod.id === newItem.productId);
-                      const v = variants.find(varnt => varnt.id === newItem.variantId);
-                      const itemWithInfo = {
-                        ...newItem,
-                        name: p?.name || 'Unknown Product',
-                        variant: v ? `${v.size} / ${v.color}` : (p?.size || p?.color ? `${p.size || ''} ${p.size && p.color ? '/' : ''} ${p.color || ''}`.trim() : ''),
-                        image: p?.image || ''
-                      };
-                      setOrderForm({...orderForm, items: [...orderForm.items, itemWithInfo]});
-                      setNewItem({ productId: '', variantId: '', quantity: 1, price: 0 });
-                      setProductSearch('');
-                    }}
-                    className="w-full h-[42px] bg-[#00AEEF] text-white rounded-xl text-xs font-bold hover:bg-[#0095cc] transition-all shadow-md flex items-center justify-center gap-2"
-                  >
-                    <Plus size={16} />
-                    Add
-                  </button>
                 </div>
               </div>
+            </div>
 
-              <div className="space-y-3">
-                {orderForm.items.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center bg-white p-3 sm:p-4 rounded-xl border border-[#f3f4f6] shadow-sm hover:border-[#00AEEF]/20 transition-all group">
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      {item.image && (
-                        <img src={item.image} alt="" className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg object-cover bg-gray-50" referrerPolicy="no-referrer" />
-                      )}
-                      <div className="flex flex-col">
-                        <span className="text-xs sm:text-sm font-bold text-[#141414]">{item.name}</span>
-                        {item.variant && <span className="text-[10px] text-[#9ca3af] font-medium">{item.variant}</span>}
+            <div className="space-y-4">
+              <div ref={dropdownRef} className="relative z-20">
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-accent transition-colors">
+                    <Search size={18} strokeWidth={2.5} />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Search by product name, SKU or scan barcode..."
+                    className="w-full pl-12 pr-[140px] py-3 bg-white border border-slate-300 rounded-lg text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all text-slate-900 placeholder:text-slate-400"
+                    value={productSearch}
+                    onFocus={() => setShowProductDropdown(true)}
+                    onChange={(e) => {
+                      setProductSearch(e.target.value);
+                      setShowProductDropdown(true);
+                    }}
+                  />
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded hidden sm:block border border-slate-200">Ctrl + K</span>
+                    <button 
+                      type="button"
+                      className="p-2 sm:px-3 sm:py-1.5 bg-white border border-slate-200 text-[#0066FF] rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1.5 shadow-sm"
+                    >
+                      <ScanBarcode size={16} /> <span className="text-xs font-bold hidden sm:block">Scan</span>
+                    </button>
+                  </div>
+                </div>
+
+                {showProductDropdown && productSearch && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-80 overflow-y-auto overflow-hidden">
+                    {filteredProducts.length > 0 ? (
+                      filteredProducts.map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className="w-full flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0 text-left group/item"
+                          onClick={() => {
+                            setNewItem({...newItem, productId: p.id, variantId: '', price: p.price || 0, image: p.images?.[0] || p.image || ''});
+                            setProductSearch(p.name);
+                            setShowProductDropdown(false);
+                          }}
+                        >
+                          <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 border border-slate-200">
+                            {(p.images?.[0] || p.image) ? (
+                              <img src={p.images?.[0] || p.image} alt="" className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" />
+                            ) : (
+                              <div className="w-full h-full bg-slate-50 flex items-center justify-center text-slate-300">
+                                <Package size={20} strokeWidth={1.5} />
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-slate-900 truncate group-hover/item:text-[#0066FF] transition-colors">{p.name}</p>
+                            <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                              {currencySymbol}{p.price?.toLocaleString()} <span className="text-slate-300 mx-1">•</span> <span className="font-normal">SKU: {p.sku || 'N/A'}</span>
+                            </p>
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="p-8 text-center text-[11px] font-bold uppercase tracking-wider text-slate-400">No matching products found</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                <button type="button" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold whitespace-nowrap hover:bg-blue-100 transition-colors"><Package size={14} /> Recent Products</button>
+                <button type="button" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-slate-600 border border-slate-200 rounded-lg text-xs font-semibold whitespace-nowrap hover:bg-slate-50 transition-colors"><ShoppingCart size={14} /> Best Selling</button>
+                <button type="button" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-slate-600 border border-slate-200 rounded-lg text-xs font-semibold whitespace-nowrap hover:bg-slate-50 transition-colors"><ListFilter size={14} /> Frequently Bought</button>
+              </div>
+
+              {newItem.productId && (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    {/* Variant Select */}
+                    <div className="md:col-span-5 space-y-2">
+                      <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Select Variant</label>
+                      <div className="relative">
+                        <select 
+                          disabled={!newItem.productId || products.find(p => p.id === newItem.productId)?.type !== 'variable'}
+                          className="w-full pl-4 pr-10 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all text-slate-900 appearance-none cursor-pointer disabled:opacity-50 disabled:bg-slate-50"
+                          value={newItem.variantId}
+                          onChange={e => {
+                            const v = variants.find(varnt => varnt.id === e.target.value);
+                            setNewItem({...newItem, variantId: e.target.value, price: v?.price || newItem.price});
+                          }}
+                        >
+                          <option value="">DEFAULT VARIANT</option>
+                          {newItem.productId && variants.filter(v => v.productId === newItem.productId).map(v => (
+                            <option key={v.id} value={v.id}>{v.size} / {v.color} - {currencySymbol}{v.price}</option>
+                          ))}
+                        </select>
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                          <ChevronDown size={14} strokeWidth={3} />
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 sm:gap-8">
-                      <div className="flex items-center bg-gray-50 border border-gray-100 rounded-lg overflow-hidden">
+
+                    {/* Quantity */}
+                    <div className="md:col-span-4 space-y-2">
+                      <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">Quantity</label>
+                      <div className="flex items-center h-[42px] bg-white border border-slate-300 rounded-lg overflow-hidden shadow-sm group focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/20 transition-all">
                         <button 
                           type="button"
-                          onClick={() => {
-                            const newItems = [...orderForm.items];
-                            newItems[idx].quantity = Math.max(1, newItems[idx].quantity - 1);
-                            setOrderForm({...orderForm, items: newItems});
-                          }}
-                          className="px-2 py-1 hover:bg-white text-gray-500 transition-colors"
+                          onClick={() => setNewItem(prev => ({...prev, quantity: Math.max(1, prev.quantity - 1)}))}
+                          className="h-full px-4 hover:bg-slate-50 text-slate-500 hover:text-slate-900 transition-colors active:bg-slate-100"
                         >
-                          -
+                          <Minus size={14} strokeWidth={3} />
                         </button>
                         <input 
-                          type="number"
-                          className="w-10 text-center bg-transparent text-[10px] font-bold outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
-                          value={item.quantity === 0 ? '' : item.quantity}
-                          onChange={(e) => {
+                          type="number" 
+                          className="w-full text-center h-full text-sm font-bold bg-transparent outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield] text-slate-900"
+                          value={newItem.quantity === 0 ? '' : newItem.quantity}
+                          onChange={e => {
                             const val = parseInt(e.target.value);
-                            const newItems = [...orderForm.items];
-                            newItems[idx].quantity = isNaN(val) ? 0 : val;
-                            setOrderForm({...orderForm, items: newItems});
+                            setNewItem({...newItem, quantity: isNaN(val) ? 0 : val});
                           }}
                         />
                         <button 
                           type="button"
-                          onClick={() => {
-                            const newItems = [...orderForm.items];
-                            newItems[idx].quantity = newItems[idx].quantity + 1;
-                            setOrderForm({...orderForm, items: newItems});
-                          }}
-                          className="px-2 py-1 hover:bg-white text-gray-500 transition-colors"
+                          onClick={() => setNewItem(prev => ({...prev, quantity: prev.quantity + 1}))}
+                          className="h-full px-4 hover:bg-slate-50 text-slate-500 hover:text-slate-900 transition-colors active:bg-slate-100"
                         >
-                          +
+                          <Plus size={14} strokeWidth={3} />
                         </button>
                       </div>
-                      <div className="text-right">
-                        <div className="text-xs sm:text-sm font-bold text-[#141414]">{currencySymbol}{(item.quantity * item.price).toLocaleString()}</div>
+                    </div>
+
+                    {/* Add Button */}
+                    <div className="md:col-span-3 flex items-end">
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          if (!newItem.productId) {
+                            toast.error("Please select a product");
+                            return;
+                          }
+                          const p = products.find(prod => prod.id === newItem.productId);
+                          const v = variants.find(varnt => varnt.id === newItem.variantId);
+                          const itemWithInfo = {
+                            ...newItem,
+                            name: p?.name || 'Unknown Product',
+                            variant: v ? `${v.size} / ${v.color}` : (p?.size || p?.color ? `${p.size || ''} ${p.size && p.color ? '/' : ''} ${p.color || ''}`.trim() : ''),
+                            image: p?.image || ''
+                          };
+                          setOrderForm({...orderForm, items: [...orderForm.items, itemWithInfo]});
+                          setNewItem({ productId: '', variantId: '', quantity: 1, price: 0, image: '' });
+                          setProductSearch('');
+                        }}
+                        className="w-full h-[42px] bg-[#0066FF] text-white rounded-xl text-sm font-bold hover:bg-[#0052CC] transition-all shadow-sm active:scale-[0.98] flex items-center justify-center gap-2"
+                      >
+                        <Plus size={16} /> Add 
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Order Items Section */}
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
+            <h4 className="text-base font-bold text-slate-900 flex items-center gap-2 mb-4">
+              <ShoppingCart size={20} className="text-[#0066FF]" /> Order Items ({orderForm.items.length})
+            </h4>
+
+            {orderForm.items.length > 0 && (
+              <div className="hidden sm:grid grid-cols-12 gap-4 pb-2 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                <div className="col-span-6">Product</div>
+                <div className="col-span-2 text-center">Price</div>
+                <div className="col-span-2 text-center">Quantity</div>
+                <div className="col-span-2 text-right">Total</div>
+              </div>
+            )}
+            
+            <div className="space-y-3">
+              {orderForm.items.map((item, idx) => (
+                <div key={idx} className="flex flex-col sm:grid sm:grid-cols-12 gap-4 items-center bg-white border border-slate-200 p-4 rounded-xl hover:border-blue-300 transition-all group/item shadow-sm">
+                  <div className="col-span-6 w-full flex items-center gap-4">
+                    {item.image ? (
+                      <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 border border-slate-200">
+                        <img src={item.image} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       </div>
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-slate-50 flex items-center justify-center text-slate-300 shrink-0 border border-slate-200">
+                        <Package size={20} strokeWidth={1.5} />
+                      </div>
+                    )}
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm font-bold text-slate-900 truncate">{item.name}</span>
+                      <span className="text-[11px] font-medium text-slate-500 flex items-center gap-1.5 mt-0.5">
+                        {item.variant ? <span>Variant: {item.variant}</span> : null}
+                        {item.variant && <span className="w-1 h-1 rounded-full bg-slate-300"></span>}
+                        <span>SKU: {item.sku || 'N/A'}</span>
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="col-span-2 w-full sm:w-auto flex justify-between sm:justify-center items-center font-bold text-slate-900 text-sm">
+                    <span className="sm:hidden text-xs text-slate-500 font-normal">Price:</span>
+                    {currencySymbol}{item.price.toLocaleString()}
+                  </div>
+
+                  <div className="col-span-2 w-full sm:w-auto flex justify-center items-center">
+                    <div className="flex items-center bg-white rounded-lg overflow-hidden border border-slate-300 w-full max-w-[120px] sm:max-w-none">
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const newItems = [...orderForm.items];
+                          newItems[idx].quantity = Math.max(1, newItems[idx].quantity - 1);
+                          setOrderForm({...orderForm, items: newItems});
+                        }}
+                        className="px-3 py-1.5 hover:bg-slate-50 text-slate-500 transition-colors"
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <input 
+                        type="number"
+                        className="w-full text-center bg-transparent text-sm font-bold outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield] text-slate-900"
+                        value={item.quantity === 0 ? '' : item.quantity}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          const newItems = [...orderForm.items];
+                          newItems[idx].quantity = isNaN(val) ? 0 : val;
+                          setOrderForm({...orderForm, items: newItems});
+                        }}
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const newItems = [...orderForm.items];
+                          newItems[idx].quantity = newItems[idx].quantity + 1;
+                          setOrderForm({...orderForm, items: newItems});
+                        }}
+                        className="px-3 py-1.5 hover:bg-slate-50 text-slate-500 transition-colors"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="col-span-2 w-full sm:w-auto flex justify-between sm:justify-end items-center gap-4">
+                    <span className="sm:hidden text-xs text-slate-500 font-normal">Total:</span>
+                    <span className="text-sm font-black text-slate-900">{currencySymbol}{(item.quantity * item.price).toLocaleString()}</span>
+                    <div className="flex gap-1 shrink-0">
+                      <button 
+                        type="button"
+                        className="p-2 text-slate-400 hover:text-blue-500 rounded-lg transition-colors"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                      </button>
                       <button 
                         type="button"
                         onClick={() => setOrderForm({...orderForm, items: orderForm.items.filter((_, i) => i !== idx)})}
-                        className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                        className="p-2 text-slate-400 hover:text-red-500 rounded-lg transition-colors"
                       >
                         <Trash2 size={16} />
                       </button>
                     </div>
                   </div>
-                ))}
-                {orderForm.items.length === 0 && (
-                  <div className="text-center py-8 text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-2xl">
-                    No items added yet
+                </div>
+              ))}
+
+              {orderForm.items.length === 0 && (
+                <div className="text-center py-16 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                  <div className="mx-auto w-12 h-12 bg-white rounded-lg flex items-center justify-center text-slate-400 border border-slate-200 shadow-sm mb-4">
+                    <Package size={24} strokeWidth={1.5} />
                   </div>
-                )}
-              </div>
+                  <p className="text-sm font-bold text-slate-900">No items added yet</p>
+                  <p className="text-xs font-medium text-slate-500 mt-1">Search the catalog above to add products.</p>
+                </div>
+              )}
+
+              {orderForm.items.length > 0 && (
+                <div className="flex items-center justify-between pt-4 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setOrderForm({...orderForm, items: []})}
+                    className="px-4 py-2 border border-red-200 text-red-500 rounded-lg text-sm font-semibold hover:bg-red-50 transition-colors bg-white shadow-sm"
+                  >
+                    Clear All
+                  </button>
+                  <p className="text-sm font-semibold text-slate-500">Total Items: {orderForm.items.length}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="space-y-6 sm:space-y-8">
+        <div className="space-y-6">
           {/* Summary Section */}
-          <div className="bg-white p-4 sm:p-8 rounded-3xl border border-[#f3f4f6] shadow-sm space-y-6 lg:sticky lg:top-24">
-            <h4 className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-[#9ca3af] flex items-center gap-2">
-              <CreditCard size={14} /> Order Summary
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6 lg:sticky lg:top-6">
+            <h4 className="text-base font-bold text-slate-900 flex items-center gap-2 mb-6">
+              <CreditCard size={20} className="text-[#0066FF]" /> Order Summary
             </h4>
             
             <div className="space-y-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Subtotal</span>
+              <div className="flex justify-between text-sm text-slate-900">
+                <span className="text-slate-600">Subtotal</span>
                 <span className="font-bold">{currencySymbol}{subtotal.toLocaleString()}</span>
               </div>
               
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-bold text-[#9ca3af] uppercase">Delivery Zone</label>
-                  <select 
-                    className="text-[10px] sm:text-xs font-bold bg-gray-50 px-2 py-1 rounded-lg outline-none"
-                    value={orderForm.customerZone}
-                    onChange={e => handleZoneChange(e.target.value)}
-                  >
-                    <option value="Inside Dhaka">Inside Dhaka</option>
-                    <option value="Sub Area">Sub Area</option>
-                    <option value="Outside Dhaka">Outside Dhaka</option>
-                  </select>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center text-slate-900 text-sm">
+                  <span className="text-slate-600">Delivery Zone</span>
+                  <div className="relative">
+                    <select 
+                      className="text-sm bg-white border border-slate-300 hover:bg-slate-50 px-2 py-1 rounded-md outline-none text-slate-900 appearance-none cursor-pointer pr-6"
+                      value={orderForm.customerZone}
+                      onChange={e => handleZoneChange(e.target.value)}
+                    >
+                      <option value="Inside Dhaka">Inside Dhaka</option>
+                      <option value="Sub Area">Sub Area</option>
+                      <option value="Outside Dhaka">Outside Dhaka</option>
+                    </select>
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                      <ChevronDown size={14} strokeWidth={2} />
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Delivery Charge</span>
+                <div className="flex justify-between items-center text-sm text-slate-900">
+                  <span className="text-slate-600">Delivery Charge</span>
+                  <div className="relative flex items-center justify-end">
+                    <span className="text-slate-900 font-bold mr-1">{currencySymbol}</span>
+                    <span className="font-bold">{orderForm.deliveryCharge}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center text-sm text-slate-900 border-b border-slate-100 pb-4">
+                <span className="text-slate-600">Discount</span>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">{currencySymbol}</span>
                   <input 
                     type="number"
-                    className="w-20 text-right font-bold text-blue-600 bg-transparent outline-none"
-                    value={orderForm.deliveryCharge}
-                    onChange={e => setOrderForm({...orderForm, deliveryCharge: parseFloat(e.target.value) || 0})}
+                    className="w-24 pl-6 pr-3 py-1.5 text-right font-bold text-red-500 bg-white border border-slate-300 rounded-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+                    value={orderForm.discount === 0 ? '' : orderForm.discount}
+                    placeholder="0"
+                    onChange={e => setOrderForm({...orderForm, discount: parseFloat(e.target.value) || 0})}
                   />
                 </div>
               </div>
 
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-500">Discount</span>
-                <input 
-                  type="number"
-                  className="w-20 text-right font-bold text-red-500 bg-transparent outline-none"
-                  value={orderForm.discount}
-                  onChange={e => setOrderForm({...orderForm, discount: parseFloat(e.target.value) || 0})}
-                />
-              </div>
-
-              <div className="pt-4 border-t border-gray-100">
+              <div className="pt-2 text-slate-900">
                 <div className="flex justify-between items-center">
                   <span className="text-base sm:text-lg font-bold">Total</span>
-                  <span className="text-xl sm:text-2xl font-bold text-[#00AEEF]">{currencySymbol}{totalAmount.toLocaleString()}</span>
+                  <span className="text-xl sm:text-2xl font-black text-[#0066FF]">{currencySymbol}{totalAmount.toLocaleString()}</span>
                 </div>
               </div>
 
+              {totalCost > 0 && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 grid grid-cols-2 mt-4">
+                  <div>
+                    <p className="text-xs text-slate-500 mb-0.5">Cost Price</p>
+                    <p className="font-bold text-slate-900 text-sm">{currencySymbol}{totalCost.toLocaleString()}</p>
+                  </div>
+                  <div className="border-l border-green-200 pl-3">
+                    <p className="text-xs text-slate-500 mb-0.5">Profit</p>
+                    <p className="font-bold text-green-600 text-sm">{currencySymbol}{profit.toLocaleString()}</p>
+                    <p className="text-[10px] text-green-600 font-medium">Margin: {marginPercentage}%</p>
+                  </div>
+                </div>
+              )}
+
+              {courierHistory && (
+                <div className="bg-amber-50 p-3 rounded-lg border border-amber-200 space-y-2 mt-4">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-amber-800 font-semibold flex items-center gap-1.5">
+                      <ShieldCheck size={16} className="text-amber-600" />
+                      COD Protection
+                    </span>
+                    <span className={`font-bold ${courierHistory.success_rate >= 80 ? 'text-green-600' : 'text-amber-700'}`}>
+                      {courierHistory.success_rate >= 80 ? "Eligible" : "Warning"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 ml-6">
+                    <div className={`w-2 h-2 rounded-full ${courierHistory.success_rate >= 80 ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className="text-xs text-slate-600">Risk Level: <span className={`font-bold ${courierHistory.success_rate >= 80 ? 'text-green-600' : 'text-red-600'}`}>
+                      {courierHistory.success_rate >= 80 ? "Low" : "High"}
+                    </span></span>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-[#9ca3af] uppercase">Advance Paid</label>
-                  <input 
-                    type="number"
-                    className="w-full px-4 py-2.5 sm:py-3 bg-[#f9fafb] border border-transparent rounded-xl text-sm font-bold text-green-600 focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all"
-                    value={orderForm.paidAmount}
-                    onChange={e => setOrderForm({...orderForm, paidAmount: parseFloat(e.target.value) || 0})}
-                  />
+                <div className="flex justify-between items-center text-sm text-slate-900 border-b border-slate-100 pb-4">
+                  <label className="text-slate-600">Advance Paid</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">{currencySymbol}</span>
+                    <input 
+                      type="number"
+                      className="w-24 pl-6 pr-3 py-1.5 text-right font-bold text-slate-900 bg-white border border-slate-300 rounded-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+                      value={orderForm.paidAmount === 0 ? '' : orderForm.paidAmount}
+                      placeholder="0"
+                      onChange={e => setOrderForm({...orderForm, paidAmount: parseFloat(e.target.value) || 0})}
+                    />
+                  </div>
                 </div>
                 
-                <div className="flex justify-between text-sm p-4 bg-orange-50 rounded-2xl border border-orange-100">
-                  <span className="text-orange-700 font-bold">Due Amount</span>
-                  <span className="text-orange-700 font-bold">{currencySymbol}{dueAmount.toLocaleString()}</span>
+                <div className="flex justify-between items-center text-sm text-slate-900">
+                  <span className="text-orange-500 font-bold">Due Amount</span>
+                  <span className="text-orange-500 font-bold text-xl">{currencySymbol}{dueAmount.toLocaleString()}</span>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-[#9ca3af] uppercase">Payment Method</label>
-                  <select 
-                    className="w-full px-4 py-2.5 sm:py-3 bg-[#f9fafb] border border-transparent rounded-xl text-sm focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all"
-                    value={orderForm.paymentMethod}
-                    onChange={e => setOrderForm({...orderForm, paymentMethod: e.target.value})}
-                  >
-                    <option value="COD">Cash on Delivery</option>
-                    <option value="bKash">bKash</option>
-                    <option value="Nagad">Nagad</option>
-                    <option value="Rocket">Rocket</option>
-                    <option value="Bank Transfer">Bank Transfer</option>
-                  </select>
-                </div>
+                <div className="space-y-4 mt-6">
+                  <div>
+                    <label className="text-xs text-slate-600 block mb-1.5">Payment Method</label>
+                    <div className="relative">
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                        <Banknote size={16} />
+                      </div>
+                      <select 
+                        className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all text-slate-900 appearance-none cursor-pointer"
+                        value={orderForm.paymentMethod}
+                        onChange={e => setOrderForm({...orderForm, paymentMethod: e.target.value})}
+                      >
+                        <option value="COD">Cash on Delivery</option>
+                        <option value="bKash">bKash</option>
+                        <option value="Nagad">Nagad</option>
+                        <option value="Rocket">Rocket</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                      </select>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                        <ChevronDown size={16} strokeWidth={2} />
+                      </div>
+                    </div>
+                  </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-[#9ca3af] uppercase">Order Source</label>
-                  <select 
-                    className="w-full px-4 py-2.5 sm:py-3 bg-[#f9fafb] border border-transparent rounded-xl text-sm focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all"
-                    value={orderForm.source}
-                    onChange={e => setOrderForm({...orderForm, source: e.target.value})}
-                  >
-                    <option value="Facebook">Facebook</option>
-                    <option value="WhatsApp">WhatsApp</option>
-                    <option value="Messenger">Messenger</option>
-                    <option value="Instagram">Instagram</option>
-                    <option value="Call">Call</option>
-                    <option value="Website">Website</option>
-                    <option value="TikTok">TikTok</option>
-                    <option value="Others">Others</option>
-                  </select>
-                </div>
+                  <div>
+                    <label className="text-xs text-slate-600 block mb-1.5">Order Source</label>
+                    <div className="relative">
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                        <Facebook size={16} />
+                      </div>
+                      <select 
+                        className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all text-slate-900 appearance-none cursor-pointer"
+                        value={orderForm.source}
+                        onChange={e => setOrderForm({...orderForm, source: e.target.value})}
+                      >
+                        <option value="Facebook">Facebook</option>
+                        <option value="WhatsApp">WhatsApp</option>
+                        <option value="Messenger">Messenger</option>
+                        <option value="Instagram">Instagram</option>
+                        <option value="Call">Call</option>
+                        <option value="Website">Website</option>
+                        <option value="TikTok">TikTok</option>
+                        <option value="Others">Others</option>
+                      </select>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                        <ChevronDown size={16} strokeWidth={2} />
+                      </div>
+                    </div>
+                  </div>
 
-                <div className="flex items-center justify-between p-4 bg-blue-50 rounded-2xl border border-blue-100 mt-4">
+                <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-100 mt-4">
                   <div className="flex items-center gap-3">
-                    <Smartphone size={18} className="text-blue-600" />
+                    <Smartphone size={18} className="text-blue-500" />
                     <div>
-                      <p className="text-xs font-bold text-blue-900">Send Confirmation SMS</p>
-                      <p className="text-[10px] text-blue-600">Notify customer about this order</p>
+                      <p className="text-sm font-semibold text-slate-900">Send Confirmation SMS</p>
+                      <p className="text-xs text-slate-500">Notify customer about this order</p>
                     </div>
                   </div>
                   <button 
                     type="button"
                     onClick={() => setSendSMS(!sendSMS)}
-                    className={`w-10 h-5 rounded-full transition-all relative ${sendSMS ? 'bg-blue-600' : 'bg-gray-300'}`}
+                    className={`w-10 h-5 rounded-full transition-all relative ${sendSMS ? 'bg-[#0066FF]' : 'bg-slate-300'}`}
                   >
                     <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${sendSMS ? 'right-0.5' : 'left-0.5'}`} />
                   </button>
                 </div>
+              </div>
               </div>
             </div>
           </div>

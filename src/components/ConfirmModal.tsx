@@ -27,13 +27,13 @@ export default function ConfirmModal({
   const variantStyles = {
     danger: 'bg-red-600 hover:bg-red-700 text-white',
     warning: 'bg-orange-500 hover:bg-orange-600 text-white',
-    info: 'bg-blue-600 hover:bg-blue-700 text-white'
+    info: 'bg-[#0066FF] hover:bg-[#0052CC] text-white'
   };
 
   const iconStyles = {
     danger: 'text-red-600 bg-red-50',
     warning: 'text-orange-500 bg-orange-50',
-    info: 'text-blue-600 bg-blue-50'
+    info: 'text-[#0066FF] bg-blue-50'
   };
 
   return (

@@ -9,7 +9,15 @@ import {
   ArrowLeft, 
   Save,
   Trash2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Info,
+  DollarSign,
+  UploadCloud,
+  Bold,
+  Italic,
+  List,
+  Link as LinkIcon,
+  ScanBarcode
 } from 'lucide-react';
 import { 
   db, 
@@ -324,31 +332,31 @@ export default function NewProduct() {
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-20">
       {/* Header */}
-      <div className="flex items-center justify-between bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+      <div className="flex items-center justify-between bg-white p-5 sm:p-6 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.02)] border border-gray-100">
         <div className="flex items-center gap-4">
           <button 
             onClick={() => navigate('/inventory')}
-            className="p-2 hover:bg-gray-100 rounded-xl transition-all text-gray-400 hover:text-[#141414]"
+            className="p-2.5 border border-gray-200 rounded-xl text-gray-400 hover:text-gray-900 hover:bg-gray-50 transition-colors"
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft size={18} strokeWidth={2} />
           </button>
           <div>
-            <h2 className="text-xl font-bold text-[#141414]">{id ? 'Edit Product' : 'Add New Product'}</h2>
-            <p className="text-xs text-gray-500">Fill in the details to {id ? 'update' : 'create'} a product in your catalog.</p>
+            <h2 className="text-xl font-bold text-gray-900 tracking-tight">{id ? 'Edit Product' : 'Add New Product'}</h2>
+            <p className="text-sm text-slate-500 mt-0.5">Fill in the details to {id ? 'update' : 'create'} a product in your catalog.</p>
           </div>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
           <button 
             onClick={() => navigate('/inventory')}
-            className="px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold hover:bg-gray-50 transition-all"
+            className="px-6 py-2.5 bg-white border border-gray-200 rounded-xl text-[14px] font-medium hover:bg-gray-50 transition-all text-gray-700"
           >
             Cancel
           </button>
           <button 
             onClick={handleSave}
-            className="px-6 py-2.5 bg-[#141414] text-white rounded-xl text-sm font-bold hover:bg-black transition-all shadow-lg flex items-center gap-2"
+            className="px-6 py-2.5 bg-[#0066FF] text-white rounded-xl text-[14px] font-medium hover:bg-[#0066FF] transition-all flex items-center gap-2"
           >
-            <Save size={18} />
+            <Save size={16} strokeWidth={2} />
             {id ? 'Save Changes' : 'Create Product'}
           </button>
         </div>
@@ -357,32 +365,41 @@ export default function NewProduct() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Main Info */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 border-b pb-2">Basic Information</h3>
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Product Name *</label>
+          <div className="bg-white p-6 sm:p-8 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.02)] border border-gray-100">
+            <div className="flex items-start gap-4 mb-8">
+              <div className="p-3 bg-blue-50 text-blue-500 rounded-2xl flex-shrink-0">
+                <Info size={24} strokeWidth={2} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Basic Information</h3>
+                <p className="text-sm text-gray-500 mt-0.5">Add essential details about your product.</p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Product Name *</label>
                 <input 
-                  className="w-full p-4 bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[#00AEEF]/20 focus:bg-white transition-all text-sm" 
+                  className="w-full p-3.5 bg-white rounded-xl outline-none border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-[14px] text-gray-900 placeholder:text-gray-400" 
                   placeholder="e.g. Premium Cotton T-Shirt"
                   value={form.name} 
                   onChange={e => setForm({...form, name: e.target.value})} 
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">SKU *</label>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">SKU *</label>
                   <input 
-                    className="w-full p-4 bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[#00AEEF]/20 focus:bg-white transition-all text-sm font-mono" 
-                    placeholder="TS-001"
+                    className="w-full p-3.5 bg-white rounded-xl outline-none border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-[14px] text-gray-900 placeholder:text-gray-400" 
+                    placeholder="e.g. TS-001"
                     value={form.sku} 
                     onChange={e => setForm({...form, sku: e.target.value})} 
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Product Type</label>
+                <div className="space-y-2 relative">
+                  <label className="text-sm font-medium text-gray-700">Product Type</label>
                   <select 
-                    className="w-full p-4 bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[#00AEEF]/20 focus:bg-white transition-all text-sm" 
+                    className="w-full p-3.5 bg-white rounded-xl outline-none border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-[14px] text-gray-900 cursor-pointer appearance-none pr-10" 
                     value={form.type} 
                     onChange={e => setForm({...form, type: e.target.value})}
                   >
@@ -390,60 +407,98 @@ export default function NewProduct() {
                     <option value="variable">Variable Product</option>
                     <option value="bundle">Product Bundle</option>
                   </select>
+                  <div className="absolute right-4 top-[40px] pointer-events-none text-gray-400">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Category</label>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2 relative">
+                  <label className="text-sm font-medium text-gray-700">Category</label>
                   <select 
-                    className="w-full p-4 bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[#00AEEF]/20 focus:bg-white transition-all text-sm" 
+                    className="w-full p-3.5 bg-white rounded-xl outline-none border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-[14px] text-gray-900 cursor-pointer appearance-none pr-10" 
                     value={form.categoryId} 
                     onChange={e => setForm({...form, categoryId: e.target.value})}
                   >
                     <option value="">Select Category</option>
                     {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
+                  <div className="absolute right-4 top-[40px] pointer-events-none text-gray-400">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Brand</label>
+                <div className="space-y-2 relative">
+                  <label className="text-sm font-medium text-gray-700">Brand</label>
                   <select 
-                    className="w-full p-4 bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[#00AEEF]/20 focus:bg-white transition-all text-sm" 
+                    className="w-full p-3.5 bg-white rounded-xl outline-none border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-[14px] text-gray-900 cursor-pointer appearance-none pr-10" 
                     value={form.brandId} 
                     onChange={e => setForm({...form, brandId: e.target.value})}
                   >
                     <option value="">Select Brand</option>
                     {brands.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
+                  <div className="absolute right-4 top-[40px] pointer-events-none text-gray-400">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Size</label>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Size</label>
                   <input 
-                    className="w-full p-4 bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[#00AEEF]/20 focus:bg-white transition-all text-sm" 
+                    className="w-full p-3.5 bg-white rounded-xl outline-none border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-[14px] text-gray-900 placeholder:text-gray-400" 
                     placeholder="e.g. XL, 42, Free Size"
                     value={form.size || ''} 
                     onChange={e => setForm({...form, size: e.target.value})} 
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Color</label>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Color</label>
                   <input 
-                    className="w-full p-4 bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[#00AEEF]/20 focus:bg-white transition-all text-sm" 
+                    className="w-full p-3.5 bg-white rounded-xl outline-none border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-[14px] text-gray-900 placeholder:text-gray-400" 
                     placeholder="e.g. Red, Blue, Black"
                     value={form.color || ''} 
                     onChange={e => setForm({...form, color: e.target.value})} 
                   />
                 </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Description</label>
-                <textarea 
-                  className="w-full p-4 bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[#00AEEF]/20 focus:bg-white transition-all text-sm h-32 resize-none" 
-                  placeholder="Describe your product..."
-                  value={form.description} 
-                  onChange={e => setForm({...form, description: e.target.value})} 
-                />
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Barcode</label>
+                <div className="flex gap-3">
+                  <input 
+                    className="flex-1 p-3.5 bg-white rounded-xl outline-none border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-[14px] text-gray-900 placeholder:text-gray-400" 
+                    placeholder="Enter barcode or click generate"
+                    value={form.barcode} 
+                    onChange={e => setForm({...form, barcode: e.target.value})} 
+                  />
+                  <button 
+                    onClick={() => setForm({...form, barcode: form.sku || Math.random().toString(36).substring(2, 10).toUpperCase()})}
+                    className="px-5 py-3.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-[14px] font-medium hover:bg-gray-50 flex items-center justify-center gap-2 transition-all"
+                  >
+                    <ScanBarcode size={18} />
+                    Generate
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Description</label>
+                <div className="border border-gray-200 rounded-xl overflow-hidden focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10 transition-all">
+                  {/* Toolbar */}
+                  <div className="flex items-center gap-1 border-b border-gray-100 p-2 bg-white">
+                    <button className="p-1.5 hover:bg-gray-100 rounded text-gray-700"><Bold size={16} /></button>
+                    <button className="p-1.5 hover:bg-gray-100 rounded text-gray-700"><Italic size={16} /></button>
+                    <div className="w-px h-4 bg-gray-200 mx-1"></div>
+                    <button className="p-1.5 hover:bg-gray-100 rounded text-gray-700"><List size={16} /></button>
+                    <div className="w-px h-4 bg-gray-200 mx-1"></div>
+                    <button className="p-1.5 hover:bg-gray-100 rounded text-gray-700"><LinkIcon size={16} /></button>
+                  </div>
+                  <textarea 
+                    className="w-full p-4 outline-none resize-none h-[120px] text-[14px] text-gray-900 placeholder:text-gray-400" 
+                    placeholder="Describe your product..."
+                    value={form.description} 
+                    onChange={e => setForm({...form, description: e.target.value})} 
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -454,12 +509,12 @@ export default function NewProduct() {
               <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 border-b pb-2">Variants Management</h3>
               <div className="bg-gray-50 p-6 rounded-2xl space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <input placeholder="Size" className="p-3 rounded-xl text-xs border border-transparent focus:border-[#00AEEF]/20 outline-none" value={newVariant.size} onChange={e => setNewVariant({...newVariant, size: e.target.value})} />
-                  <input placeholder="Color" className="p-3 rounded-xl text-xs border border-transparent focus:border-[#00AEEF]/20 outline-none" value={newVariant.color} onChange={e => setNewVariant({...newVariant, color: e.target.value})} />
-                  <input placeholder="Fabric" className="p-3 rounded-xl text-xs border border-transparent focus:border-[#00AEEF]/20 outline-none" value={newVariant.fabric} onChange={e => setNewVariant({...newVariant, fabric: e.target.value})} />
-                  <input placeholder="SKU" className="p-3 rounded-xl text-xs border border-transparent focus:border-[#00AEEF]/20 outline-none" value={newVariant.sku} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} />
-                  <input placeholder="Barcode" className="p-3 rounded-xl text-xs border border-transparent focus:border-[#00AEEF]/20 outline-none" value={newVariant.barcode} onChange={e => setNewVariant({...newVariant, barcode: e.target.value})} />
-                  <input type="number" placeholder="Price" className="p-3 rounded-xl text-xs border border-transparent focus:border-[#00AEEF]/20 outline-none" value={newVariant.price || 0} onChange={e => setNewVariant({...newVariant, price: parseFloat(e.target.value) || 0})} />
+                  <input placeholder="Size" className="p-3 rounded-xl text-xs border border-transparent focus:border-[#0066FF]/20 outline-none" value={newVariant.size} onChange={e => setNewVariant({...newVariant, size: e.target.value})} />
+                  <input placeholder="Color" className="p-3 rounded-xl text-xs border border-transparent focus:border-[#0066FF]/20 outline-none" value={newVariant.color} onChange={e => setNewVariant({...newVariant, color: e.target.value})} />
+                  <input placeholder="Fabric" className="p-3 rounded-xl text-xs border border-transparent focus:border-[#0066FF]/20 outline-none" value={newVariant.fabric} onChange={e => setNewVariant({...newVariant, fabric: e.target.value})} />
+                  <input placeholder="SKU" className="p-3 rounded-xl text-xs border border-transparent focus:border-[#0066FF]/20 outline-none" value={newVariant.sku} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} />
+                  <input placeholder="Barcode" className="p-3 rounded-xl text-xs border border-transparent focus:border-[#0066FF]/20 outline-none" value={newVariant.barcode} onChange={e => setNewVariant({...newVariant, barcode: e.target.value})} />
+                  <input type="number" placeholder="Price" className="p-3 rounded-xl text-xs border border-transparent focus:border-[#0066FF]/20 outline-none" value={newVariant.price || 0} onChange={e => setNewVariant({...newVariant, price: parseFloat(e.target.value) || 0})} />
                   <button 
                     onClick={addVariant} 
                     className="md:col-span-2 bg-[#141414] text-white rounded-xl text-xs font-bold hover:bg-black transition-all"
@@ -525,7 +580,7 @@ export default function NewProduct() {
                     onClick={() => {
                       if (!newVariant.sku) return;
                       setForm((prev: any) => ({...prev, bundleItems: [...(prev.bundleItems || []), { productId: newVariant.sku, quantity: newVariant.price || 1 }]}));
-                      setNewVariant({ size: '', color: '', fabric: '', sku: '', price: 0, costPrice: 0 });
+                      setNewVariant({ size: '', color: '', fabric: '', sku: '', barcode: '', price: 0, costPrice: 0 });
                     }}
                     className="bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-all"
                   >
@@ -562,88 +617,116 @@ export default function NewProduct() {
 
         {/* Right Column - Pricing & Media */}
         <div className="space-y-6">
-          <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 border-b pb-2">Pricing & Stock</h3>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Retail Price ({currencySymbol})</label>
+          <div className="bg-white p-6 sm:p-8 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.02)] border border-gray-100">
+            <div className="flex items-start gap-4 mb-8">
+              <div className="p-3 bg-emerald-50 text-emerald-500 rounded-2xl flex-shrink-0">
+                <DollarSign size={24} strokeWidth={2} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Pricing & Stock</h3>
+                <p className="text-sm text-gray-500 mt-0.5">Set price and stock details.</p>
+              </div>
+            </div>
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Retail Price (৳)</label>
                   <input 
                     type="number" 
-                    className="w-full p-4 bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[#00AEEF]/20 focus:bg-white transition-all text-sm font-bold" 
-                    value={form.price || 0} 
+                    className="w-full p-3.5 bg-white rounded-xl outline-none border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-[14px] text-gray-900 placeholder:text-gray-400" 
+                    value={form.price || ''} 
+                    placeholder="0"
                     onChange={e => setForm({...form, price: parseFloat(e.target.value) || 0})} 
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Cost Price ({currencySymbol})</label>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Cost Price (৳)</label>
                   <input 
                     type="number" 
-                    className="w-full p-4 bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[#00AEEF]/20 focus:bg-white transition-all text-sm font-bold text-gray-500" 
-                    value={form.costPrice || 0} 
+                    className="w-full p-3.5 bg-white rounded-xl outline-none border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-[14px] text-gray-900 placeholder:text-gray-400" 
+                    value={form.costPrice || ''} 
+                    placeholder="0"
                     onChange={e => setForm({...form, costPrice: parseFloat(e.target.value) || 0})} 
                   />
                 </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Min Stock Alert</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Min Stock Alert</label>
                 <input 
                   type="number" 
-                  className="w-full p-4 bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[#00AEEF]/20 focus:bg-white transition-all text-sm" 
-                  value={form.minStock || 0} 
+                  className="w-full p-3.5 bg-white rounded-xl outline-none border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-[14px] text-gray-900 placeholder:text-gray-400" 
+                  value={form.minStock || ''} 
+                  placeholder="10"
                   onChange={e => setForm({...form, minStock: parseInt(e.target.value) || 0})} 
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Barcode</label>
-                <div className="flex gap-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Current Stock</label>
+                <div className="flex gap-3">
                   <input 
-                    className="flex-1 p-4 bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[#00AEEF]/20 focus:bg-white transition-all text-sm font-mono" 
-                    value={form.barcode} 
-                    onChange={e => setForm({...form, barcode: e.target.value})} 
+                    type="number" 
+                    className="flex-1 p-3.5 bg-white rounded-xl outline-none border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-[14px] text-gray-900 placeholder:text-gray-400" 
+                    value={form.stock || ''} 
+                    placeholder="0"
+                    onChange={e => setForm({...form, stock: parseInt(e.target.value) || 0})} 
                   />
-                  <button 
-                    onClick={() => setForm({...form, barcode: form.sku || Math.random().toString(36).substring(2, 10).toUpperCase()})}
-                    className="px-4 bg-gray-100 text-gray-600 rounded-xl text-[10px] font-bold hover:bg-gray-200 transition-colors"
-                  >
-                    Gen
-                  </button>
+                  <div className="px-5 py-3.5 bg-gray-50 border border-gray-200 text-gray-500 rounded-xl text-[14px] font-medium flex items-center justify-center">
+                    Units
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 border-b pb-2">Media</h3>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                {form.images?.map((url: string, i: number) => (
-                  <div key={i} className="relative group aspect-square bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
-                    <img src={url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    <button 
-                      onClick={() => setForm((prev: any) => ({...prev, images: prev.images.filter((_: any, idx: number) => idx !== i)}))}
-                      className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
-                <label className="aspect-square bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 hover:border-[#00AEEF]/30 transition-all group">
-                  {uploading ? (
-                    <Loader2 size={24} className="animate-spin text-[#00AEEF]" />
-                  ) : (
-                    <>
-                      <Plus size={24} className="text-gray-300 group-hover:text-[#00AEEF] transition-colors" />
-                      <span className="text-[10px] font-bold text-gray-400 uppercase mt-2">Add Image</span>
-                    </>
-                  )}
-                  <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
-                </label>
+          <div className="bg-white p-6 sm:p-8 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.02)] border border-gray-100">
+            <div className="flex items-start gap-4 mb-8">
+              <div className="p-3 bg-purple-50 text-purple-500 rounded-2xl flex-shrink-0">
+                <ImageIcon size={24} strokeWidth={2} />
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Image URLs</label>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Media</h3>
+                <p className="text-sm text-gray-500 mt-0.5">Upload product images and manage URLs.</p>
+              </div>
+            </div>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Product Image</label>
+                <div className="grid grid-cols-1 gap-3">
+                  <label className="w-full py-8 bg-transparent rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-all group">
+                    {uploading ? (
+                      <Loader2 size={32} className="animate-spin text-gray-400" />
+                    ) : (
+                      <>
+                        <UploadCloud size={32} className="text-gray-500 group-hover:text-blue-500 transition-colors mb-3" strokeWidth={1.5} />
+                        <span className="text-[14px] text-gray-500">Drag & drop image here</span>
+                        <span className="text-[14px] text-gray-500 mt-1">or <span className="text-blue-500">click to browse</span></span>
+                        <span className="text-xs text-gray-400 mt-3">PNG, JPG up to 5MB</span>
+                      </>
+                    )}
+                    <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
+                  </label>
+                  
+                  {form.images?.length > 0 && (
+                    <div className="grid grid-cols-3 gap-3 mt-4">
+                      {form.images.map((url: string, i: number) => (
+                        <div key={i} className="relative group aspect-square rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+                          <img src={url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          <button 
+                            onClick={() => setForm((prev: any) => ({...prev, images: prev.images.filter((_: any, idx: number) => idx !== i)}))}
+                            className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Image URLs</label>
                 <textarea 
-                  className="w-full p-4 bg-gray-50 rounded-xl outline-none border border-transparent focus:border-[#00AEEF]/20 focus:bg-white transition-all text-[10px] h-24 resize-none font-mono" 
+                  className="w-full p-4 bg-white rounded-xl outline-none border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-[14px] h-[100px] resize-none text-gray-900 placeholder:text-gray-400" 
                   value={form.images?.join('\n')} 
                   onChange={e => setForm({...form, images: e.target.value.split('\n').filter(url => url.trim())})} 
                   placeholder="Paste image URLs here (one per line)"
@@ -652,37 +735,47 @@ export default function NewProduct() {
             </div>
           </div>
 
-          <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400">Barcode Preview</h3>
+          <div className="bg-white p-6 sm:p-8 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.02)] border border-gray-100">
+            <div className="flex items-start justify-between mb-8">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-orange-50 text-orange-500 rounded-2xl flex-shrink-0">
+                  <ScanBarcode size={24} strokeWidth={2} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Barcode Preview</h3>
+                  <p className="text-sm text-gray-500 mt-0.5">Preview your product barcode.</p>
+                </div>
+              </div>
               <div className="flex gap-2">
                 <button 
                   onClick={downloadBarcode}
-                  className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:text-[#00AEEF] hover:bg-blue-50 transition-all"
+                  className="p-2 bg-white border border-gray-200 text-gray-500 rounded-lg hover:text-gray-900 hover:bg-gray-50 transition-all shadow-sm"
                   title="Download Barcode"
                 >
                   <Download size={16} />
                 </button>
                 <button 
                   onClick={() => handlePrintBarcode()}
-                  className="p-2 bg-gray-50 text-gray-400 rounded-lg hover:text-[#00AEEF] hover:bg-blue-50 transition-all"
+                  className="p-2 bg-white border border-gray-200 text-gray-500 rounded-lg hover:text-gray-900 hover:bg-gray-50 transition-all shadow-sm"
                   title="Print Barcode"
                 >
                   <Printer size={16} />
                 </button>
               </div>
             </div>
-            <div className="bg-gray-50 p-6 rounded-2xl flex items-center justify-center border border-gray-100">
-              <div ref={barcodeRef} className="bg-white p-4 rounded-xl shadow-sm flex flex-col items-center gap-2 border border-gray-100">
-                <p className="text-[10px] font-bold text-center max-w-[150px] truncate">{form.name || 'Product Name'}</p>
+            <div className="bg-white border border-gray-200 p-6 rounded-[16px] flex items-center justify-center">
+              <div ref={barcodeRef} className="flex flex-col items-center gap-2">
+                <p className="text-[12px] font-bold text-center max-w-[200px] truncate text-gray-900">{form.name || 'Product Name'}</p>
                 <Barcode 
                   value={form.barcode || form.sku || 'NO-BARCODE'} 
-                  width={1.2}
-                  height={40}
-                  fontSize={10}
-                  background="#ffffff"
+                  width={1.5}
+                  height={50}
+                  fontSize={12}
+                  margin={0}
+                  displayValue={true}
+                  background="transparent"
                 />
-                <p className="text-[10px] font-bold">{currencySymbol}{form.price || 0}</p>
+                <p className="text-[14px] font-bold text-gray-900 mt-1">৳{(form.price || 0).toLocaleString()}</p>
               </div>
             </div>
           </div>

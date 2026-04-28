@@ -1,19 +1,19 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { 
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import {
   ShoppingCart,
   Package,
   TrendingUp,
   TrendingDown,
   ArrowUpRight,
-  Search, 
-  Filter, 
-  Download, 
-  Plus, 
-  MoreVertical, 
-  Facebook, 
-  Globe, 
-  Instagram, 
+  Search,
+  Filter,
+  Download,
+  Plus,
+  MoreVertical,
+  Facebook,
+  Globe,
+  Instagram,
   MessageCircle,
   MessageSquare,
   Truck,
@@ -37,84 +37,208 @@ import {
   FileText,
   Send,
   UserCheck,
+  User,
+  Box,
+  Minus,
   AlertCircle,
   Edit,
   Printer,
   Eye,
   ChevronDown,
+  Activity,
   ShieldCheck,
   Smartphone,
   PackagePlus,
   PackageCheck,
   PackageX,
   PackageOpen,
-  CheckCircle
-} from 'lucide-react';
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import type { DraggableProvided, DraggableStateSnapshot, DroppableProvided } from '@hello-pangea/dnd';
-import { db, auth, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, Timestamp, doc, updateDoc, deleteDoc, writeBatch, getDocs, getDoc, where, arrayUnion, runTransaction, limit } from '../firebase';
-import { useAuth } from '../contexts/AuthContext';
-import { openPrintWindow } from '../utils/printHelper';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
-import { A5Invoice, POSInvoice } from './InvoiceTemplates';
-import { toast } from 'sonner';
-import { SteadfastService } from '../services/steadfastService';
-import { logActivity } from '../services/activityService';
-import { checkDuplicateOrder } from '../services/orderService';
-import { createNotification } from '../services/notificationService';
-import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { locationService } from '../services/locationService';
-import { LocationNode, districts, upazilas } from '../data/bangladesh-locations';
-import { CourierFactory } from '../lib/courierAdapters';
+  CheckCircle,
+  Sparkles,
+  ArrowRight,
+} from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  DropResult,
+} from "@hello-pangea/dnd";
+import type {
+  DraggableProvided,
+  DraggableStateSnapshot,
+  DroppableProvided,
+} from "@hello-pangea/dnd";
+import {
+  db,
+  auth,
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  addDoc,
+  serverTimestamp,
+  Timestamp,
+  doc,
+  updateDoc,
+  deleteDoc,
+  writeBatch,
+  getDocs,
+  getDoc,
+  where,
+  arrayUnion,
+  runTransaction,
+  limit,
+} from "../firebase";
+import { useAuth } from "../contexts/AuthContext";
+import { openPrintWindow } from "../utils/printHelper";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
+import { A5Invoice, POSInvoice } from "./InvoiceTemplates";
+import { toast } from "sonner";
+import { SteadfastService } from "../services/steadfastService";
+import { logActivity } from "../services/activityService";
+import { checkDuplicateOrder } from "../services/orderService";
+import { createNotification } from "../services/notificationService";
+import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
+import { locationService } from "../services/locationService";
+import {
+  LocationNode,
+  districts,
+  upazilas,
+} from "../data/bangladesh-locations";
+import { CourierFactory } from "../lib/courierAdapters";
 
-import { useSettings } from '../contexts/SettingsContext';
-import ConfirmModal from './ConfirmModal';
-import OrderDetailsModal from './OrderDetailsModal';
+import { useSettings } from "../contexts/SettingsContext";
+import ConfirmModal from "./ConfirmModal";
+import OrderDetailsModal from "./OrderDetailsModal";
 
 const ChannelIcon = ({ channel }: { channel: string }) => {
   switch (channel) {
-    case 'Facebook': return <Facebook size={14} className="text-[#2563eb]" />;
-    case 'Website': return <Globe size={14} className="text-[#4b5563]" />;
-    case 'Instagram': return <Instagram size={14} className="text-[#db2777]" />;
-    case 'Messenger': return <MessageCircle size={14} className="text-[#60a5fa]" />;
-    default: return <Globe size={14} />;
+    case "Facebook":
+      return <Facebook size={14} className="text-[#2563eb]" />;
+    case "Website":
+      return <Globe size={14} className="text-[#4b5563]" />;
+    case "Instagram":
+      return <Instagram size={14} className="text-[#db2777]" />;
+    case "Messenger":
+      return <MessageCircle size={14} className="text-[#60a5fa]" />;
+    default:
+      return <Globe size={14} />;
   }
 };
 
-const StatusBadge = ({ status, onClick, isOpen }: { status: string; onClick?: (e?: React.MouseEvent) => void; isOpen?: boolean }) => {
-  const colors: Record<string, string> = {
-    'pending': 'bg-orange-50 text-orange-600 border-orange-100 shadow-orange-500/5',
-    'confirmed': 'bg-blue-50 text-blue-600 border-blue-100 shadow-blue-500/5',
-    'processing': 'bg-indigo-50 text-indigo-600 border-indigo-100 shadow-indigo-500/5',
-    'shipped': 'bg-purple-50 text-purple-600 border-purple-100 shadow-purple-500/5',
-    'delivered': 'bg-green-50 text-green-600 border-green-100 shadow-green-500/5',
-    'partial_delivered': 'bg-teal-50 text-teal-600 border-teal-100 shadow-teal-500/5',
-    'cancelled': 'bg-red-50 text-red-600 border-red-100 shadow-red-500/5',
-    'returned': 'bg-gray-50 text-gray-600 border-gray-100 shadow-gray-500/5',
-    'urgent': 'bg-rose-50 text-rose-600 border-rose-100 shadow-rose-500/5',
-    'hold': 'bg-amber-50 text-amber-600 border-amber-100 shadow-amber-500/5',
+export const globalStatusConfig: Record<
+  string,
+  { label: string; color: string; icon: any; iconColor: string }
+> = {
+  urgent: {
+    label: "Urgent",
+    color: "bg-red-50 text-red-600 ring-red-100 shadow-red-500/5",
+    iconColor: "text-red-500",
+    icon: Flame,
+  },
+  hold: {
+    label: "Hold",
+    color: "bg-amber-50 text-amber-600 ring-amber-100 shadow-amber-500/5",
+    iconColor: "text-amber-500",
+    icon: PauseCircle,
+  },
+  pending: {
+    label: "Pending",
+    color: "bg-orange-50 text-orange-600 ring-orange-100 shadow-orange-500/5",
+    iconColor: "text-orange-500",
+    icon: Clock,
+  },
+  confirmed: {
+    label: "Confirmed",
+    color: "bg-cyan-50 text-[#0066FF] ring-cyan-100 shadow-cyan-500/5",
+    iconColor: "text-[#0066FF]",
+    icon: CheckCircle2,
+  },
+  processing: {
+    label: "Processing",
+    color: "bg-blue-50 text-[#0066FF] ring-blue-100 shadow-blue-500/5",
+    iconColor: "text-[#0066FF]",
+    icon: Zap,
+  },
+  shipped: {
+    label: "Shipped",
+    color: "bg-indigo-50 text-indigo-600 ring-indigo-100 shadow-indigo-500/5",
+    iconColor: "text-indigo-500",
+    icon: Truck,
+  },
+  delivered: {
+    label: "Delivered",
+    color: "bg-emerald-50 text-emerald-600 ring-emerald-100 shadow-emerald-500/5",
+    iconColor: "text-emerald-500",
+    icon: PackageCheck,
+  },
+  cancelled: {
+    label: "Cancelled",
+    color: "bg-red-50 text-red-600 ring-red-100 shadow-red-500/5",
+    iconColor: "text-red-500",
+    icon: PackageX,
+  },
+  returned: {
+    label: "Returned",
+    color: "bg-slate-50 text-slate-700 ring-slate-100 shadow-slate-500/5",
+    iconColor: "text-slate-500",
+    icon: RotateCcw,
+  },
+  partial_delivered: {
+    label: "Partial Delivered",
+    color: "bg-orange-50 text-orange-600 ring-orange-100 shadow-orange-500/5",
+    iconColor: "text-orange-500",
+    icon: PackageOpen,
+  },
+};
+
+const StatusBadge = ({
+  status,
+  onClick,
+  isOpen,
+}: {
+  status: string;
+  onClick?: (e?: React.MouseEvent) => void;
+  isOpen?: boolean;
+}) => {
+  const config = globalStatusConfig[status.toLowerCase()] || {
+    label: status,
+    color: "bg-gray-50 text-gray-600 ring-gray-100 shadow-gray-500/5",
+    icon: Package,
   };
+  const Icon = config.icon;
+
   return (
-    <button 
+    <button
       onClick={onClick}
-      className={`text-[10px] sm:text-[11px] font-black px-3 py-1.5 rounded-full border shadow-sm cursor-pointer hover:scale-105 transition-all flex items-center gap-2 uppercase tracking-tight ${colors[status] || colors['pending']}`}
+      className={`group flex items-center gap-2.5 px-3.5 py-1.5 rounded-full ring-1 ring-inset ${config.color} shadow-sm transition-all duration-200 hover:shadow-md active:scale-95 whitespace-nowrap`}
     >
-      {status === 'urgent' && <Flame size={12} strokeWidth={2.5} className="animate-pulse" />}
-      {status === 'hold' && <PauseCircle size={12} strokeWidth={2.5} />}
-      <span>{status.replace(/_/g, ' ')}</span>
-      <ChevronDown size={10} strokeWidth={3} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+      <Icon
+        size={12}
+        strokeWidth={2.5}
+        className="group-hover:scale-110 transition-transform"
+      />
+      <span className="text-[10px] font-black uppercase tracking-widest">
+        {config.label}
+      </span>
+      {onClick && (
+        <ChevronDown
+          size={11}
+          strokeWidth={3}
+          className={`text-current transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+        />
+      )}
     </button>
   );
 };
 
 export default function Orders() {
   const { user } = useAuth();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { settings, currencySymbol } = useSettings();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('All');
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState("All");
+  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [wooOrders, setWooOrders] = useState<any[]>([]);
@@ -124,17 +248,17 @@ export default function Orders() {
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState<string | null>(null);
   const [editingOrder, setEditingOrder] = useState<any | null>(null);
   const [viewingOrder, setViewingOrder] = useState<any | null>(null);
-  const [dateFilter, setDateFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState("all");
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
     title: string;
     message: string;
     onConfirm: () => void;
-    variant?: 'danger' | 'warning' | 'info';
+    variant?: "danger" | "warning" | "info";
   }>({
     isOpen: false,
-    title: '',
-    message: '',
+    title: "",
+    message: "",
     onConfirm: () => {},
   });
   const [products, setProducts] = useState<any[]>([]);
@@ -143,7 +267,7 @@ export default function Orders() {
   const [inventory, setInventory] = useState<any[]>([]);
   const [companySettings, setCompanySettings] = useState<any>(null);
   const [selectedOrderForPrint, setSelectedOrderForPrint] = useState<any>(null);
-  const [printType, setPrintType] = useState<'a5' | 'pos' | null>(null);
+  const [printType, setPrintType] = useState<"a5" | "pos" | null>(null);
   const [courierHistory, setCourierHistory] = useState<any>(null);
   const [isFetchingHistory, setIsFetchingHistory] = useState(false);
   const [courierSelection, setCourierSelection] = useState<{
@@ -159,24 +283,54 @@ export default function Orders() {
   const itemsPerPage = 20;
   const printRef = React.useRef<HTMLDivElement>(null);
   const bulkPrintRef = React.useRef<HTMLDivElement>(null);
+  const tabsRef = React.useRef<HTMLDivElement>(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    if (tabsRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = tabsRef.current;
+      setShowLeftArrow(scrollLeft > 5);
+      setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 5);
+    }
+  }, []);
 
   useEffect(() => {
-    // Removed auto-open modal logic for new orders as it is now a separate page
-  }, [searchParams, setSearchParams]);
+    const tabsEl = tabsRef.current;
+    if (tabsEl) {
+      checkScroll();
+      tabsEl.addEventListener("scroll", checkScroll);
+      window.addEventListener("resize", checkScroll);
+      return () => {
+        tabsEl.removeEventListener("scroll", checkScroll);
+        window.removeEventListener("resize", checkScroll);
+      };
+    }
+  }, [checkScroll]);
+
+  const scrollTabs = (direction: "left" | "right") => {
+    if (tabsRef.current) {
+      const scrollAmount = 200;
+      tabsRef.current.scrollBy({
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  };
 
   const handlePrint = () => {
     if (!printType) {
       toast.error("No print type selected");
       return;
     }
-    const win = window.open('', '_blank');
+    const win = window.open("", "_blank");
     if (!win) {
-       toast.error("Please allow popups to print.");
-       return;
+      toast.error("Please allow popups to print.");
+      return;
     }
     setTimeout(() => {
       if (printRef.current) {
-        openPrintWindow(printRef.current.innerHTML, 'Invoice', win);
+        openPrintWindow(printRef.current.innerHTML, "Invoice", win);
         setSelectedOrderForPrint(null);
         setPrintType(null);
       }
@@ -184,14 +338,14 @@ export default function Orders() {
   };
 
   const handleBulkPrint = () => {
-    const win = window.open('', '_blank');
+    const win = window.open("", "_blank");
     if (!win) {
-       toast.error("Please allow popups to print.");
-       return;
+      toast.error("Please allow popups to print.");
+      return;
     }
     setTimeout(() => {
       if (bulkPrintRef.current) {
-        openPrintWindow(bulkPrintRef.current.innerHTML, 'Bulk Invoices', win);
+        openPrintWindow(bulkPrintRef.current.innerHTML, "Bulk Invoices", win);
         setSelectedOrders([]);
       }
     }, 500);
@@ -200,23 +354,25 @@ export default function Orders() {
   const handleDownloadPDF = async () => {
     if (!printRef.current || !selectedOrderForPrint) return;
     try {
-      const canvas = await html2canvas(printRef.current, { 
+      const canvas = await html2canvas(printRef.current, {
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: "#ffffff",
       });
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: printType === 'a5' ? 'a5' : [80, 200]
+        orientation: "portrait",
+        unit: "mm",
+        format: printType === "a5" ? "a5" : [80, 200],
       });
       const imgProps = pdf.getImageProperties(imgData);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Invoice-${selectedOrderForPrint.orderNumber || selectedOrderForPrint.id.slice(0, 8)}.pdf`);
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(
+        `Invoice-${selectedOrderForPrint.orderNumber || selectedOrderForPrint.id.slice(0, 8)}.pdf`,
+      );
     } catch (error) {
       console.error("Error generating PDF:", error);
     }
@@ -227,9 +383,9 @@ export default function Orders() {
     setLoading(true);
     try {
       const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a5'
+        orientation: "portrait",
+        unit: "mm",
+        format: "a5",
       });
 
       const orderElements = bulkPrintRef.current.children;
@@ -239,15 +395,15 @@ export default function Orders() {
           scale: 2,
           useCORS: true,
           logging: false,
-          backgroundColor: '#ffffff'
+          backgroundColor: "#ffffff",
         });
-        const imgData = canvas.toDataURL('image/png');
+        const imgData = canvas.toDataURL("image/png");
         const imgProps = pdf.getImageProperties(imgData);
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
         if (i > 0) pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
       }
 
       pdf.save(`Bulk-Invoices-${new Date().getTime()}.pdf`);
@@ -263,17 +419,26 @@ export default function Orders() {
   useEffect(() => {
     const fetchCourierConfigs = async () => {
       try {
-        const response = await fetch('/api/couriers/configs', {
-          headers: { 'Accept': 'application/json' }
+        const response = await fetch("/api/couriers/configs", {
+          headers: { Accept: "application/json" },
         });
-        
-        const contentType = response.headers.get('content-type') || '';
-        if (response.ok && contentType.includes('application/json')) {
-          const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
+
+        const contentType = response.headers.get("content-type") || "";
+        if (response.ok && contentType.includes("application/json")) {
+          const data = await (response.headers
+            .get("content-type")
+            ?.includes("json")
+            ? response.json()
+            : Promise.reject(
+                new Error("Invalid non-JSON response from server."),
+              ));
           setCourierConfigs(data);
-        } else if (!contentType.includes('application/json')) {
-           const text = await response.text();
-           console.warn('Courier configs returned non-JSON:', text.substring(0, 100));
+        } else if (!contentType.includes("application/json")) {
+          const text = await response.text();
+          console.warn(
+            "Courier configs returned non-JSON:",
+            text.substring(0, 100),
+          );
         }
       } catch (error) {
         console.error("Error fetching courier configs:", error);
@@ -283,15 +448,15 @@ export default function Orders() {
   }, []);
 
   const [orderForm, setOrderForm] = useState({
-    customerName: '',
-    customerPhone: '',
-    customerAddress: '',
-    customerCity: 'Dhaka',
-    customerZone: 'Inside Dhaka',
-    district: '',
-    division: '',
-    area: '',
-    landmark: '',
+    customerName: "",
+    customerPhone: "",
+    customerAddress: "",
+    customerCity: "Dhaka",
+    customerZone: "Inside Dhaka",
+    district: "",
+    division: "",
+    area: "",
+    landmark: "",
     subtotal: 0,
     deliveryCharge: 80,
     discount: 0,
@@ -299,22 +464,22 @@ export default function Orders() {
     paidAmount: 0,
     dueAmount: 0,
     advanceAmount: 0,
-    channel: 'Facebook',
-    paymentMethod: 'COD',
-    status: 'pending',
+    channel: "Facebook",
+    paymentMethod: "COD",
+    status: "pending",
     items: [] as any[],
-    warehouseId: '',
-    notes: '',
-    tags: '',
-    courierId: '',
-    courierName: '',
-    trackingNumber: '',
-    pathao_city_id: '',
-    pathao_zone_id: '',
-    pathao_area_id: '',
-    carrybee_city_id: '',
-    carrybee_zone_id: '',
-    carrybee_area_id: '',
+    warehouseId: "",
+    notes: "",
+    tags: "",
+    courierId: "",
+    courierName: "",
+    trackingNumber: "",
+    pathao_city_id: "",
+    pathao_zone_id: "",
+    pathao_area_id: "",
+    carrybee_city_id: "",
+    carrybee_zone_id: "",
+    carrybee_area_id: "",
   });
 
   const [cities, setCities] = useState<any[]>([]);
@@ -325,9 +490,15 @@ export default function Orders() {
   const fetchCities = async () => {
     setLoadingLocations(true);
     try {
-      const response = await fetch('/api/couriers/cities/pathao');
+      const response = await fetch("/api/couriers/cities/pathao");
       if (response.ok) {
-        const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
+        const data = await (response.headers
+          .get("content-type")
+          ?.includes("json")
+          ? response.json()
+          : Promise.reject(
+              new Error("Invalid non-JSON response from server."),
+            ));
         setCities(data.data || []);
       }
     } catch (error) {
@@ -344,7 +515,13 @@ export default function Orders() {
     try {
       const response = await fetch(`/api/couriers/zones/pathao/${cityId}`);
       if (response.ok) {
-        const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
+        const data = await (response.headers
+          .get("content-type")
+          ?.includes("json")
+          ? response.json()
+          : Promise.reject(
+              new Error("Invalid non-JSON response from server."),
+            ));
         setZones(data.data || []);
       }
     } catch (error) {
@@ -360,7 +537,13 @@ export default function Orders() {
     try {
       const response = await fetch(`/api/couriers/areas/pathao/${zoneId}`);
       if (response.ok) {
-        const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
+        const data = await (response.headers
+          .get("content-type")
+          ?.includes("json")
+          ? response.json()
+          : Promise.reject(
+              new Error("Invalid non-JSON response from server."),
+            ));
         setAreas(data.data || []);
       }
     } catch (error) {
@@ -375,59 +558,121 @@ export default function Orders() {
       fetchCities();
     }
   }, [isModalOpen, courierConfigs.pathao?.isActive]);
-  const [newItem, setNewItem] = useState({ productId: '', variantId: '', quantity: 1, price: 0 });
+  const [newItem, setNewItem] = useState({
+    productId: "",
+    variantId: "",
+    quantity: 1,
+    price: 0,
+  });
 
   const onDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
 
     if (!destination) return;
-    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    )
+      return;
 
     const newStatus = destination.droppableId;
     await handleUpdateStatus(draggableId, newStatus);
   };
 
-  const tabs = ['All', 'urgent', 'hold', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'returned'];
-  const statuses = ['urgent', 'hold', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'partial_delivered', 'cancelled', 'returned'];
+  const tabs = [
+    "All",
+    "urgent",
+    "hold",
+    "pending",
+    "confirmed",
+    "processing",
+    "shipped",
+    "delivered",
+    "partial_delivered",
+    "cancelled",
+    "returned",
+  ];
+  const statuses = [
+    "urgent",
+    "hold",
+    "pending",
+    "confirmed",
+    "processing",
+    "shipped",
+    "delivered",
+    "partial_delivered",
+    "cancelled",
+    "returned",
+  ];
 
   useEffect(() => {
     if (!user) return;
-    const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), source: 'local' })));
-      setLoading(false);
-    }, (error) => {
-      if (error.code !== 'permission-denied') {
-        handleFirestoreError(error, OperationType.LIST, 'orders');
-      }
-    });
+    const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        setOrders(
+          snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+            source: "local",
+          })),
+        );
+        setLoading(false);
+      },
+      (error) => {
+        if (error.code !== "permission-denied") {
+          handleFirestoreError(error, OperationType.LIST, "orders");
+        }
+      },
+    );
 
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'company'), (s) => setCompanySettings(s.data()), (e) => {
-      if (e.code !== 'permission-denied') {
-        handleFirestoreError(e, OperationType.GET, 'settings/company');
-      }
-    });
+    const unsubSettings = onSnapshot(
+      doc(db, "settings", "company"),
+      (s) => setCompanySettings(s.data()),
+      (e) => {
+        if (e.code !== "permission-denied") {
+          handleFirestoreError(e, OperationType.GET, "settings/company");
+        }
+      },
+    );
 
-    const unsubProducts = onSnapshot(collection(db, 'products'), (s) => setProducts(s.docs.map(d => ({ id: d.id, ...d.data() }))), (e) => {
-      if (e.code !== 'permission-denied') {
-        handleFirestoreError(e, OperationType.LIST, 'products');
-      }
-    });
-    const unsubVariants = onSnapshot(collection(db, 'variants'), (s) => setVariants(s.docs.map(d => ({ id: d.id, ...d.data() }))), (e) => {
-      if (e.code !== 'permission-denied') {
-        handleFirestoreError(e, OperationType.LIST, 'variants');
-      }
-    });
-    const unsubWarehouses = onSnapshot(collection(db, 'warehouses'), (s) => setWarehouses(s.docs.map(d => ({ id: d.id, ...d.data() }))), (e) => {
-      if (e.code !== 'permission-denied') {
-        handleFirestoreError(e, OperationType.LIST, 'warehouses');
-      }
-    });
-    const unsubInventory = onSnapshot(collection(db, 'inventory'), (s) => setInventory(s.docs.map(d => ({ id: d.id, ...d.data() }))), (e) => {
-      if (e.code !== 'permission-denied') {
-        handleFirestoreError(e, OperationType.LIST, 'inventory');
-      }
-    });
+    const unsubProducts = onSnapshot(
+      collection(db, "products"),
+      (s) => setProducts(s.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (e) => {
+        if (e.code !== "permission-denied") {
+          handleFirestoreError(e, OperationType.LIST, "products");
+        }
+      },
+    );
+    const unsubVariants = onSnapshot(
+      collection(db, "variants"),
+      (s) => setVariants(s.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (e) => {
+        if (e.code !== "permission-denied") {
+          handleFirestoreError(e, OperationType.LIST, "variants");
+        }
+      },
+    );
+    const unsubWarehouses = onSnapshot(
+      collection(db, "warehouses"),
+      (s) => setWarehouses(s.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (e) => {
+        if (e.code !== "permission-denied") {
+          handleFirestoreError(e, OperationType.LIST, "warehouses");
+        }
+      },
+    );
+    const unsubInventory = onSnapshot(
+      collection(db, "inventory"),
+      (s) => setInventory(s.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (e) => {
+        if (e.code !== "permission-denied") {
+          handleFirestoreError(e, OperationType.LIST, "inventory");
+        }
+      },
+    );
 
     return () => {
       unsubscribe();
@@ -441,27 +686,40 @@ export default function Orders() {
 
   useEffect(() => {
     const fetchWooOrders = async () => {
-      if (!companySettings?.wooUrl || !companySettings?.wooConsumerKey || !companySettings?.wooConsumerSecret) return;
-      
+      if (
+        !companySettings?.wooUrl ||
+        !companySettings?.wooConsumerKey ||
+        !companySettings?.wooConsumerSecret
+      )
+        return;
+
       setIsWooLoading(true);
       try {
-        const response = await fetch('/api/woocommerce/orders?per_page=50', {
-          headers: { 'Accept': 'application/json' }
+        const response = await fetch("/api/woocommerce/orders?per_page=50", {
+          headers: { Accept: "application/json" },
         });
-        
-        const contentType = response.headers.get('content-type') || '';
-        if (!contentType.includes('application/json')) {
+
+        const contentType = response.headers.get("content-type") || "";
+        if (!contentType.includes("application/json")) {
           const text = await response.text();
-          throw new Error(`Server returned non-JSON response (${response.status}). Please reload the page.`);
+          throw new Error(
+            `Server returned non-JSON response (${response.status}). Please reload the page.`,
+          );
         }
-        
-        const data = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
-        
+
+        const data = await (response.headers
+          .get("content-type")
+          ?.includes("json")
+          ? response.json()
+          : Promise.reject(
+              new Error("Invalid non-JSON response from server."),
+            ));
+
         if (response.ok) {
           const mappedWooOrders = (data.orders || []).map((order: any) => ({
             id: `woo_${order.id}`,
             wooId: order.id,
-            source: 'woocommerce',
+            source: "woocommerce",
             orderNumber: order.number,
             customerName: `${order.billing.first_name} ${order.billing.last_name}`,
             customerPhone: order.billing.phone,
@@ -474,18 +732,18 @@ export default function Orders() {
             items: order.line_items.map((item: any) => ({
               name: item.name,
               quantity: item.quantity,
-              price: parseFloat(item.price)
+              price: parseFloat(item.price),
             })),
             notes: order.customer_note,
-            paymentMethod: order.payment_method_title
+            paymentMethod: order.payment_method_title,
           }));
           setWooOrders(mappedWooOrders);
 
           // Sync customers to CRM
           try {
-            const customersSnap = await getDocs(collection(db, 'customers'));
+            const customersSnap = await getDocs(collection(db, "customers"));
             const existingCustomers = new Map();
-            customersSnap.forEach(doc => {
+            customersSnap.forEach((doc) => {
               const data = doc.data();
               if (data.phone) {
                 existingCustomers.set(data.phone, { id: doc.id, ...data });
@@ -497,43 +755,52 @@ export default function Orders() {
 
             for (const order of mappedWooOrders) {
               if (!order.customerPhone) continue;
-              
+
               const existing = existingCustomers.get(order.customerPhone);
               const wooOrderId = String(order.wooId);
 
               if (!existing) {
                 // Create new customer
-                const newCustomerRef = doc(collection(db, 'customers'));
+                const newCustomerRef = doc(collection(db, "customers"));
                 const newCustomer = {
-                  name: order.customerName || 'Unknown',
+                  name: order.customerName || "Unknown",
                   phone: order.customerPhone,
-                  email: order.customerEmail || '',
-                  address: order.customerAddress || '',
+                  email: order.customerEmail || "",
+                  address: order.customerAddress || "",
                   orderCount: 1,
                   totalSpent: order.totalAmount || 0,
-                  lastOrderDate: order.createdAt?.toDate ? order.createdAt.toDate() : new Date(),
+                  lastOrderDate: order.createdAt?.toDate
+                    ? order.createdAt.toDate()
+                    : new Date(),
                   wooOrderIds: [wooOrderId],
                   createdAt: serverTimestamp(),
-                  updatedAt: serverTimestamp()
+                  updatedAt: serverTimestamp(),
                 };
                 batch.set(newCustomerRef, newCustomer);
-                existingCustomers.set(order.customerPhone, { id: newCustomerRef.id, ...newCustomer });
+                existingCustomers.set(order.customerPhone, {
+                  id: newCustomerRef.id,
+                  ...newCustomer,
+                });
                 batchCount++;
               } else {
                 // Update existing customer if this order hasn't been counted
                 const wooOrderIds = existing.wooOrderIds || [];
                 if (!wooOrderIds.includes(wooOrderId)) {
-                  const customerRef = doc(db, 'customers', existing.id);
+                  const customerRef = doc(db, "customers", existing.id);
                   batch.update(customerRef, {
                     orderCount: (existing.orderCount || 0) + 1,
-                    totalSpent: (existing.totalSpent || 0) + (order.totalAmount || 0),
-                    lastOrderDate: order.createdAt?.toDate ? order.createdAt.toDate() : new Date(),
+                    totalSpent:
+                      (existing.totalSpent || 0) + (order.totalAmount || 0),
+                    lastOrderDate: order.createdAt?.toDate
+                      ? order.createdAt.toDate()
+                      : new Date(),
                     wooOrderIds: arrayUnion(wooOrderId),
-                    updatedAt: serverTimestamp()
+                    updatedAt: serverTimestamp(),
                   });
                   existing.wooOrderIds = [...wooOrderIds, wooOrderId];
                   existing.orderCount = (existing.orderCount || 0) + 1;
-                  existing.totalSpent = (existing.totalSpent || 0) + (order.totalAmount || 0);
+                  existing.totalSpent =
+                    (existing.totalSpent || 0) + (order.totalAmount || 0);
                   batchCount++;
                 }
               }
@@ -565,7 +832,11 @@ export default function Orders() {
     };
 
     fetchWooOrders();
-  }, [companySettings?.wooUrl, companySettings?.wooConsumerKey, companySettings?.wooConsumerSecret]);
+  }, [
+    companySettings?.wooUrl,
+    companySettings?.wooConsumerKey,
+    companySettings?.wooConsumerSecret,
+  ]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -573,22 +844,25 @@ export default function Orders() {
 
   const handleZoneChange = (zone: string) => {
     let charge = 80;
-    if (zone === 'Outside Dhaka') charge = 150;
-    if (zone === 'Sub Area') charge = 130;
+    if (zone === "Outside Dhaka") charge = 150;
+    if (zone === "Sub Area") charge = 130;
     setOrderForm({ ...orderForm, customerZone: zone, deliveryCharge: charge });
   };
   const handlePhoneChange = async (phone: string) => {
-    setOrderForm(prev => ({ ...prev, customerPhone: phone }));
-    
+    setOrderForm((prev) => ({ ...prev, customerPhone: phone }));
+
     // Only search if phone number is at least 11 digits (standard for BD)
     if (phone.length >= 11) {
       try {
-        const q = query(collection(db, 'customers'), where('phone', '==', phone));
+        const q = query(
+          collection(db, "customers"),
+          where("phone", "==", phone),
+        );
         const querySnapshot = await getDocs(q);
-        
+
         if (!querySnapshot.empty) {
           const customerData = querySnapshot.docs[0].data();
-          setOrderForm(prev => ({
+          setOrderForm((prev) => ({
             ...prev,
             customerName: customerData.name || prev.customerName,
             customerAddress: customerData.address || prev.customerAddress,
@@ -596,7 +870,7 @@ export default function Orders() {
             area: customerData.area || prev.area,
             landmark: customerData.landmark || prev.landmark,
             customerCity: customerData.city || prev.customerCity,
-            customerZone: customerData.zone || prev.customerZone
+            customerZone: customerData.zone || prev.customerZone,
           }));
           toast.success(`Found existing customer: ${customerData.name}`);
         }
@@ -615,13 +889,17 @@ export default function Orders() {
     setIsFetchingHistory(true);
     try {
       const response = await fetch(`/api/couriers/check-fraud/${phone}`);
-      const result = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
-      
+      const result = await (response.headers
+        .get("content-type")
+        ?.includes("json")
+        ? response.json()
+        : Promise.reject(new Error("Invalid non-JSON response from server.")));
+
       if (response.ok) {
         if (result.data) {
           setCourierHistory({
             courier: result.courier,
-            ...result.data
+            ...result.data,
           });
           if (result.data.error) {
             toast.error(`Courier Check Warning: ${result.data.error}`);
@@ -629,7 +907,7 @@ export default function Orders() {
         }
       } else {
         console.error("Courier response error:", result.error);
-        if (result.error !== 'No active courier supports fraud check') {
+        if (result.error !== "No active courier supports fraud check") {
           toast.error(`Courier Error: ${result.error}`);
         }
       }
@@ -642,21 +920,21 @@ export default function Orders() {
   };
 
   const handleAddressChange = (address: string) => {
-    setOrderForm(prev => ({ ...prev, customerAddress: address }));
-    
+    setOrderForm((prev) => ({ ...prev, customerAddress: address }));
+
     // Smart Parsing
     const parsed = locationService.parseAddress(address);
     if (parsed.district || parsed.upazila) {
       const district = parsed.district?.nameEn || orderForm.district;
       const division = parsed.division?.nameEn || orderForm.division;
       const charge = locationService.getDeliveryCharge(district, division);
-      
-      setOrderForm(prev => ({
+
+      setOrderForm((prev) => ({
         ...prev,
         district,
         area: parsed.upazila?.nameEn || prev.area,
         division,
-        deliveryCharge: charge
+        deliveryCharge: charge,
       }));
 
       // Auto-fetch Pathao IDs if Pathao is active
@@ -673,41 +951,91 @@ export default function Orders() {
   const autoMatchPathao = async (districtName: string, areaName: string) => {
     if (!courierConfigs.pathao || !districtName) return;
     try {
-      const citiesRes = await fetch('/api/couriers/cities/pathao');
+      const citiesRes = await fetch("/api/couriers/cities/pathao");
       if (!citiesRes.ok) {
-        const errData = await (citiesRes.headers.get('content-type')?.includes('json') ? citiesRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
-        throw new Error(errData.error || 'Failed to fetch Pathao cities');
+        const errData = await (citiesRes.headers
+          .get("content-type")
+          ?.includes("json")
+          ? citiesRes.json()
+          : Promise.reject(new Error("Invalid non-JSON response.")));
+        throw new Error(errData.error || "Failed to fetch Pathao cities");
       }
-      const pathaoCities = await (citiesRes.headers.get('content-type')?.includes('json') ? citiesRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
-      
-      const city = locationService.matchCourierLocation(districtName, pathaoCities.data || [], 'city_name');
+      const pathaoCities = await (citiesRes.headers
+        .get("content-type")
+        ?.includes("json")
+        ? citiesRes.json()
+        : Promise.reject(new Error("Invalid non-JSON response.")));
+
+      const city = locationService.matchCourierLocation(
+        districtName,
+        pathaoCities.data || [],
+        "city_name",
+      );
 
       if (city) {
-        setOrderForm(prev => ({ ...prev, pathao_city_id: city.city_id.toString() }));
-        
-        const zonesRes = await fetch(`/api/couriers/zones/pathao/${city.city_id}`);
+        setOrderForm((prev) => ({
+          ...prev,
+          pathao_city_id: city.city_id.toString(),
+        }));
+
+        const zonesRes = await fetch(
+          `/api/couriers/zones/pathao/${city.city_id}`,
+        );
         if (!zonesRes.ok) {
-          const errData = await (zonesRes.headers.get('content-type')?.includes('json') ? zonesRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
-          throw new Error(errData.error || 'Failed to fetch Pathao zones');
+          const errData = await (zonesRes.headers
+            .get("content-type")
+            ?.includes("json")
+            ? zonesRes.json()
+            : Promise.reject(new Error("Invalid non-JSON response.")));
+          throw new Error(errData.error || "Failed to fetch Pathao zones");
         }
-        const pathaoZones = await (zonesRes.headers.get('content-type')?.includes('json') ? zonesRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
-        
-        const zone = locationService.matchCourierLocation(areaName, pathaoZones.data || [], 'zone_name');
+        const pathaoZones = await (zonesRes.headers
+          .get("content-type")
+          ?.includes("json")
+          ? zonesRes.json()
+          : Promise.reject(new Error("Invalid non-JSON response.")));
+
+        const zone = locationService.matchCourierLocation(
+          areaName,
+          pathaoZones.data || [],
+          "zone_name",
+        );
 
         if (zone) {
-          setOrderForm(prev => ({ ...prev, pathao_zone_id: zone.zone_id.toString() }));
-          
-          const areasRes = await fetch(`/api/couriers/areas/pathao/${zone.zone_id}`);
+          setOrderForm((prev) => ({
+            ...prev,
+            pathao_zone_id: zone.zone_id.toString(),
+          }));
+
+          const areasRes = await fetch(
+            `/api/couriers/areas/pathao/${zone.zone_id}`,
+          );
           if (!areasRes.ok) {
-            const errData = await (areasRes.headers.get('content-type')?.includes('json') ? areasRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
-            throw new Error(errData.error || 'Failed to fetch Pathao areas');
+            const errData = await (areasRes.headers
+              .get("content-type")
+              ?.includes("json")
+              ? areasRes.json()
+              : Promise.reject(new Error("Invalid non-JSON response.")));
+            throw new Error(errData.error || "Failed to fetch Pathao areas");
           }
-          const pathaoAreas = await (areasRes.headers.get('content-type')?.includes('json') ? areasRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
-          
-          const area = locationService.matchCourierLocation(areaName, pathaoAreas.data || [], 'area_name') || pathaoAreas.data?.[0];
+          const pathaoAreas = await (areasRes.headers
+            .get("content-type")
+            ?.includes("json")
+            ? areasRes.json()
+            : Promise.reject(new Error("Invalid non-JSON response.")));
+
+          const area =
+            locationService.matchCourierLocation(
+              areaName,
+              pathaoAreas.data || [],
+              "area_name",
+            ) || pathaoAreas.data?.[0];
 
           if (area) {
-            setOrderForm(prev => ({ ...prev, pathao_area_id: area.area_id.toString() }));
+            setOrderForm((prev) => ({
+              ...prev,
+              pathao_area_id: area.area_id.toString(),
+            }));
           }
         }
       }
@@ -719,32 +1047,68 @@ export default function Orders() {
   const autoMatchCarrybee = async (districtName: string, areaName: string) => {
     if (!courierConfigs.carrybee || !districtName) return;
     try {
-      const citiesRes = await fetch('/api/couriers/cities/carrybee');
+      const citiesRes = await fetch("/api/couriers/cities/carrybee");
       if (!citiesRes.ok) return;
-      const carrybeeCities = await (citiesRes.headers.get('content-type')?.includes('json') ? citiesRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
-      
-      const city = locationService.matchCourierLocation(districtName, carrybeeCities.data?.cities || [], 'name');
+      const carrybeeCities = await (citiesRes.headers
+        .get("content-type")
+        ?.includes("json")
+        ? citiesRes.json()
+        : Promise.reject(new Error("Invalid non-JSON response.")));
+
+      const city = locationService.matchCourierLocation(
+        districtName,
+        carrybeeCities.data?.cities || [],
+        "name",
+      );
 
       if (city) {
-        setOrderForm(prev => ({ ...prev, carrybee_city_id: city.id.toString() }));
-        
+        setOrderForm((prev) => ({
+          ...prev,
+          carrybee_city_id: city.id.toString(),
+        }));
+
         const zonesRes = await fetch(`/api/couriers/zones/carrybee/${city.id}`);
         if (!zonesRes.ok) return;
-        const carrybeeZones = await (zonesRes.headers.get('content-type')?.includes('json') ? zonesRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
-        
-        const zone = locationService.matchCourierLocation(areaName, carrybeeZones.data?.zones || [], 'name');
+        const carrybeeZones = await (zonesRes.headers
+          .get("content-type")
+          ?.includes("json")
+          ? zonesRes.json()
+          : Promise.reject(new Error("Invalid non-JSON response.")));
+
+        const zone = locationService.matchCourierLocation(
+          areaName,
+          carrybeeZones.data?.zones || [],
+          "name",
+        );
 
         if (zone) {
-          setOrderForm(prev => ({ ...prev, carrybee_zone_id: zone.id.toString() }));
-          
-          const areasRes = await fetch(`/api/couriers/areas/carrybee/${zone.id}?cityId=${city.id}`);
+          setOrderForm((prev) => ({
+            ...prev,
+            carrybee_zone_id: zone.id.toString(),
+          }));
+
+          const areasRes = await fetch(
+            `/api/couriers/areas/carrybee/${zone.id}?cityId=${city.id}`,
+          );
           if (!areasRes.ok) return;
-          const carrybeeAreas = await (areasRes.headers.get('content-type')?.includes('json') ? areasRes.json() : Promise.reject(new Error('Invalid non-JSON response.')));
-          
-          const area = locationService.matchCourierLocation(areaName, carrybeeAreas.data?.areas || [], 'name') || carrybeeAreas.data?.areas?.[0];
+          const carrybeeAreas = await (areasRes.headers
+            .get("content-type")
+            ?.includes("json")
+            ? areasRes.json()
+            : Promise.reject(new Error("Invalid non-JSON response.")));
+
+          const area =
+            locationService.matchCourierLocation(
+              areaName,
+              carrybeeAreas.data?.areas || [],
+              "name",
+            ) || carrybeeAreas.data?.areas?.[0];
 
           if (area) {
-            setOrderForm(prev => ({ ...prev, carrybee_area_id: area.id.toString() }));
+            setOrderForm((prev) => ({
+              ...prev,
+              carrybee_area_id: area.id.toString(),
+            }));
           }
         }
       }
@@ -756,15 +1120,15 @@ export default function Orders() {
   const handleOpenAddModal = () => {
     setEditingOrder(null);
     setOrderForm({
-      customerName: '',
-      customerPhone: '',
-      customerAddress: '',
-      customerCity: 'Dhaka',
-      customerZone: 'Inside Dhaka',
-      district: '',
-      division: '',
-      area: '',
-      landmark: '',
+      customerName: "",
+      customerPhone: "",
+      customerAddress: "",
+      customerCity: "Dhaka",
+      customerZone: "Inside Dhaka",
+      district: "",
+      division: "",
+      area: "",
+      landmark: "",
       subtotal: 0,
       deliveryCharge: 80,
       discount: 0,
@@ -772,19 +1136,22 @@ export default function Orders() {
       paidAmount: 0,
       dueAmount: 0,
       advanceAmount: 0,
-      channel: 'Facebook',
-      paymentMethod: 'COD',
-      status: 'pending',
+      channel: "Facebook",
+      paymentMethod: "COD",
+      status: "pending",
       items: [],
-      warehouseId: '',
-      notes: '',
-      tags: '',
-      courierId: '',
-      courierName: '',
-      trackingNumber: '',
-      pathao_city_id: '',
-      pathao_zone_id: '',
-      pathao_area_id: '',
+      warehouseId: "",
+      notes: "",
+      tags: "",
+      courierId: "",
+      courierName: "",
+      trackingNumber: "",
+      pathao_city_id: "",
+      pathao_zone_id: "",
+      pathao_area_id: "",
+      carrybee_city_id: "",
+      carrybee_zone_id: "",
+      carrybee_area_id: "",
     });
     setZones([]);
     setAreas([]);
@@ -794,13 +1161,15 @@ export default function Orders() {
   const handleOpenEditModal = (order: any) => {
     setEditingOrder(order);
     setOrderForm({
-      customerName: order.customerName || '',
-      customerPhone: order.customerPhone || '',
-      customerAddress: order.customerAddress || '',
-      district: order.district || '',
-      division: order.division || '',
-      area: order.area || '',
-      landmark: order.landmark || '',
+      customerName: order.customerName || "",
+      customerPhone: order.customerPhone || "",
+      customerAddress: order.customerAddress || "",
+      customerCity: order.customerCity || "Dhaka",
+      customerZone: order.customerZone || "Inside Dhaka",
+      district: order.district || "",
+      division: order.division || "",
+      area: order.area || "",
+      landmark: order.landmark || "",
       subtotal: order.subtotal || 0,
       deliveryCharge: order.deliveryCharge || 0,
       discount: order.discount || 0,
@@ -808,26 +1177,38 @@ export default function Orders() {
       paidAmount: order.paidAmount || 0,
       dueAmount: order.dueAmount || 0,
       advanceAmount: order.advanceAmount || 0,
-      channel: order.channel || 'Facebook',
-      paymentMethod: order.paymentMethod || 'COD',
-      status: order.status || 'pending',
+      channel: order.channel || "Facebook",
+      paymentMethod: order.paymentMethod || "COD",
+      status: order.status || "pending",
       items: order.items || [],
-      warehouseId: order.warehouseId || '',
-      notes: order.notes || '',
-      courierId: order.courierId || '',
-      courierName: order.courierName || '',
-      trackingNumber: order.trackingNumber || '',
-      pathao_city_id: order.pathao_city_id || '',
-      pathao_zone_id: order.pathao_zone_id || '',
-      pathao_area_id: order.pathao_area_id || '',
+      warehouseId: order.warehouseId || "",
+      notes: order.notes || "",
+      tags: order.tags || "",
+      courierId: order.courierId || "",
+      courierName: order.courierName || "",
+      trackingNumber: order.trackingNumber || "",
+      pathao_city_id: order.pathao_city_id || "",
+      pathao_zone_id: order.pathao_zone_id || "",
+      pathao_area_id: order.pathao_area_id || "",
+      carrybee_city_id: order.carrybee_city_id || "",
+      carrybee_zone_id: order.carrybee_zone_id || "",
+      carrybee_area_id: order.carrybee_area_id || "",
     });
     if (order.pathao_city_id) fetchZones(order.pathao_city_id);
     if (order.pathao_zone_id) fetchAreas(order.pathao_zone_id);
     setIsModalOpen(true);
   };
 
-  const calculateTotals = (items: any[], deliveryCharge: number, discount: number, paidAmount: number) => {
-    const subtotal = items.reduce((acc, item) => acc + (item.quantity * item.price), 0);
+  const calculateTotals = (
+    items: any[],
+    deliveryCharge: number,
+    discount: number,
+    paidAmount: number,
+  ) => {
+    const subtotal = items.reduce(
+      (acc, item) => acc + item.quantity * item.price,
+      0,
+    );
     const totalAmount = subtotal + deliveryCharge - discount;
     const dueAmount = totalAmount - paidAmount;
     return { subtotal, totalAmount, dueAmount };
@@ -838,24 +1219,29 @@ export default function Orders() {
     if (!auth.currentUser) return;
 
     try {
-      const { subtotal, totalAmount, dueAmount } = calculateTotals(orderForm.items, orderForm.deliveryCharge, orderForm.discount, orderForm.paidAmount);
-      
+      const { subtotal, totalAmount, dueAmount } = calculateTotals(
+        orderForm.items,
+        orderForm.deliveryCharge,
+        orderForm.discount,
+        orderForm.paidAmount,
+      );
+
       // Duplicate Detection Check (Only for new orders)
       if (!editingOrder) {
         const duplicate = await checkDuplicateOrder({
           customerPhone: orderForm.customerPhone,
           customerName: orderForm.customerName,
           items: orderForm.items,
-          totalAmount: totalAmount
+          totalAmount: totalAmount,
         });
 
         if (duplicate) {
           setConfirmConfig({
             isOpen: true,
-            title: 'Duplicate Order Detected',
+            title: "Duplicate Order Detected",
             message: `An order (#${duplicate.orderNumber || duplicate.id.slice(0, 8)}) with the same phone number, products, and total value was found within the last 24 hours. Are you sure you want to create this duplicate order?`,
-            variant: 'warning',
-            onConfirm: () => proceedWithSubmit(totalAmount)
+            variant: "warning",
+            onConfirm: () => proceedWithSubmit(totalAmount),
           });
           return;
         }
@@ -863,20 +1249,31 @@ export default function Orders() {
 
       await proceedWithSubmit(totalAmount);
     } catch (error) {
-      handleFirestoreError(error, editingOrder ? OperationType.UPDATE : OperationType.CREATE, 'orders');
+      handleFirestoreError(
+        error,
+        editingOrder ? OperationType.UPDATE : OperationType.CREATE,
+        "orders",
+      );
     }
   };
 
   const proceedWithSubmit = async (totalAmount: number) => {
     if (!auth.currentUser) return;
     try {
-      const { subtotal, dueAmount } = calculateTotals(orderForm.items, orderForm.deliveryCharge, orderForm.discount, orderForm.paidAmount);
-      
+      const { subtotal, dueAmount } = calculateTotals(
+        orderForm.items,
+        orderForm.deliveryCharge,
+        orderForm.discount,
+        orderForm.paidAmount,
+      );
+
       const logEntry = {
         user: auth.currentUser.email,
-        action: editingOrder ? 'Updated Order' : 'Created Order',
+        action: editingOrder ? "Updated Order" : "Created Order",
         timestamp: Timestamp.now(),
-        details: editingOrder ? `Status: ${orderForm.status}` : 'Initial creation'
+        details: editingOrder
+          ? `Status: ${orderForm.status}`
+          : "Initial creation",
       };
 
       const data = {
@@ -884,22 +1281,31 @@ export default function Orders() {
         subtotal,
         totalAmount,
         dueAmount,
-        logs: editingOrder ? [...(editingOrder.logs || []), logEntry] : [logEntry],
-        updatedAt: serverTimestamp()
+        logs: editingOrder
+          ? [...(editingOrder.logs || []), logEntry]
+          : [logEntry],
+        updatedAt: serverTimestamp(),
       };
 
       // 1. PRE-TRANSACTION READS
-      const customerQuery = query(collection(db, 'customers'), where('phone', '==', orderForm.customerPhone));
+      const customerQuery = query(
+        collection(db, "customers"),
+        where("phone", "==", orderForm.customerPhone),
+      );
       const customerSnap = await getDocs(customerQuery);
 
       const inventorySnaps: { item: any; snap: any }[] = [];
-      if (!editingOrder && orderForm.status !== 'cancelled' && orderForm.status !== 'returned') {
+      if (
+        !editingOrder &&
+        orderForm.status !== "cancelled" &&
+        orderForm.status !== "returned"
+      ) {
         for (const item of orderForm.items) {
           const invQuery = query(
-            collection(db, 'inventory'),
-            where('productId', '==', item.productId),
-            where('variantId', '==', item.variantId || ''),
-            where('warehouseId', '==', orderForm.warehouseId)
+            collection(db, "inventory"),
+            where("productId", "==", item.productId),
+            where("variantId", "==", item.variantId || ""),
+            where("warehouseId", "==", orderForm.warehouseId),
           );
           const invSnap = await getDocs(invQuery);
           inventorySnaps.push({ item, snap: invSnap });
@@ -908,13 +1314,13 @@ export default function Orders() {
 
       await runTransaction(db, async (transaction) => {
         // 2. TRANSACTION READS
-        const settingsRef = doc(db, 'settings', 'company');
+        const settingsRef = doc(db, "settings", "company");
         const settingsSnap = await transaction.get(settingsRef);
 
         // 3. ALL WRITES SECOND
-        let customerId = '';
+        let customerId = "";
         if (customerSnap.empty) {
-          const customerRef = doc(collection(db, 'customers'));
+          const customerRef = doc(collection(db, "customers"));
           transaction.set(customerRef, {
             name: orderForm.customerName,
             phone: orderForm.customerPhone,
@@ -923,58 +1329,70 @@ export default function Orders() {
             totalSpent: totalAmount,
             lastOrderDate: serverTimestamp(),
             uid: auth.currentUser!.uid,
-            createdAt: serverTimestamp()
+            createdAt: serverTimestamp(),
           });
           customerId = customerRef.id;
         } else {
           const customerDoc = customerSnap.docs[0];
           customerId = customerDoc.id;
           transaction.update(customerDoc.ref, {
-            orderCount: (customerDoc.data().orderCount || 0) + (editingOrder ? 0 : 1),
-            totalSpent: (customerDoc.data().totalSpent || 0) + (editingOrder ? 0 : totalAmount),
-            lastOrderDate: serverTimestamp()
+            orderCount:
+              (customerDoc.data().orderCount || 0) + (editingOrder ? 0 : 1),
+            totalSpent:
+              (customerDoc.data().totalSpent || 0) +
+              (editingOrder ? 0 : totalAmount),
+            lastOrderDate: serverTimestamp(),
           });
         }
 
         const finalData = { ...data, customerId };
 
         if (editingOrder) {
-          transaction.update(doc(db, 'orders', editingOrder.id), finalData);
+          transaction.update(doc(db, "orders", editingOrder.id), finalData);
         } else {
           let nextOrderNumber = 1001;
           if (settingsSnap.exists() && settingsSnap.data().orderCounter) {
             nextOrderNumber = settingsSnap.data().orderCounter + 1;
           }
-          transaction.set(settingsRef, { orderCounter: nextOrderNumber }, { merge: true });
+          transaction.set(
+            settingsRef,
+            { orderCounter: nextOrderNumber },
+            { merge: true },
+          );
 
-          const orderRef = doc(collection(db, 'orders'));
+          const orderRef = doc(collection(db, "orders"));
           transaction.set(orderRef, {
             ...finalData,
             orderNumber: nextOrderNumber,
             uid: auth.currentUser!.uid,
-            createdAt: serverTimestamp()
+            createdAt: serverTimestamp(),
           });
 
           // Add to Finance if paidAmount > 0
           if (finalData.paidAmount > 0) {
-            let accountId = '';
-            
+            let accountId = "";
+
             // To find account safely, just do getDocs directly
-            const accountsQuery = query(collection(db, 'accounts'), where('name', '==', finalData.paymentMethod));
+            const accountsQuery = query(
+              collection(db, "accounts"),
+              where("name", "==", finalData.paymentMethod),
+            );
             const accountsSnap = await getDocs(accountsQuery);
             if (!accountsSnap.empty) {
               accountId = accountsSnap.docs[0].id;
             } else {
-              const allAccountsSnap = await getDocs(query(collection(db, 'accounts'), limit(1)));
+              const allAccountsSnap = await getDocs(
+                query(collection(db, "accounts"), limit(1)),
+              );
               if (!allAccountsSnap.empty) {
                 accountId = allAccountsSnap.docs[0].id;
               }
             }
 
-            const transactionRef = doc(collection(db, 'transactions'));
+            const transactionRef = doc(collection(db, "transactions"));
             transaction.set(transactionRef, {
-              type: 'income',
-              category: 'Sales',
+              type: "income",
+              category: "Sales",
               amount: finalData.paidAmount,
               description: `Order #${nextOrderNumber} Payment`,
               date: serverTimestamp(),
@@ -983,17 +1401,17 @@ export default function Orders() {
               orderId: orderRef.id,
               orderNumber: nextOrderNumber,
               uid: auth.currentUser?.uid,
-              createdAt: serverTimestamp()
+              createdAt: serverTimestamp(),
             });
 
             if (accountId) {
-              const accountRef = doc(db, 'accounts', accountId);
+              const accountRef = doc(db, "accounts", accountId);
               const accountSnap = await transaction.get(accountRef);
               if (accountSnap.exists()) {
                 const currentBalance = accountSnap.data().balance || 0;
                 transaction.update(accountRef, {
                   balance: currentBalance + finalData.paidAmount,
-                  updatedAt: serverTimestamp()
+                  updatedAt: serverTimestamp(),
                 });
               }
             }
@@ -1006,20 +1424,23 @@ export default function Orders() {
               const invDoc = snap.docs[0];
               const currentQty = invDoc.data().quantity;
               const newQty = currentQty - item.quantity;
-              transaction.update(invDoc.ref, { quantity: newQty, updatedAt: serverTimestamp() });
+              transaction.update(invDoc.ref, {
+                quantity: newQty,
+                updatedAt: serverTimestamp(),
+              });
 
               // Log
-              const logRef = doc(collection(db, 'inventoryLogs'));
+              const logRef = doc(collection(db, "inventoryLogs"));
               transaction.set(logRef, {
                 productId: item.productId,
-                variantId: item.variantId || '',
+                variantId: item.variantId || "",
                 warehouseId: orderForm.warehouseId,
-                type: 'out',
+                type: "out",
                 quantityChange: -item.quantity,
                 newQuantity: newQty,
                 reason: `Order #${nextOrderNumber}`,
                 uid: auth.currentUser!.uid,
-                createdAt: serverTimestamp()
+                createdAt: serverTimestamp(),
               });
             }
           }
@@ -1027,24 +1448,28 @@ export default function Orders() {
       });
 
       await logActivity(
-        editingOrder ? 'Updated Order' : 'Created Order',
-        'Orders',
-        `Order #${editingOrder ? (editingOrder.orderNumber || editingOrder.id.slice(0, 8)) : 'New'} for ${orderForm.customerName}`
+        editingOrder ? "Updated Order" : "Created Order",
+        "Orders",
+        `Order #${editingOrder ? editingOrder.orderNumber || editingOrder.id.slice(0, 8) : "New"} for ${orderForm.customerName}`,
       );
 
       if (!editingOrder) {
         await createNotification({
-          title: 'New Order',
+          title: "New Order",
           message: `A new order has been created for ${orderForm.customerName}.`,
-          type: 'order',
-          link: '/orders',
-          forRole: 'admin'
+          type: "order",
+          link: "/orders",
+          forRole: "admin",
         });
       }
 
       setIsModalOpen(false);
     } catch (error) {
-      handleFirestoreError(error, editingOrder ? OperationType.UPDATE : OperationType.CREATE, 'orders');
+      handleFirestoreError(
+        error,
+        editingOrder ? OperationType.UPDATE : OperationType.CREATE,
+        "orders",
+      );
     }
   };
 
@@ -1052,25 +1477,33 @@ export default function Orders() {
     if (!auth.currentUser) return;
 
     // Handle WooCommerce orders
-    if (orderId.startsWith('woo_')) {
-      const wooId = orderId.replace('woo_', '');
+    if (orderId.startsWith("woo_")) {
+      const wooId = orderId.replace("woo_", "");
       setLoading(true);
       try {
         const response = await fetch(`/api/woocommerce/orders/${wooId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: newStatus })
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newStatus }),
         });
         if (response.ok) {
           toast.success(`WooCommerce order status updated to ${newStatus}`);
           // Refresh WooCommerce orders
-          const wooResponse = await fetch('/api/woocommerce/orders?per_page=50');
+          const wooResponse = await fetch(
+            "/api/woocommerce/orders?per_page=50",
+          );
           if (wooResponse.ok) {
-            const data = await (wooResponse.headers.get('content-type')?.includes('json') ? wooResponse.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
+            const data = await (wooResponse.headers
+              .get("content-type")
+              ?.includes("json")
+              ? wooResponse.json()
+              : Promise.reject(
+                  new Error("Invalid non-JSON response from server."),
+                ));
             const mappedWooOrders = (data.orders || []).map((order: any) => ({
               id: `woo_${order.id}`,
               wooId: order.id,
-              source: 'woocommerce',
+              source: "woocommerce",
               orderNumber: order.number,
               customerName: `${order.billing.first_name} ${order.billing.last_name}`,
               customerPhone: order.billing.phone,
@@ -1082,16 +1515,22 @@ export default function Orders() {
               items: order.line_items.map((item: any) => ({
                 name: item.name,
                 quantity: item.quantity,
-                price: parseFloat(item.price)
+                price: parseFloat(item.price),
               })),
               notes: order.customer_note,
-              paymentMethod: order.payment_method_title
+              paymentMethod: order.payment_method_title,
             }));
             setWooOrders(mappedWooOrders);
           }
         } else {
-          const err = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
-          throw new Error(err.error || 'Failed to update WooCommerce order');
+          const err = await (response.headers
+            .get("content-type")
+            ?.includes("json")
+            ? response.json()
+            : Promise.reject(
+                new Error("Invalid non-JSON response from server."),
+              ));
+          throw new Error(err.error || "Failed to update WooCommerce order");
         }
       } catch (error: any) {
         toast.error(error.message);
@@ -1102,12 +1541,12 @@ export default function Orders() {
     }
 
     try {
-      const orderRef = doc(db, 'orders', orderId);
-      
+      const orderRef = doc(db, "orders", orderId);
+
       await runTransaction(db, async (transaction) => {
         const orderSnap = await transaction.get(orderRef);
         if (!orderSnap.exists()) return;
-        
+
         const orderData = orderSnap.data();
         const normalizedOldStatus = orderData.status.toLowerCase();
         const normalizedNewStatus = newStatus.toLowerCase();
@@ -1117,78 +1556,97 @@ export default function Orders() {
         // 1. Update Order Status
         transaction.update(orderRef, {
           status: newStatus,
-          updatedAt: serverTimestamp()
+          updatedAt: serverTimestamp(),
         });
 
         // 2. Stock Management Logic
-        const isActiveStatus = (status: string) => status !== 'cancelled' && status !== 'returned';
-        
+        const isActiveStatus = (status: string) =>
+          status !== "cancelled" && status !== "returned";
+
         // If moving FROM active TO inactive -> Restore Stock
-        if (isActiveStatus(normalizedOldStatus) && !isActiveStatus(normalizedNewStatus)) {
+        if (
+          isActiveStatus(normalizedOldStatus) &&
+          !isActiveStatus(normalizedNewStatus)
+        ) {
           for (const item of orderData.items) {
             const invQuery = query(
-              collection(db, 'inventory'),
-              where('productId', '==', item.productId),
-              where('variantId', '==', item.variantId || ''),
-              where('warehouseId', '==', orderData.warehouseId)
+              collection(db, "inventory"),
+              where("productId", "==", item.productId),
+              where("variantId", "==", item.variantId || ""),
+              where("warehouseId", "==", orderData.warehouseId),
             );
             const invSnap = await getDocs(invQuery);
             if (!invSnap.empty) {
               const invDoc = invSnap.docs[0];
               const currentQty = invDoc.data().quantity || 0;
               const newQty = currentQty + item.quantity;
-              transaction.update(invDoc.ref, { quantity: newQty, updatedAt: serverTimestamp() });
-              
-              const logRef = doc(collection(db, 'inventoryLogs'));
+              transaction.update(invDoc.ref, {
+                quantity: newQty,
+                updatedAt: serverTimestamp(),
+              });
+
+              const logRef = doc(collection(db, "inventoryLogs"));
               transaction.set(logRef, {
                 productId: item.productId,
-                variantId: item.variantId || '',
+                variantId: item.variantId || "",
                 warehouseId: orderData.warehouseId,
-                type: 'in',
+                type: "in",
                 quantityChange: item.quantity,
                 newQuantity: newQty,
                 reason: `Order #${orderId.slice(0, 8)} ${newStatus} (Stock Restored)`,
                 uid: auth.currentUser?.uid,
-                createdAt: serverTimestamp()
+                createdAt: serverTimestamp(),
               });
             }
           }
         }
         // If moving FROM inactive TO active -> Deduct Stock
-        else if (!isActiveStatus(normalizedOldStatus) && isActiveStatus(normalizedNewStatus)) {
+        else if (
+          !isActiveStatus(normalizedOldStatus) &&
+          isActiveStatus(normalizedNewStatus)
+        ) {
           for (const item of orderData.items) {
             const invQuery = query(
-              collection(db, 'inventory'),
-              where('productId', '==', item.productId),
-              where('variantId', '==', item.variantId || ''),
-              where('warehouseId', '==', orderData.warehouseId)
+              collection(db, "inventory"),
+              where("productId", "==", item.productId),
+              where("variantId", "==", item.variantId || ""),
+              where("warehouseId", "==", orderData.warehouseId),
             );
             const invSnap = await getDocs(invQuery);
             if (!invSnap.empty) {
               const invDoc = invSnap.docs[0];
               const currentQty = invDoc.data().quantity || 0;
               const newQty = currentQty - item.quantity;
-              transaction.update(invDoc.ref, { quantity: newQty, updatedAt: serverTimestamp() });
-              
-              const logRef = doc(collection(db, 'inventoryLogs'));
+              transaction.update(invDoc.ref, {
+                quantity: newQty,
+                updatedAt: serverTimestamp(),
+              });
+
+              const logRef = doc(collection(db, "inventoryLogs"));
               transaction.set(logRef, {
                 productId: item.productId,
-                variantId: item.variantId || '',
+                variantId: item.variantId || "",
                 warehouseId: orderData.warehouseId,
-                type: 'out',
+                type: "out",
                 quantityChange: -item.quantity,
                 newQuantity: newQty,
                 reason: `Order #${orderId.slice(0, 8)} ${newStatus} (Stock Re-deducted)`,
                 uid: auth.currentUser?.uid,
-                createdAt: serverTimestamp()
+                createdAt: serverTimestamp(),
               });
             }
           }
         }
       });
 
-      toast.success(`Order status updated to ${newStatus.replace(/_/g, ' ').charAt(0).toUpperCase() + newStatus.replace(/_/g, ' ').slice(1)}`);
-      await logActivity('Updated Order Status', 'Orders', `Order #${orderId.slice(0, 8)} status changed to ${newStatus}`);
+      toast.success(
+        `Order status updated to ${newStatus.replace(/_/g, " ").charAt(0).toUpperCase() + newStatus.replace(/_/g, " ").slice(1)}`,
+      );
+      await logActivity(
+        "Updated Order Status",
+        "Orders",
+        `Order #${orderId.slice(0, 8)} status changed to ${newStatus}`,
+      );
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `orders/${orderId}`);
     }
@@ -1197,78 +1655,140 @@ export default function Orders() {
   const handleDeleteOrder = async (orderId: string) => {
     setConfirmConfig({
       isOpen: true,
-      title: 'Delete Order',
-      message: 'Are you sure you want to delete this order?',
-      variant: 'danger',
+      title: "Delete Order",
+      message:
+        "Are you sure you want to delete this order? Inventory will be restored if the order is currently active.",
+      variant: "danger",
       onConfirm: async () => {
         try {
-          await deleteDoc(doc(db, 'orders', orderId));
-          await logActivity('Deleted Order', 'Orders', `Order #${orderId.slice(0, 8)} removed`);
-          toast.success('Order deleted successfully');
+          const orderRef = doc(db, "orders", orderId);
+          await runTransaction(db, async (transaction) => {
+            const snap = await transaction.get(orderRef);
+            if (!snap.exists()) return;
+
+            const orderData = snap.data();
+            const normalizedStatus = orderData.status?.toLowerCase() || "";
+            const isActive =
+              normalizedStatus !== "cancelled" &&
+              normalizedStatus !== "returned";
+
+            // Restore Stock if deleting an active order
+            if (isActive && orderData.items) {
+              for (const item of orderData.items) {
+                const invQuery = query(
+                  collection(db, "inventory"),
+                  where("productId", "==", item.productId),
+                  where("variantId", "==", item.variantId || ""),
+                  where("warehouseId", "==", orderData.warehouseId),
+                );
+                const invSnap = await getDocs(invQuery);
+                if (!invSnap.empty) {
+                  const invDoc = invSnap.docs[0];
+                  const currentQty = invDoc.data().quantity || 0;
+                  const newQty = currentQty + (item.quantity || 0);
+                  transaction.update(invDoc.ref, {
+                    quantity: newQty,
+                    updatedAt: serverTimestamp(),
+                  });
+
+                  // Log
+                  const logRef = doc(collection(db, "inventoryLogs"));
+                  transaction.set(logRef, {
+                    productId: item.productId,
+                    variantId: item.variantId || "",
+                    warehouseId: orderData.warehouseId,
+                    type: "in",
+                    quantityChange: item.quantity || 0,
+                    newQuantity: newQty,
+                    reason: `Order #${orderId.slice(0, 8)} DELETED (Auto-Restore)`,
+                    uid: auth.currentUser?.uid,
+                    createdAt: serverTimestamp(),
+                  });
+                }
+              }
+            }
+
+            transaction.delete(orderRef);
+          });
+
+          await logActivity(
+            "Deleted Order",
+            "Orders",
+            `Order #${orderId.slice(0, 8)} removed and stock adjusted`,
+          );
+          toast.success("Order deleted and stock updated");
         } catch (error) {
-          handleFirestoreError(error, OperationType.DELETE, `orders/${orderId}`);
+          handleFirestoreError(
+            error,
+            OperationType.DELETE,
+            `orders/${orderId}`,
+          );
         }
-      }
+      },
     });
   };
 
   const handleBulkStatusUpdate = async (newStatus: string) => {
     if (!auth.currentUser || selectedOrders.length === 0) return;
+    setLoading(true);
+    let successCount = 0;
+    let failCount = 0;
+
     try {
-      const batch = writeBatch(db);
-      const wooOrdersToUpdate: string[] = [];
-      
-      selectedOrders.forEach(id => {
-        if (id.startsWith('woo_')) {
-          wooOrdersToUpdate.push(id);
-        } else {
-          batch.update(doc(db, 'orders', id), { 
-            status: newStatus, 
-            updatedAt: serverTimestamp(),
-            logs: arrayUnion({
-              user: auth.currentUser?.email,
-              action: 'Bulk Status Update',
-              timestamp: Timestamp.now(),
-              details: `New Status: ${newStatus}`
-            })
-          });
-        }
-      });
-      
-      await batch.commit();
-      
-      // Handle WooCommerce orders sequentially
-      if (wooOrdersToUpdate.length > 0) {
-        setLoading(true);
-        for (const id of wooOrdersToUpdate) {
-          const wooId = id.replace('woo_', '');
-          try {
-            await fetch(`/api/woocommerce/orders/${wooId}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status: newStatus })
+      for (const id of selectedOrders) {
+        try {
+          if (id.startsWith("woo_")) {
+            const wooId = id.replace("woo_", "");
+            const response = await fetch(`/api/woocommerce/orders/${wooId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: newStatus }),
             });
-            setWooOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
-          } catch (error) {
-            console.error(`Failed to update WooCommerce order ${wooId}:`, error);
+            if (response.ok) {
+              setWooOrders((prev) =>
+                prev.map((o) =>
+                  o.id === id ? { ...o, status: newStatus } : o,
+                ),
+              );
+              successCount++;
+            } else {
+              failCount++;
+            }
+          } else {
+            // Sequential execution for local orders to ensure inventory consistency
+            await handleUpdateStatus(id, newStatus);
+            successCount++;
           }
+        } catch (err) {
+          console.error(`Failed to update order ${id}:`, err);
+          failCount++;
         }
-        setLoading(false);
       }
-      
+
+      if (successCount > 0) {
+        toast.success(`Successfully updated ${successCount} orders`);
+      }
+      if (failCount > 0) {
+        toast.error(`Failed to update ${failCount} orders`);
+      }
       setSelectedOrders([]);
-      toast.success(`Status updated to ${newStatus}`);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'orders');
+      toast.error("An error occurred during bulk update");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSendToCourier = async (order: any, courierName?: string) => {
     // Determine which courier to use
-    const activeCouriers = Object.entries(courierConfigs).filter(([_, config]: [string, any]) => config.isActive);
-    
+    const activeCouriers = Object.entries(courierConfigs).filter(
+      ([_, config]: [string, any]) => config.isActive,
+    );
+
     if (activeCouriers.length === 0) {
-      toast.error('No courier is active. Please go to Settings > Logistics to activate one.');
+      toast.error(
+        "No courier is active. Please go to Settings > Logistics to activate one.",
+      );
       return;
     }
 
@@ -1285,36 +1805,52 @@ export default function Orders() {
       targetCourier = activeCouriers[0][0];
     }
 
-    if (['shipped', 'delivered', 'cancelled', 'returned'].includes(order.status)) {
-      toast.error(`Cannot send order with status: ${order.status.replace(/_/g, ' ')}`);
+    if (
+      ["shipped", "delivered", "cancelled", "returned"].includes(order.status)
+    ) {
+      toast.error(
+        `Cannot send order with status: ${order.status.replace(/_/g, " ")}`,
+      );
       return;
     }
 
     setLoading(true);
     try {
       const sanitizePhone = (phone: string) => {
-        const cleaned = phone.replace(/\D/g, '');
+        const cleaned = phone.replace(/\D/g, "");
         return cleaned.length > 11 ? cleaned.slice(-11) : cleaned;
       };
 
       const phone = sanitizePhone(order.customerPhone);
-      
-      if (targetCourier === 'pathao') {
-        if (!order.pathao_city_id || !order.pathao_zone_id || !order.pathao_area_id) {
-          toast.error('Please select Pathao City, Zone, and Area first by editing the order.');
+
+      if (targetCourier === "pathao") {
+        if (
+          !order.pathao_city_id ||
+          !order.pathao_zone_id ||
+          !order.pathao_area_id
+        ) {
+          toast.error(
+            "Please select Pathao City, Zone, and Area first by editing the order.",
+          );
           setLoading(false);
           return;
         }
       }
 
-      if (targetCourier === 'carrybee') {
-        if (!order.carrybee_city_id || !order.carrybee_zone_id || !order.carrybee_area_id) {
-          toast.error('Please select Carrybee City, Zone, and Area first by editing the order.');
+      if (targetCourier === "carrybee") {
+        if (
+          !order.carrybee_city_id ||
+          !order.carrybee_zone_id ||
+          !order.carrybee_area_id
+        ) {
+          toast.error(
+            "Please select Carrybee City, Zone, and Area first by editing the order.",
+          );
           setLoading(false);
           return;
         }
       }
-      
+
       const orderData = {
         invoice: order.orderNumber?.toString() || order.id.slice(0, 8),
         customer_name: order.customerName,
@@ -1322,80 +1858,105 @@ export default function Orders() {
         customer_address: order.customerAddress,
         amount: order.totalAmount,
         cod_amount: Math.round(order.dueAmount || 0),
-        note: order.notes || '',
+        note: order.notes || "",
         weight: 0.5,
-        recipient_city: targetCourier === 'carrybee' ? order.carrybee_city_id : order.pathao_city_id,
-        recipient_zone: targetCourier === 'carrybee' ? order.carrybee_zone_id : order.pathao_zone_id,
-        recipient_area: targetCourier === 'carrybee' ? order.carrybee_area_id : order.pathao_area_id,
+        recipient_city:
+          targetCourier === "carrybee"
+            ? order.carrybee_city_id
+            : order.pathao_city_id,
+        recipient_zone:
+          targetCourier === "carrybee"
+            ? order.carrybee_zone_id
+            : order.pathao_zone_id,
+        recipient_area:
+          targetCourier === "carrybee"
+            ? order.carrybee_area_id
+            : order.pathao_area_id,
       };
 
-      const response = await fetch('/api/couriers/order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courier: targetCourier, orderData })
+      const response = await fetch("/api/couriers/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courier: targetCourier, orderData }),
       });
 
-      const result = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
+      const result = await (response.headers
+        .get("content-type")
+        ?.includes("json")
+        ? response.json()
+        : Promise.reject(new Error("Invalid non-JSON response from server.")));
 
       if (response.ok) {
-        const trackingCode = result.consignment?.tracking_code || result.tracking_id || result.tracking_code;
-        
-        if (order.source === 'woocommerce') {
+        const trackingCode =
+          result.consignment?.tracking_code ||
+          result.tracking_id ||
+          result.tracking_code;
+
+        if (order.source === "woocommerce") {
           // Update WooCommerce order status to processing or shipped
           await fetch(`/api/woocommerce/orders/${order.wooId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'processing' })
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "processing" }),
           });
-          
+
           // Update local state so UI reflects the change immediately
-          setWooOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'processing' } : o));
-          
+          setWooOrders((prev) =>
+            prev.map((o) =>
+              o.id === order.id ? { ...o, status: "processing" } : o,
+            ),
+          );
+
           // Also save to local deliveries for tracking
-          await addDoc(collection(db, 'deliveries'), {
+          await addDoc(collection(db, "deliveries"), {
             id: trackingCode,
             orderId: order.id,
             wooId: order.wooId,
-            courier: targetCourier.charAt(0).toUpperCase() + targetCourier.slice(1),
-            status: 'Pending Pickup',
-            location: order.customerZone || 'Processing',
-            eta: '2-3 Days',
+            courier:
+              targetCourier.charAt(0).toUpperCase() + targetCourier.slice(1),
+            status: "Pending Pickup",
+            location: order.customerZone || "Processing",
+            eta: "2-3 Days",
             createdAt: serverTimestamp(),
-            uid: auth.currentUser?.uid
+            uid: auth.currentUser?.uid,
           });
         } else {
-          await updateDoc(doc(db, 'orders', order.id), {
-            courierName: targetCourier.charAt(0).toUpperCase() + targetCourier.slice(1),
+          await updateDoc(doc(db, "orders", order.id), {
+            courierName:
+              targetCourier.charAt(0).toUpperCase() + targetCourier.slice(1),
             trackingNumber: trackingCode,
-            status: 'shipped',
+            status: "shipped",
             updatedAt: serverTimestamp(),
             logs: arrayUnion({
               user: auth.currentUser?.email,
               action: `Sent to ${targetCourier}`,
               timestamp: Timestamp.now(),
-              details: `Tracking Code: ${trackingCode}`
-            })
+              details: `Tracking Code: ${trackingCode}`,
+            }),
           });
 
-          await addDoc(collection(db, 'deliveries'), {
+          await addDoc(collection(db, "deliveries"), {
             id: trackingCode,
             orderId: order.id,
             orderNumber: order.orderNumber,
-            courier: targetCourier.charAt(0).toUpperCase() + targetCourier.slice(1),
-            status: 'Pending Pickup',
-            location: order.customerZone || 'Processing',
-            eta: '2-3 Days',
+            courier:
+              targetCourier.charAt(0).toUpperCase() + targetCourier.slice(1),
+            status: "Pending Pickup",
+            location: order.customerZone || "Processing",
+            eta: "2-3 Days",
             createdAt: serverTimestamp(),
-            uid: auth.currentUser?.uid
+            uid: auth.currentUser?.uid,
           });
         }
 
-        toast.success(`Order sent to ${targetCourier}! Tracking: ${trackingCode}`);
+        toast.success(
+          `Order sent to ${targetCourier}! Tracking: ${trackingCode}`,
+        );
       } else {
         throw new Error(result.error || `Failed to send to ${targetCourier}`);
       }
     } catch (error: any) {
-      console.error('Courier error:', error);
+      console.error("Courier error:", error);
       toast.error(`Failed to send to courier: ${error.message}`);
     } finally {
       setLoading(false);
@@ -1403,285 +1964,421 @@ export default function Orders() {
   };
 
   const handleBulkSendToCourier = async () => {
-    const activeCouriers = Object.entries(courierConfigs).filter(([_, config]: [string, any]) => config.isActive);
+    const activeCouriers = Object.entries(courierConfigs).filter(
+      ([_, config]: [string, any]) => config.isActive,
+    );
     if (activeCouriers.length === 0) {
-      toast.error('No courier is active. Please go to Settings > Logistics to activate one.');
+      toast.error(
+        "No courier is active. Please go to Settings > Logistics to activate one.",
+      );
       return;
     }
     const targetCourier = activeCouriers[0][0];
 
     const allOrders = [...orders, ...wooOrders];
-    const eligibleOrders = allOrders.filter(o => 
-      selectedOrders.includes(o.id) && 
-      !['shipped', 'delivered', 'cancelled', 'returned'].includes(o.status)
+    const eligibleOrders = allOrders.filter(
+      (o) =>
+        selectedOrders.includes(o.id) &&
+        !["shipped", "delivered", "cancelled", "returned"].includes(o.status),
     );
 
     if (eligibleOrders.length === 0) {
-      toast.error('No eligible orders selected (must be pending/processing).');
+      toast.error("No eligible orders selected (must be pending/processing).");
       return;
     }
 
     setConfirmConfig({
       isOpen: true,
-      title: 'Bulk Send to Courier',
+      title: "Bulk Send to Courier",
       message: `Are you sure you want to send ${eligibleOrders.length} orders to ${targetCourier}?`,
-      variant: 'info',
+      variant: "info",
       onConfirm: async () => {
         setLoading(true);
         let successCount = 0;
         let failCount = 0;
 
-    for (const order of eligibleOrders) {
-      try {
-        const sanitizePhone = (phone: string) => {
-          const cleaned = phone.replace(/\D/g, '');
-          return cleaned.length > 11 ? cleaned.slice(-11) : cleaned;
-        };
+        for (const order of eligibleOrders) {
+          try {
+            const sanitizePhone = (phone: string) => {
+              const cleaned = phone.replace(/\D/g, "");
+              return cleaned.length > 11 ? cleaned.slice(-11) : cleaned;
+            };
 
-        const phone = sanitizePhone(order.customerPhone);
-        
-        if (targetCourier === 'pathao') {
-          if (!order.pathao_city_id || !order.pathao_zone_id || !order.pathao_area_id) {
+            const phone = sanitizePhone(order.customerPhone);
+
+            if (targetCourier === "pathao") {
+              if (
+                !order.pathao_city_id ||
+                !order.pathao_zone_id ||
+                !order.pathao_area_id
+              ) {
+                failCount++;
+                continue;
+              }
+            }
+
+            const orderData = {
+              invoice: order.orderNumber?.toString() || order.id.slice(0, 8),
+              customer_name: order.customerName,
+              customer_phone: phone,
+              customer_address: order.customerAddress,
+              amount: order.totalAmount,
+              cod_amount: Math.round(order.dueAmount || 0),
+              note: order.notes || "",
+              weight: 0.5,
+              recipient_city: order.pathao_city_id,
+              recipient_zone: order.pathao_zone_id,
+              recipient_area: order.pathao_area_id,
+            };
+
+            const response = await fetch("/api/couriers/order", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ courier: targetCourier, orderData }),
+            });
+
+            const result = await (response.headers
+              .get("content-type")
+              ?.includes("json")
+              ? response.json()
+              : Promise.reject(
+                  new Error("Invalid non-JSON response from server."),
+                ));
+
+            if (response.ok) {
+              const trackingCode =
+                result.consignment?.tracking_code ||
+                result.tracking_id ||
+                result.tracking_code;
+
+              if (order.source === "woocommerce") {
+                await fetch(`/api/woocommerce/orders/${order.wooId}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ status: "processing" }),
+                });
+
+                setWooOrders((prev) =>
+                  prev.map((o) =>
+                    o.id === order.id ? { ...o, status: "processing" } : o,
+                  ),
+                );
+
+                await addDoc(collection(db, "deliveries"), {
+                  id: trackingCode,
+                  orderId: order.id,
+                  wooId: order.wooId,
+                  courier:
+                    targetCourier.charAt(0).toUpperCase() +
+                    targetCourier.slice(1),
+                  status: "Pending Pickup",
+                  location: order.customerZone || "Processing",
+                  eta: "2-3 Days",
+                  createdAt: serverTimestamp(),
+                  uid: auth.currentUser?.uid,
+                });
+              } else {
+                await updateDoc(doc(db, "orders", order.id), {
+                  courierName:
+                    targetCourier.charAt(0).toUpperCase() +
+                    targetCourier.slice(1),
+                  trackingNumber: trackingCode,
+                  status: "shipped",
+                  updatedAt: serverTimestamp(),
+                  logs: arrayUnion({
+                    user: auth.currentUser?.email,
+                    action: `Sent to ${targetCourier} (Bulk)`,
+                    timestamp: Timestamp.now(),
+                    details: `Tracking Code: ${trackingCode}`,
+                  }),
+                });
+
+                // Add to deliveries collection
+                await addDoc(collection(db, "deliveries"), {
+                  id: trackingCode,
+                  orderId: order.id,
+                  orderNumber: order.orderNumber,
+                  courier:
+                    targetCourier.charAt(0).toUpperCase() +
+                    targetCourier.slice(1),
+                  status: "Pending Pickup",
+                  location: order.customerZone || "Processing",
+                  eta: "2-3 Days",
+                  createdAt: serverTimestamp(),
+                  uid: auth.currentUser?.uid,
+                });
+              }
+
+              successCount++;
+            } else {
+              failCount++;
+            }
+          } catch (error) {
+            console.error(
+              `${targetCourier} error for order ${order.id}:`,
+              error,
+            );
             failCount++;
-            continue;
           }
         }
-        
-        const orderData = {
-          invoice: order.orderNumber?.toString() || order.id.slice(0, 8),
-          customer_name: order.customerName,
-          customer_phone: phone,
-          customer_address: order.customerAddress,
-          amount: order.totalAmount,
-          cod_amount: Math.round(order.dueAmount || 0),
-          note: order.notes || '',
-          weight: 0.5,
-          recipient_city: order.pathao_city_id,
-          recipient_zone: order.pathao_zone_id,
-          recipient_area: order.pathao_area_id,
-        };
 
-        const response = await fetch('/api/couriers/order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ courier: targetCourier, orderData })
-        });
-
-        const result = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
-
-        if (response.ok) {
-          const trackingCode = result.consignment?.tracking_code || result.tracking_id || result.tracking_code;
-          
-          if (order.source === 'woocommerce') {
-            await fetch(`/api/woocommerce/orders/${order.wooId}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status: 'processing' })
-            });
-            
-            setWooOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'processing' } : o));
-            
-            await addDoc(collection(db, 'deliveries'), {
-              id: trackingCode,
-              orderId: order.id,
-              wooId: order.wooId,
-              courier: targetCourier.charAt(0).toUpperCase() + targetCourier.slice(1),
-              status: 'Pending Pickup',
-              location: order.customerZone || 'Processing',
-              eta: '2-3 Days',
-              createdAt: serverTimestamp(),
-              uid: auth.currentUser?.uid
-            });
-          } else {
-            await updateDoc(doc(db, 'orders', order.id), {
-              courierName: targetCourier.charAt(0).toUpperCase() + targetCourier.slice(1),
-              trackingNumber: trackingCode,
-              status: 'shipped',
-              updatedAt: serverTimestamp(),
-              logs: arrayUnion({
-                user: auth.currentUser?.email,
-                action: `Sent to ${targetCourier} (Bulk)`,
-                timestamp: Timestamp.now(),
-                details: `Tracking Code: ${trackingCode}`
-              })
-            });
-
-            // Add to deliveries collection
-            await addDoc(collection(db, 'deliveries'), {
-              id: trackingCode,
-              orderId: order.id,
-              orderNumber: order.orderNumber,
-              courier: targetCourier.charAt(0).toUpperCase() + targetCourier.slice(1),
-              status: 'Pending Pickup',
-              location: order.customerZone || 'Processing',
-              eta: '2-3 Days',
-              createdAt: serverTimestamp(),
-              uid: auth.currentUser?.uid
-            });
-          }
-
-          successCount++;
-        } else {
-          failCount++;
-        }
-      } catch (error) {
-        console.error(`${targetCourier} error for order ${order.id}:`, error);
-        failCount++;
-      }
-    }
-
-    setLoading(false);
-    setSelectedOrders([]);
-    toast.success(`Bulk process complete. Success: ${successCount}, Failed: ${failCount}`);
-      }
+        setLoading(false);
+        setSelectedOrders([]);
+        toast.success(
+          `Bulk process complete. Success: ${successCount}, Failed: ${failCount}`,
+        );
+      },
     });
   };
 
   const handleExportCSV = () => {
     const allOrders = [...orders, ...wooOrders];
     if (allOrders.length === 0) {
-      toast.error('No orders to export');
+      toast.error("No orders to export");
       return;
     }
 
-    const headers = ['Order ID', 'Order Number', 'Customer Name', 'Phone', 'Address', 'City', 'Zone', 'Subtotal', 'Delivery Charge', 'Discount', 'Total Amount', 'Paid Amount', 'Due Amount', 'Status', 'Channel', 'Payment Method', 'Created At'];
-    const csvRows = [headers.join(',')];
+    const headers = [
+      "Order ID",
+      "Order Number",
+      "Customer Name",
+      "Phone",
+      "Address",
+      "City",
+      "Zone",
+      "Subtotal",
+      "Delivery Charge",
+      "Discount",
+      "Total Amount",
+      "Paid Amount",
+      "Due Amount",
+      "Status",
+      "Channel",
+      "Payment Method",
+      "Created At",
+    ];
+    const csvRows = [headers.join(",")];
 
-    allOrders.forEach(order => {
+    allOrders.forEach((order) => {
       const row = [
         order.id,
-        order.orderNumber || '',
-        `"${order.customerName || ''}"`,
-        `"${order.customerPhone || ''}"`,
-        `"${(order.customerAddress || '').replace(/"/g, '""')}"`,
-        order.customerCity || '',
-        order.customerZone || '',
+        order.orderNumber || "",
+        `"${order.customerName || ""}"`,
+        `"${order.customerPhone || ""}"`,
+        `"${(order.customerAddress || "").replace(/"/g, '""')}"`,
+        order.customerCity || "",
+        order.customerZone || "",
         order.subtotal || 0,
         order.deliveryCharge || 0,
         order.discount || 0,
         order.totalAmount || 0,
         order.paidAmount || 0,
         order.dueAmount || 0,
-        order.status || '',
-        order.channel || '',
-        order.paymentMethod || '',
-        order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString() : (order.createdAt?.seconds ? new Date(order.createdAt.seconds * 1000).toLocaleString() : 'N/A')
+        order.status || "",
+        order.channel || "",
+        order.paymentMethod || "",
+        order.createdAt?.toDate
+          ? order.createdAt.toDate().toLocaleString()
+          : order.createdAt?.seconds
+            ? new Date(order.createdAt.seconds * 1000).toLocaleString()
+            : "N/A",
       ];
-      csvRows.push(row.join(','));
+      csvRows.push(row.join(","));
     });
 
-    const csvContent = csvRows.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const csvContent = csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `orders_export_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `orders_export_${new Date().toISOString().split("T")[0]}.csv`,
+    );
+    link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success('Orders exported successfully');
+    toast.success("Orders exported successfully");
   };
 
-  const combinedOrders = useMemo(() => [...orders, ...wooOrders], [orders, wooOrders]);
+  const combinedOrders = useMemo(
+    () => [...orders, ...wooOrders],
+    [orders, wooOrders],
+  );
 
   const filteredOrders = useMemo(() => {
-    return combinedOrders.filter(order => {
-      const matchesSearch = 
-        order.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customerPhone?.includes(searchTerm) ||
-        order.orderNumber?.toString().includes(searchTerm);
-      
-      const matchesTab = activeTab === 'All' || order.status === activeTab;
-      
-      const date = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
-      const now = new Date();
-      let matchesDate = true;
-      if (dateFilter === 'today') {
-        matchesDate = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-      } else if (dateFilter === 'month') {
-        matchesDate = date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-      }
-      
-      return matchesSearch && matchesTab && matchesDate;
-    }).sort((a, b) => {
-      const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-      const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
-      return dateB.getTime() - dateA.getTime();
-    });
+    return combinedOrders
+      .filter((order) => {
+        const matchesSearch =
+          order.customerName
+            ?.toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          order.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.customerPhone?.includes(searchTerm) ||
+          order.orderNumber?.toString().includes(searchTerm);
+
+        const matchesTab = activeTab === "All" || order.status === activeTab;
+
+        const date = order.createdAt?.toDate
+          ? order.createdAt.toDate()
+          : new Date(order.createdAt);
+        const now = new Date();
+        let matchesDate = true;
+        if (dateFilter === "today") {
+          matchesDate =
+            date.getDate() === now.getDate() &&
+            date.getMonth() === now.getMonth() &&
+            date.getFullYear() === now.getFullYear();
+        } else if (dateFilter === "month") {
+          matchesDate =
+            date.getMonth() === now.getMonth() &&
+            date.getFullYear() === now.getFullYear();
+        }
+
+        return matchesSearch && matchesTab && matchesDate;
+      })
+      .sort((a, b) => {
+        const dateA = a.createdAt?.toDate
+          ? a.createdAt.toDate()
+          : new Date(a.createdAt);
+        const dateB = b.createdAt?.toDate
+          ? b.createdAt.toDate()
+          : new Date(b.createdAt);
+        return dateB.getTime() - dateA.getTime();
+      });
   }, [combinedOrders, searchTerm, activeTab, dateFilter]);
 
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const paginatedOrders = filteredOrders.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
-  const allO = useMemo(() => combinedOrders.filter(order => {
-    const date = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
-    const now = new Date();
-    if (dateFilter === 'today') {
-      return date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    } else if (dateFilter === 'month') {
-      return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    }
-    return true;
-  }), [combinedOrders, dateFilter]);
+  const allO = useMemo(
+    () =>
+      combinedOrders.filter((order) => {
+        const date = order.createdAt?.toDate
+          ? order.createdAt.toDate()
+          : new Date(order.createdAt);
+        const now = new Date();
+        if (dateFilter === "today") {
+          return (
+            date.getDate() === now.getDate() &&
+            date.getMonth() === now.getMonth() &&
+            date.getFullYear() === now.getFullYear()
+          );
+        } else if (dateFilter === "month") {
+          return (
+            date.getMonth() === now.getMonth() &&
+            date.getFullYear() === now.getFullYear()
+          );
+        }
+        return true;
+      }),
+    [combinedOrders, dateFilter],
+  );
 
-  const getStats = useCallback((statusFilter?: string) => {
-    const filterFn = (o: any) => !statusFilter || o.status === statusFilter;
-    
-    const currentOrders = allO.filter(filterFn);
-    const count = currentOrders.length;
-    
-    // Using simple formatting for revenue (rounded to nearest int)
-    const revenueValue = currentOrders.reduce((sum, o) => sum + (parseFloat(o.totalAmount) || parseFloat(o.subtotal) || 0), 0);
-    const revenue = new Intl.NumberFormat('en-US').format(Math.round(revenueValue));
+  const getStats = useCallback(
+    (statusFilter?: string) => {
+      const filterFn = (o: any) => !statusFilter || o.status === statusFilter;
 
-    const now = new Date();
-    let prevStart = new Date(0);
-    let prevEnd = new Date(0);
+      const currentOrders = allO.filter(filterFn);
+      const count = currentOrders.length;
 
-    if (dateFilter === 'today') {
-      prevStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-      prevEnd = new Date(prevStart);
-      prevEnd.setDate(prevEnd.getDate() + 1);
-    } else if (dateFilter === 'month') {
-      prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      prevEnd = new Date(now.getFullYear(), now.getMonth(), 1);
-    } else {
-      prevStart = new Date(); prevStart.setDate(now.getDate() - 60);
-      prevEnd = new Date(); prevEnd.setDate(now.getDate() - 30);
-    }
-    
-    const previousPeriodCount = combinedOrders.filter(o => {
-      if (!filterFn(o)) return false;
-      const d = o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt);
-      return d >= prevStart && d < prevEnd;
-    }).length;
+      // Using simple formatting for revenue (rounded to nearest int)
+      const revenueValue = currentOrders.reduce(
+        (sum, o) =>
+          sum + (parseFloat(o.totalAmount) || parseFloat(o.subtotal) || 0),
+        0,
+      );
+      const revenue = new Intl.NumberFormat("en-US").format(
+        Math.round(revenueValue),
+      );
 
-    let growthValueStr = '';
-    let isPositive = true;
+      const now = new Date();
+      let prevStart = new Date(0);
+      let prevEnd = new Date(0);
 
-    if (previousPeriodCount === 0) {
-      growthValueStr = count > 0 ? '100%' : '0%';
-      isPositive = count > 0;
-    } else {
-      const growth = ((count - previousPeriodCount) / previousPeriodCount) * 100;
-      isPositive = growth >= 0;
-      growthValueStr = Math.abs(growth).toFixed(0) + '%';
-    }
+      if (dateFilter === "today") {
+        prevStart = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() - 1,
+        );
+        prevEnd = new Date(prevStart);
+        prevEnd.setDate(prevEnd.getDate() + 1);
+      } else if (dateFilter === "month") {
+        prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        prevEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+      } else {
+        prevStart = new Date();
+        prevStart.setDate(now.getDate() - 60);
+        prevEnd = new Date();
+        prevEnd.setDate(now.getDate() - 30);
+      }
 
-    return { count, revenue, growth: { value: growthValueStr, isPositive } };
-  }, [allO, combinedOrders, dateFilter]);
+      const previousPeriodCount = combinedOrders.filter((o) => {
+        if (!filterFn(o)) return false;
+        const d = o.createdAt?.toDate
+          ? o.createdAt.toDate()
+          : new Date(o.createdAt);
+        return d >= prevStart && d < prevEnd;
+      }).length;
 
-  const statsMap = useMemo(() => ({
-    total: getStats(),
-    completed: getStats('delivered'),
-    pending: getStats('pending'),
-    cancelled: getStats('cancelled'),
-  }), [getStats]);
+      let growthValueStr = "";
+      let isPositive = true;
+
+      if (previousPeriodCount === 0) {
+        growthValueStr = count > 0 ? "100%" : "0%";
+        isPositive = count > 0;
+      } else {
+        const growth =
+          ((count - previousPeriodCount) / previousPeriodCount) * 100;
+        isPositive = growth >= 0;
+        growthValueStr = Math.abs(growth).toFixed(0) + "%";
+      }
+
+      return { count, revenue, growth: { value: growthValueStr, isPositive } };
+    },
+    [allO, combinedOrders, dateFilter],
+  );
+
+  const handleDirectPrint = useCallback(
+    (order: any, type: "a5" | "pos") => {
+      setSelectedOrderForPrint(order);
+      setPrintType(type);
+
+      // We need to wait for the hidden print area to update with the new order
+      setTimeout(() => {
+        if (printRef.current) {
+          const win = window.open("", "_blank");
+          if (win) {
+            openPrintWindow(
+              printRef.current.innerHTML,
+              `Invoice_${order.orderNumber || order.id}`,
+              win,
+            );
+            setSelectedOrderForPrint(null);
+            setPrintType(null);
+          } else {
+            toast.error("Please allow popups to print.");
+          }
+        }
+      }, 500);
+    },
+    [companySettings, currencySymbol],
+  );
+
+  const statsMap = useMemo(
+    () => ({
+      total: getStats(),
+      completed: getStats("delivered"),
+      pending: getStats("pending"),
+      cancelled: getStats("cancelled"),
+    }),
+    [getStats],
+  );
 
   const totalStats = statsMap.total;
   const completedStats = statsMap.completed;
@@ -1689,132 +2386,276 @@ export default function Orders() {
   const cancelledStats = statsMap.cancelled;
 
   const statCards = [
-    { label: 'Total Orders', stats: totalStats, icon: Package, iconBg: 'bg-blue-100/50', iconColor: 'text-[#065F6B]' },
-    { label: 'Completed Orders', stats: completedStats, icon: PackageCheck, iconBg: 'bg-green-100/50', iconColor: 'text-[#1B9D33]' },
-    { label: 'Pending Orders', stats: pendingStats, icon: Clock, iconBg: 'bg-orange-100/50', iconColor: 'text-[#E57A21]' },
-    { label: 'Cancelled Orders', stats: cancelledStats, icon: PackageX, iconBg: 'bg-purple-100/50', iconColor: 'text-[#845BC3]' },
+    {
+      label: "Total Orders",
+      stats: totalStats,
+      icon: Package,
+      iconBg: "bg-blue-100/50",
+      iconColor: "text-[#065F6B]",
+    },
+    {
+      label: "Completed Orders",
+      stats: completedStats,
+      icon: PackageCheck,
+      iconBg: "bg-green-100/50",
+      iconColor: "text-[#1B9D33]",
+    },
+    {
+      label: "Pending Orders",
+      stats: pendingStats,
+      icon: Clock,
+      iconBg: "bg-orange-100/50",
+      iconColor: "text-[#E57A21]",
+    },
+    {
+      label: "Cancelled Orders",
+      stats: cancelledStats,
+      icon: PackageX,
+      iconBg: "bg-purple-100/50",
+      iconColor: "text-[#845BC3]",
+    },
   ];
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto no-print">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6">
+    <div className="p-4 s:p-6 md:p-8 space-y-8 max-w-[1600px] mx-auto no-print">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8">
         <div className="space-y-1">
-          <h2 className="text-2xl sm:text-3xl font-bold text-[#141414] tracking-tight">Order Management</h2>
-          <p className="text-xs sm:text-sm text-[#6b7280]">Manage your F-Commerce and website orders seamlessly.</p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-[#141414] tracking-tight">
+            Order Flows
+          </h2>
+          <p className="text-gray-500 text-sm font-medium">
+            Execute and track multi-channel fulfillment across your entire retail network.
+          </p>
         </div>
         
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
-          <div className="relative">
-            <select 
-              value={dateFilter} 
-              onChange={e => setDateFilter(e.target.value)}
-              className="appearance-none pl-4 pr-10 py-2.5 border border-gray-200 rounded-xl text-[13px] font-semibold bg-white text-gray-700 outline-none hover:border-gray-300 cursor-pointer shadow-sm w-full transition-colors focus:border-[#00AEEF] focus:ring-2 focus:ring-[#00AEEF]/20"
+        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg shadow-sm px-3 py-1 text-sm font-medium text-gray-700 h-11">
+            <div className="relative flex items-center h-full">
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="w-full appearance-none pl-3 pr-8 py-2 text-sm font-medium bg-transparent text-gray-700 outline-none cursor-pointer"
+              >
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="month">This Month</option>
+              </select>
+              <Calendar size={16} className="absolute right-2 text-gray-400 pointer-events-none" />
+            </div>
+            <div className="w-px h-5 bg-gray-200" />
+            <button
+              onClick={handleExportCSV}
+              className="w-8 h-8 flex items-center justify-center hover:bg-gray-50 rounded-md transition-colors text-gray-400 hover:text-gray-900 shrink-0"
+              title="Export CSV"
             >
-              <option value="all">All Time</option>
-              <option value="today">Today</option>
-              <option value="month">This Month</option>
-            </select>
-            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+              <Download size={16} />
+            </button>
           </div>
-          <button 
-            onClick={handleExportCSV}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-[13px] font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
-          >
-            <Download size={16} />
-            <span className="whitespace-nowrap">Export CSV</span>
-          </button>
-          <button 
-            onClick={() => setViewMode(viewMode === 'table' ? 'grid' : 'table')}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-[13px] font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
-          >
-            {viewMode === 'table' ? <LayoutGrid size={16} /> : <List size={16} />}
-            <span className="whitespace-nowrap">{viewMode === 'table' ? 'Grid View' : 'Table View'}</span>
-          </button>
-          <Link 
+
+          {/* List/Grid View Toggle */}
+          <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg shadow-sm p-1">
+            <button
+               onClick={() => setViewMode("table")}
+               className={`p-2 rounded-md transition-colors ${viewMode === "table" ? "bg-gray-100 text-gray-800" : "text-gray-400 hover:text-gray-600"}`}
+            >
+               <List size={16} />
+            </button>
+            <button
+               onClick={() => setViewMode("grid")}
+               className={`p-2 rounded-md transition-colors ${viewMode === "grid" ? "bg-gray-100 text-gray-800" : "text-gray-400 hover:text-gray-600"}`}
+            >
+               <LayoutGrid size={16} />
+            </button>
+          </div>
+
+          <Link
             to="/orders/new"
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-[#141414] text-white rounded-xl text-[13px] font-bold hover:bg-black transition-all shadow-md hover:shadow-lg"
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#1C2032] text-white rounded-lg text-sm font-semibold hover:bg-[#2A2F45] transition-colors shadow-sm"
           >
-            <Plus size={16} />
-            <span className="whitespace-nowrap">New Order</span>
+            <Plus size={16} strokeWidth={2.5} />
+            <span>New Order</span>
           </Link>
         </div>
       </div>
 
-      <div className="max-w-md relative w-full mb-6">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-        <input 
-          type="text"
-          placeholder="Search by Name, Phone, ID..."
-          className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-[13px] focus:border-[#00AEEF] focus:ring-2 focus:ring-[#00AEEF]/20 outline-none transition-all shadow-sm placeholder:text-gray-400"
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-        />
-      </div>
+      {/* Advanced Search & Stats */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-12 gap-5 mb-8">
+        {/* Left Column: Search & Overview */}
+        <div className="lg:col-span-1 xl:col-span-4 2xl:col-span-3 flex flex-col gap-5">
+           {/* Search Input */}
+           <div className="bg-white border border-gray-200 rounded-[20px] p-2 flex items-center shadow-sm h-14">
+             <div className="flex items-center justify-center w-12 text-gray-400">
+                <Search size={18} />
+             </div>
+             <input 
+               type="text" 
+               placeholder="Search orders..." 
+               className="flex-1 bg-transparent border-none outline-none text-sm placeholder-gray-400 text-gray-800"
+               value={searchTerm}
+               onChange={(e) => setSearchTerm(e.target.value)}
+             />
+             <div className="w-10 h-10 flex items-center justify-center text-gray-500 cursor-pointer hover:bg-gray-50 rounded-xl transition-colors shrink-0">
+                <Filter size={18} />
+             </div>
+           </div>
 
-      {/* Orders Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-        {statCards.map((card, i) => (
-          <div key={i} className="bg-white rounded-xl border border-gray-200 flex flex-col overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
-            <div className="p-4 flex flex-col gap-3">
-              <div className="flex justify-between items-start">
-                <h3 className="text-[14px] font-medium text-gray-600">{card.label}</h3>
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${card.iconBg} ${card.iconColor}`}>
-                  <card.icon size={16} strokeWidth={2} />
+           {/* Pending and Delivered Stats */}
+           <div className="grid grid-cols-2 gap-4">
+             {/* Pending Orders Card */}
+             <div className="bg-white border border-gray-200 rounded-[20px] p-5 shadow-sm relative overflow-hidden flex flex-col justify-between h-[160px]">
+                <div>
+                   <p className="text-[10px] font-bold text-[#FF6347] uppercase tracking-wider mb-2">Pending Orders</p>
+                   <div className="flex items-end gap-1.5 mb-2">
+                     <span className="text-3xl font-bold text-gray-900 leading-none">{pendingStats.count}</span>
+                     <span className="text-xs font-medium text-gray-500 mb-0.5">Items</span>
+                   </div>
                 </div>
-              </div>
-              <div className="flex flex-col gap-1">
-                <div className="text-[28px] font-bold text-gray-900 leading-none tracking-tight">
-                  {card.stats.count}
+                <div className="text-[13px] font-bold text-[#FF6347] z-10">
+                   ৳{pendingStats.revenue}
                 </div>
-                <div className="text-[12px] text-gray-500 font-medium">
-                  Revenue Generated: <span className="font-semibold text-gray-800">৳{card.stats.revenue}</span>
+                <div className="absolute right-4 inset-y-0 flex items-center opacity-20 pointer-events-none">
+                   <ShoppingCart size={28} className="text-[#FF6347]" />
                 </div>
-              </div>
-            </div>
-            <div className="bg-[#f8f9fa] border-t border-gray-100 flex items-center justify-between px-4 py-2.5 mt-auto">
-              <div className={`text-[11px] font-bold flex items-center gap-1 ${card.stats.growth.isPositive ? 'text-green-600' : 'text-orange-500'}`}>
-                {card.stats.growth.isPositive ? <TrendingUp size={14} strokeWidth={2.5} /> : <TrendingDown size={14} strokeWidth={2.5} />} 
-                {card.stats.growth.isPositive ? '+' : '-'}{card.stats.growth.value}
-              </div>
-              <span className="text-[11px] text-gray-400 font-medium tracking-wide">From last month.</span>
-            </div>
+             </div>
+
+             {/* Delivered Card */}
+             <div className="bg-white border border-gray-200 rounded-[20px] p-5 shadow-sm relative overflow-hidden flex flex-col justify-between h-[160px]">
+                <div>
+                  <p className="text-[10px] font-bold text-[#1DAB61] uppercase tracking-wider mb-2">Delivered</p>
+                  <div className="flex items-end gap-1.5 mb-2">
+                    <span className="text-3xl font-bold text-gray-900 leading-none">{completedStats.count}</span>
+                    <span className="text-xs font-medium text-gray-500 mb-0.5">Total</span>
+                  </div>
+                </div>
+                <div className="text-[13px] font-bold text-[#1DAB61] z-10">
+                   ৳{completedStats.revenue}
+                </div>
+                <div className="absolute right-4 inset-y-0 flex items-center opacity-20 pointer-events-none">
+                   <Package size={28} className="text-[#1DAB61]" />
+                </div>
+             </div>
+           </div>
+        </div>
+
+        {/* Business Value Chart */}
+        <div className="lg:col-span-1 xl:col-span-4 2xl:col-span-5 bg-[#1C2032] border border-[#2b2b2b] rounded-[24px] p-6 2xl:p-7 text-white relative overflow-hidden shadow-sm flex flex-col">
+          {/* Header Row */}
+          <div className="flex justify-between items-center mb-6">
+             <div className="flex items-center gap-2">
+                 <TrendingUp size={16} className="text-[#0066FF]" />
+                 <span className="text-[11px] font-medium tracking-wider text-[#0066FF] uppercase">Business Value</span>
+             </div>
+             <div className="bg-[#1DAB61]/10 border border-[#1DAB61]/20 text-[#1DAB61] text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1">
+                 <TrendingUp size={12} />
+                 100%
+             </div>
           </div>
-        ))}
+          {/* Value */}
+          <div className="mb-4">
+             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2">Total Sales Revenue</p>
+             <h3 className="text-[40px] leading-none font-bold text-white tracking-tight">৳124,279</h3>
+          </div>
+          
+          <div className="mt-auto flex items-end justify-between z-10">
+             <p className="text-xs text-gray-400 leading-relaxed max-w-[200px]">Combined market value across all active sales channels.</p>
+             <div className="flex -space-x-2">
+                 {[1, 2, 3].map(i => (
+                    <div key={i} className="w-8 h-8 rounded-full border-[3px] border-[#1C2032] bg-gray-600 overflow-hidden">
+                       <div className="w-full h-full bg-gradient-to-br from-gray-400 to-gray-500" />
+                    </div>
+                 ))}
+                 <div className="w-8 h-8 rounded-full border-[3px] border-[#1C2032] bg-white text-[#1C2032] flex items-center justify-center text-sm font-bold z-10">+</div>
+             </div>
+          </div>
+          {/* Subtle gradient blob */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-gradient-to-r from-transparent via-[#0066FF]/5 to-transparent pointer-events-none transform -skew-x-12" />
+        </div>
+
+        {/* Completion Rate / Performance Card */}
+        <div className="col-span-full lg:col-span-2 xl:col-span-4 2xl:col-span-4 bg-white border border-gray-200 rounded-[24px] p-6 2xl:p-7 shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-start mb-6">
+             <div>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Completion Rate</p>
+                <h3 className="text-[40px] leading-none font-bold text-gray-900 tracking-tight">8%</h3>
+             </div>
+             {/* Circular Progress Placeholder */}
+             <div className="w-14 h-14 rounded-full flex items-center justify-center relative">
+                <svg className="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="45" fill="transparent" stroke="#F1F5F9" strokeWidth="6" />
+                  <circle cx="50" cy="50" r="45" fill="transparent" stroke="#0066FF" strokeWidth="6" strokeDasharray="282.7" strokeDashoffset={282.7 * (1 - 0.08)} strokeLinecap="round" />
+                </svg>
+                <Zap size={20} className="text-[#0066FF] relative z-10 fill-current" />
+             </div>
+          </div>
+
+          <div className="mb-6 space-y-2">
+             <div className="flex justify-between items-center">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Performance Index</p>
+                <span className="text-[11px] font-bold text-[#0066FF]">5 / 63</span>
+             </div>
+             <div className="h-2.5 w-full bg-[#f1f5f9] rounded-full overflow-hidden">
+                 <div className="h-full bg-[#2A4B8D] rounded-full relative" style={{ width: '8%' }} />
+             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+             <div className="bg-[#FFF8F8] border border-[#FFE5E5] rounded-[16px] p-4 flex flex-col justify-center">
+                 <p className="text-[9px] font-bold text-[#FF6347] uppercase tracking-wider mb-2">Return Ratio</p>
+                 <span className="text-lg font-bold text-gray-900 leading-none">0%</span>
+             </div>
+             <div className="bg-[#F4F9FF] border border-[#E5F0FF] rounded-[16px] p-4 flex flex-col justify-center">
+                 <p className="text-[9px] font-bold text-[#0066FF] uppercase tracking-wider mb-2">Avg Ticket</p>
+                 <span className="text-lg font-bold text-gray-900 leading-none">৳1,973</span>
+             </div>
+          </div>
+        </div>
       </div>
 
       {/* Bulk Actions Bar */}
       {selectedOrders.length > 0 && (
-        <div className="bg-[#141414] text-white p-3 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xl animate-in slide-in-from-top-4 sticky top-20 z-40">
+        <div className="bg-slate-900 dark:bg-card text-white p-3 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xl animate-in slide-in-from-top-4 sticky top-20 z-40 border border-border/40">
           <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 sm:gap-4">
-            <span className="text-xs sm:text-sm font-bold shrink-0">{selectedOrders.length} Selected</span>
+            <span className="text-xs sm:text-sm font-bold shrink-0">
+              {selectedOrders.length} Selected
+            </span>
             <div className="hidden sm:block h-4 w-px bg-[#ffffff33]" />
-            <select 
+            <select
               onChange={(e) => handleBulkStatusUpdate(e.target.value)}
               className="bg-[#ffffff1a] border border-[#ffffff33] rounded-lg px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-bold outline-none"
             >
-              <option value="" className="text-black">Update Status</option>
-              {statuses.map(s => <option key={s} value={s} className="text-black">{s.replace(/_/g, ' ').charAt(0).toUpperCase() + s.replace(/_/g, ' ').slice(1)}</option>)}
+              <option value="" className="text-black">
+                Update Status
+              </option>
+              {statuses.map((s) => (
+                <option key={s} value={s} className="text-black">
+                  {s.replace(/_/g, " ").charAt(0).toUpperCase() +
+                    s.replace(/_/g, " ").slice(1)}
+                </option>
+              ))}
             </select>
-            <button 
+            <button
               onClick={handleBulkSendToCourier}
               className="flex items-center gap-2 px-2 sm:px-3 py-1 bg-[#ffffff1a] hover:bg-[#ffffff33] rounded-xl text-[10px] sm:text-xs font-bold transition-all"
             >
-              <Truck size={12} className="sm:w-[14px] sm:h-[14px]" /> <span className="hidden xs:inline">Courier</span>
+              <Truck size={12} className="sm:w-[14px] sm:h-[14px]" />{" "}
+              <span className="hidden xs:inline">Courier</span>
             </button>
-            <button 
+            <button
               onClick={handleBulkDownloadPDF}
-              className="flex items-center gap-2 px-2 sm:px-3 py-1 bg-[#00AEEF] hover:bg-[#0096ce] rounded-lg text-[10px] sm:text-xs font-bold transition-all"
+              className="flex items-center gap-2 px-2 sm:px-3 py-1 bg-[#0066FF] hover:bg-[#0052CC] rounded-lg text-[10px] sm:text-xs font-bold transition-all"
             >
-              <Download size={12} className="sm:w-[14px] sm:h-[14px]" /> <span className="hidden xs:inline">Invoices</span>
+              <Download size={12} className="sm:w-[14px] sm:h-[14px]" />{" "}
+              <span className="hidden xs:inline">Invoices</span>
             </button>
-            <button 
+            <button
               onClick={handleBulkPrint}
               className="flex items-center gap-2 px-2 sm:px-3 py-1 bg-[#ffffff1a] hover:bg-[#ffffff33] rounded-lg text-[10px] sm:text-xs font-bold transition-all"
             >
-              <Printer size={12} className="sm:w-[14px] sm:h-[14px]" /> <span className="hidden xs:inline">Print</span>
+              <Printer size={12} className="sm:w-[14px] sm:h-[14px]" />{" "}
+              <span className="hidden xs:inline">Print</span>
             </button>
           </div>
-          <button 
+          <button
             onClick={() => setSelectedOrders([])}
             className="p-2 hover:bg-[#ffffff1a] rounded-full transition-all shrink-0"
           >
@@ -1823,469 +2664,737 @@ export default function Orders() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-6">
-        <div className="space-y-6">
-          <div className="bg-white p-1.5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth">
-            {tabs.map(tab => {
+      <div className="space-y-6">
+        <div className="w-full relative group/tabs pb-6">
+          <AnimatePresence>
+            {showLeftArrow && (
+              <>
+                <div className="absolute left-0 top-0 bottom-6 w-12 z-10 bg-gradient-to-r from-gray-50/80 to-transparent pointer-events-none rounded-l-[20px]" />
+                <motion.button
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  onClick={() => scrollTabs("left")}
+                  className="absolute -left-3 top-[22px] -translate-y-1/2 z-20 w-8 h-8 flex items-center justify-center bg-white border border-gray-200 rounded-full shadow-lg text-gray-600 hover:text-[#0066FF] hover:border-[#0066FF] transition-all"
+                >
+                  <ChevronLeft size={16} strokeWidth={3} />
+                </motion.button>
+              </>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {showRightArrow && (
+              <>
+                <div className="absolute right-0 top-0 bottom-6 w-12 z-10 bg-gradient-to-l from-gray-50/80 to-transparent pointer-events-none rounded-r-[20px]" />
+                <motion.button
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  onClick={() => scrollTabs("right")}
+                  className="absolute -right-3 top-[22px] -translate-y-1/2 z-20 w-8 h-8 flex items-center justify-center bg-white border border-gray-200 rounded-full shadow-lg text-gray-600 hover:text-[#0066FF] hover:border-[#0066FF] transition-all"
+                >
+                  <ChevronRight size={16} strokeWidth={3} />
+                </motion.button>
+              </>
+            )}
+          </AnimatePresence>
+
+          <div 
+            ref={tabsRef}
+            className="flex overflow-x-auto items-center p-1 bg-white border border-gray-200 rounded-[20px] shadow-sm gap-x-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] scroll-smooth"
+          >
+            {tabs.map((tab, index) => {
               const isActive = activeTab === tab;
-              const Icon = {
-                'All': LayoutGrid,
-                'urgent': Flame,
-                'hold': PauseCircle,
-                'pending': Clock,
-                'confirmed': CheckCircle2,
-                'processing': Zap,
-                'shipped': Truck,
-                'delivered': PackageCheck,
-                'cancelled': PackageX,
-                'returned': RotateCcw
-              }[tab] || Package;
+              const count = combinedOrders.filter((o) => tab === "All" || o.status === tab).length;
+              const Icon =
+                {
+                  All: Filter,
+                  urgent: Flame,
+                  hold: PauseCircle,
+                  pending: Clock,
+                  confirmed: CheckCircle2,
+                  processing: Zap,
+                  shipped: Truck,
+                  delivered: PackageCheck,
+                  partial_delivered: PackageOpen,
+                  cancelled: PackageX,
+                  returned: RotateCcw,
+                }[tab] || Package;
 
-              const tabColors: Record<string, string> = {
-                'All': 'hover:bg-gray-100 text-[#141414]',
-                'urgent': 'hover:bg-red-50 text-red-600',
-                'hold': 'hover:bg-amber-50 text-amber-600',
-                'pending': 'hover:bg-orange-50 text-orange-600',
-                'confirmed': 'hover:bg-blue-50 text-blue-600',
-                'processing': 'hover:bg-indigo-50 text-indigo-600',
-                'shipped': 'hover:bg-purple-50 text-purple-600',
-                'delivered': 'hover:bg-green-50 text-green-600',
-                'cancelled': 'hover:bg-red-50 text-red-600',
-                'returned': 'hover:bg-gray-50 text-gray-600'
-              };
-
-              const activeBg: Record<string, string> = {
-                'All': 'bg-[#141414] text-white shadow-[#141414]/10',
-                'urgent': 'bg-red-600 text-white shadow-red-600/10',
-                'hold': 'bg-amber-600 text-white shadow-amber-600/10',
-                'pending': 'bg-orange-600 text-white shadow-orange-600/10',
-                'confirmed': 'bg-blue-600 text-white shadow-blue-600/10',
-                'processing': 'bg-indigo-600 text-white shadow-indigo-600/10',
-                'shipped': 'bg-purple-600 text-white shadow-purple-600/10',
-                'delivered': 'bg-green-600 text-white shadow-green-600/10',
-                'cancelled': 'bg-red-600 text-white shadow-red-600/10',
-                'returned': 'bg-gray-600 text-white shadow-gray-600/10'
-              };
+              // Determine icon color based on active state or specific status
+              let iconColorClass = "text-gray-400";
+              if (isActive) {
+                iconColorClass = "text-[#0066FF]";
+              } else if (tab !== "All") {
+                 iconColorClass = globalStatusConfig[tab.toLowerCase()]?.iconColor || "text-gray-400";
+              }
 
               return (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-tight whitespace-nowrap transition-all border border-transparent shrink-0 ${
-                    isActive 
-                      ? `${activeBg[tab]} shadow-md scale-[1.02]` 
-                      : `${tabColors[tab]} border-transparent`
-                  }`}
-                >
-                  <Icon size={14} strokeWidth={isActive ? 3 : 2} className={isActive ? 'animate-pulse' : ''} />
-                  <span>{tab}</span>
-                  {orders.filter(o => tab === 'All' || o.status === tab).length > 0 && (
-                    <span className={`text-[9px] min-w-[18px] h-[18px] flex items-center justify-center rounded-full font-black ${isActive ? 'bg-white/20' : 'bg-gray-100 text-gray-500'}`}>
-                      {orders.filter(o => tab === 'All' || o.status === tab).length}
-                    </span>
-                  )}
-                </button>
+                    onClick={() => setActiveTab(tab)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-bold whitespace-nowrap transition-all group/tab relative ${
+                      isActive
+                        ? "bg-[#F0F7FF] text-[#0066FF] shadow-sm shadow-blue-100/50"
+                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                    }`}
+                  >
+                    <Icon size={14} strokeWidth={isActive ? 2.5 : 2} className={`${iconColorClass} group-hover/tab:scale-110 transition-transform`} />
+                    <span className="capitalize tracking-tight">{tab === "All" ? "All Orders" : tab.replace(/_/g, ' ')}</span>
+                    {count > 0 && (
+                      <span
+                        className={`ml-1 text-[9px] min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full font-black leading-none transition-all ${
+                          isActive ? "bg-[#0066FF] text-white" : "bg-gray-900 text-white group-hover/tab:bg-gray-700"
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    )}
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeTabUnderline"
+                        className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-[#0066FF] rounded-full"
+                      />
+                    )}
+                  </button>
               );
             })}
           </div>
+        </div>
 
-          {viewMode === 'table' ? (
-            <div className="relative">
-              {/* Bulk Action Bar */}
+        {viewMode === "table" ? (
+          <div className="relative">
+            <AnimatePresence>
               {selectedOrders.length > 0 && (
-                <div className="sticky top-4 z-40 mb-4 mx-auto w-full max-w-2xl bg-[#141414] text-white p-3 rounded-2xl shadow-2xl flex items-center justify-between animate-in slide-in-from-top-4 duration-300">
-                  <div className="flex items-center gap-4">
-                    <span className="text-xs font-bold px-3 py-1 bg-white/10 rounded-lg">{selectedOrders.length} Selected</span>
-                    <div className="h-4 w-px bg-white/20" />
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => handleBulkStatusUpdate('confirmed')}
-                        className="px-3 py-1.5 hover:bg-white/10 rounded-lg text-[10px] font-bold transition-all"
+                <motion.div
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="sticky top-4 z-[60] mx-auto w-full max-w-4xl bg-white/90 backdrop-blur-xl border border-gray-200 p-2 sm:p-2.5 rounded-[100px] flex items-center justify-between gap-4 shadow-[0_8px_30px_rgb(0,0,0,0.08)]"
+                >
+                  <div className="flex items-center gap-2 px-2">
+                    <div className="bg-[#1C2032] text-white px-4 py-2 rounded-full text-[12px] font-bold tracking-wide">
+                      {selectedOrders.length} Selected
+                    </div>
+                    <div className="h-6 w-px bg-gray-200 mx-2" />
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleBulkStatusUpdate("confirmed")}
+                        className="px-4 py-2 hover:bg-gray-100 rounded-full text-[12px] font-bold text-gray-600 hover:text-gray-900 transition-colors"
                       >
                         Confirm
                       </button>
-                      <button 
-                        onClick={() => handleBulkStatusUpdate('shipped')}
-                        className="px-3 py-1.5 hover:bg-white/10 rounded-lg text-[10px] font-bold transition-all"
+                      <button
+                        onClick={() => handleBulkStatusUpdate("shipped")}
+                        className="px-4 py-2 hover:bg-gray-100 rounded-full text-[12px] font-bold text-gray-600 hover:text-gray-900 transition-colors"
                       >
                         Ship
                       </button>
-                      <button 
+                      <div className="w-px h-6 bg-gray-200 mx-2" />
+                      <button
                         onClick={handleBulkPrint}
-                        className="px-3 py-1.5 hover:bg-white/10 rounded-lg text-[10px] font-bold transition-all flex items-center gap-2"
+                        className="p-2.5 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-900 transition-colors"
+                        title="Bulk Print"
                       >
-                        <Printer size={12} /> Print
+                        <Printer size={16} />
                       </button>
-                      <button 
+                      <button
                         onClick={handleBulkSendToCourier}
-                        className="px-3 py-1.5 hover:bg-white/10 rounded-lg text-[10px] font-bold transition-all flex items-center gap-2"
+                        className="p-2.5 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-900 transition-colors"
+                        title="Bulk Send to Courier"
                       >
-                        <Truck size={12} /> Send to Courier
+                        <Truck size={16} />
                       </button>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setSelectedOrders([])}
-                    className="p-1.5 hover:bg-white/10 rounded-lg transition-all"
+                    className="p-2 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-900 transition-colors mr-1"
                   >
-                    <X size={16} />
+                    <X size={18} />
                   </button>
-                </div>
+                </motion.div>
               )}
+            </AnimatePresence>
 
-              <div className="bg-[#ffffff] rounded-3xl border border-[#f3f4f6] shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[800px] whitespace-nowrap">
+            <div className="bg-white border border-gray-200 rounded-[20px] overflow-hidden shadow-sm">
+              <div className="overflow-x-auto custom-scrollbar pb-2">
+                <table className="w-full text-left border-collapse min-w-[760px] md:min-w-[800px]">
                   <thead>
-                    <tr className="border-b border-[#f9fafb]">
-                      <th className="px-6 py-4">
-                        <input 
-                          type="checkbox" 
-                          className="rounded border-[#d1d5db]"
-                          checked={selectedOrders.length === filteredOrders.length && filteredOrders.length > 0}
-                          onChange={(e) => {
-                            if (e.target.checked) setSelectedOrders(filteredOrders.map(o => o.id));
-                            else setSelectedOrders([]);
-                          }}
-                        />
+                    <tr className="border-b border-gray-100">
+                      <th className="px-3 xl:px-4 py-5 w-[40px] xl:w-[50px]">
+                        <div className="flex items-center min-h-[20px]">
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900 cursor-pointer"
+                            checked={
+                              selectedOrders.length === filteredOrders.length &&
+                              filteredOrders.length > 0
+                            }
+                            onChange={(e) => {
+                              if (e.target.checked)
+                                setSelectedOrders(
+                                  filteredOrders.map((o) => o.id),
+                                );
+                              else setSelectedOrders([]);
+                            }}
+                          />
+                        </div>
                       </th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Order ID</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Customer</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Items</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Total</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Actions</th>
+                      <th className="px-2 xl:px-4 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest whitespace-nowrap">ORDER ID</th>
+                      <th className="px-2 xl:px-4 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest whitespace-nowrap">CUSTOMER</th>
+                      <th className="px-2 xl:px-4 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest whitespace-nowrap">ITEM QTY</th>
+                      <th className="px-2 xl:px-4 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest whitespace-nowrap">BILL</th>
+                      <th className="px-2 xl:px-4 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-center whitespace-nowrap">
+                        STATUS
+                      </th>
+                      <th className="px-2 xl:px-4 py-4">
+                        <div className="flex items-center justify-end gap-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest whitespace-nowrap">
+                          ACTION <MoreVertical size={14} className="text-gray-400" />
+                        </div>
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#f9fafb]">
+                  <tbody className="divide-y divide-gray-50">
                     {loading ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center">
-                          <Loader2 className="animate-spin mx-auto text-[#9ca3af]" />
+                        <td colSpan={7} className="px-8 py-20 text-center">
+                          <div className="flex flex-col items-center gap-4">
+                            <Loader2
+                              className="animate-spin text-gray-200"
+                              size={40}
+                            />
+                            <p className="label-business">
+                              Syncing Transactions...
+                            </p>
+                          </div>
                         </td>
                       </tr>
                     ) : filteredOrders.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center text-[#9ca3af] text-sm">
-                          No orders found matching your criteria.
+                        <td colSpan={7} className="px-8 py-20 text-center">
+                          <div className="flex flex-col items-center gap-4">
+                            <PackageOpen size={40} className="text-gray-100" />
+                            <p className="text-gray-400 font-medium">
+                              No transactions match your current lens.
+                            </p>
+                          </div>
                         </td>
                       </tr>
                     ) : (
-                      paginatedOrders.map((order) => (
-                        <tr key={order.id} className="hover:bg-[#f9fafb]/50 transition-colors group">
-                          <td className="px-6 py-4">
-                            <input 
-                              type="checkbox" 
-                              className="rounded border-[#d1d5db]"
-                              checked={selectedOrders.includes(order.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) setSelectedOrders([...selectedOrders, order.id]);
-                                else setSelectedOrders(selectedOrders.filter(id => id !== order.id));
-                              }}
-                            />
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-col">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-[#141414]">#{order.orderNumber || order.id.slice(0, 8)}</span>
-                                {order.source === 'woocommerce' && (
-                                  <span className="px-1.5 py-0.5 bg-[#eff6ff] text-[#2563eb] border border-[#dbeafe] rounded text-[8px] font-bold uppercase tracking-wider">Woo</span>
-                                )}
-                              </div>
-                              <span className="text-[10px] text-[#9ca3af]">{order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : (order.createdAt?.seconds ? new Date(order.createdAt.seconds * 1000).toLocaleDateString() : 'N/A')}</span>
+                      paginatedOrders.map((order, idx) => (
+                        <motion.tr
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3, delay: idx * 0.02 }}
+                          key={order.id}
+                          className="group hover:bg-gray-50/50 transition-colors border-b border-gray-100 last:border-0"
+                        >
+                          <td className="px-3 xl:px-4 py-3 xl:py-5">
+                            <div className="flex items-center min-h-[20px]">
+                              <input
+                                type="checkbox"
+                                className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900 cursor-pointer"
+                                checked={selectedOrders.includes(order.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked)
+                                    setSelectedOrders([
+                                      ...selectedOrders,
+                                      order.id,
+                                    ]);
+                                  else
+                                    setSelectedOrders(
+                                      selectedOrders.filter(
+                                        (id) => id !== order.id,
+                                      ),
+                                    );
+                                }}
+                              />
                             </div>
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-[#141414]">{order.customerName}</span>
+                          <td className="px-2 xl:px-4 py-3 xl:py-5">
+                            <div className="flex flex-col gap-1.5">
                               <div className="flex items-center gap-2">
-                                <span className="text-[10px] text-[#9ca3af]">{order.customerPhone}</span>
-                                <a 
-                                  href={`https://wa.me/88${order.customerPhone.replace(/\D/g, '')}`} 
-                                  target="_blank" 
+                                <span className="text-[14px] font-bold text-gray-900 leading-none">
+                                  #{order.orderNumber || order.id.slice(0, 8)}
+                                </span>
+                                {order.source === "woocommerce" && (
+                                  <span className="px-2 py-0.5 bg-blue-50 text-[#0066FF] rounded-full text-[9px] font-bold uppercase tracking-wider">
+                                    Woo
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 text-gray-400">
+                                <Calendar size={12} />
+                                <span className="text-[11px] font-medium">
+                                  {order.createdAt?.toDate
+                                    ? order.createdAt
+                                        .toDate()
+                                        .toLocaleDateString("en-GB")
+                                    : order.createdAt?.seconds
+                                      ? new Date(
+                                          order.createdAt.seconds * 1000,
+                                        ).toLocaleDateString("en-GB")
+                                      : "N/A"}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-2 xl:px-4 py-3 xl:py-5">
+                            <div className="flex flex-col gap-1.5">
+                              <span className="text-[14px] font-medium text-gray-900 truncate max-w-[120px] xl:max-w-[200px] leading-none" title={order.customerName}>
+                                {order.customerName}
+                              </span>
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1.5 text-gray-500">
+                                  <Smartphone size={12} />
+                                  <span className="text-[12px] font-medium">
+                                    {order.customerPhone}
+                                  </span>
+                                </div>
+                                <a
+                                  href={`https://wa.me/88${order.customerPhone?.replace(/\D/g, "")}`}
+                                  target="_blank"
                                   rel="noreferrer"
-                                  className="p-1 bg-[#25D366] text-white rounded hover:bg-[#128C7E] transition-colors"
-                                  title="Chat on WhatsApp"
+                                  className="text-emerald-500 hover:text-emerald-600 transition-colors"
                                 >
-                                  <MessageSquare size={10} />
+                                  <MessageSquare size={14} />
                                 </a>
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4">
-                            <span className="text-xs text-[#6b7280]">{order.items?.length || 0} items</span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-[#141414]">{currencySymbol}{(order.totalAmount || 0).toLocaleString()}</span>
-                              {order.dueAmount > 0 && <span className="text-[10px] text-[#f97316] font-bold">Due: {currencySymbol}{(order.dueAmount || 0).toLocaleString()}</span>}
+                          <td className="px-2 xl:px-4 py-3 xl:py-5">
+                            <div className="flex flex-col gap-1.5">
+                              <span className="text-[13px] font-bold text-gray-900 leading-none">
+                                {order.items?.length || 0} Products
+                              </span>
+                              <span className="text-[11px] text-gray-400 font-medium whitespace-nowrap overflow-hidden text-ellipsis max-w-[100px] xl:max-w-[150px] leading-none">
+                                {order.items?.[0]?.productName || "Direct Item"}
+                                {order.items?.length > 1 ? ", ..." : ""}
+                              </span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 relative">
-                            <StatusBadge 
-                              status={order.status} 
-                              onClick={() => setIsStatusMenuOpen(isStatusMenuOpen === order.id ? null : order.id)}
-                              isOpen={isStatusMenuOpen === order.id}
-                            />
-                            {isStatusMenuOpen === order.id && (
-                              <div className="absolute left-6 mt-2 w-44 bg-white rounded-xl shadow-2xl border border-gray-100 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                                <div className="grid grid-cols-1 gap-1">
-                                  {statuses.map(s => (
-                                    <button
-                                      key={s}
-                                      onClick={() => {
-                                        handleUpdateStatus(order.id, s);
-                                        setIsStatusMenuOpen(null);
-                                      }}
-                                      className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold transition-colors flex items-center justify-between ${
-                                        order.status === s 
-                                          ? 'bg-[#00AEEF] text-white' 
-                                          : 'text-gray-700 hover:bg-gray-50'
-                                      }`}
-                                    >
-                                      {s.replace(/_/g, ' ').charAt(0).toUpperCase() + s.replace(/_/g, ' ').slice(1)}
-                                      {order.status === s && <CheckCircle size={10} />}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
+                          <td className="px-2 xl:px-4 py-3 xl:py-5">
+                            <div className="flex flex-col gap-1.5">
+                              <span className="text-[14px] font-bold text-gray-900 leading-none">
+                                {currencySymbol}
+                                {(order.totalAmount || 0).toLocaleString()}
+                              </span>
+                              {order.dueAmount > 0 && (
+                                <span className="text-[12px] text-[#FF6347] font-bold leading-none">
+                                  Due: {currencySymbol}
+                                  {(order.dueAmount || 0).toLocaleString()}
+                                </span>
+                              )}
+                            </div>
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button 
+                          <td className="px-2 xl:px-4 py-3 xl:py-5">
+                            <div className="flex items-center justify-center relative min-h-[32px]">
+                              <StatusBadge
+                                status={order.status}
+                                onClick={() =>
+                                  setIsStatusMenuOpen(
+                                    isStatusMenuOpen === order.id
+                                      ? null
+                                      : order.id,
+                                  )
+                                }
+                                isOpen={isStatusMenuOpen === order.id}
+                              />
+                              <AnimatePresence>
+                                {isStatusMenuOpen === order.id && (
+                                  <motion.div
+                                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                    className="absolute top-full mt-2 w-48 bg-white rounded-3xl shadow-2xl border border-gray-100 p-2 z-[70] ring-1 ring-black/5"
+                                  >
+                                    <div className="grid grid-cols-1 gap-1">
+                                      {statuses.map((s) => (
+                                        <button
+                                          key={s}
+                                          onClick={() => {
+                                            handleUpdateStatus(order.id, s);
+                                            setIsStatusMenuOpen(null);
+                                          }}
+                                          className={`w-full text-left px-4 py-2.5 rounded-2xl text-[10px] font-black transition-all flex items-center justify-between group/item ${
+                                            order.status === s
+                                              ? "bg-[#141414] text-white shadow-lg"
+                                              : "text-gray-500 hover:bg-gray-50 hover:text-black"
+                                          }`}
+                                        >
+                                          <span className="uppercase tracking-widest text-[9px]">
+                                            {s.replace(/_/g, " ")}
+                                          </span>
+                                          {order.status === s ? (
+                                            <CheckCircle size={10} />
+                                          ) : (
+                                            <div className="w-1.5 h-1.5 rounded-full bg-gray-200 group-hover/item:bg-black transition-colors" />
+                                          )}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          </td>
+                          <td className="px-2 xl:px-4 py-3 xl:py-5">
+                            <div className="flex items-center justify-end gap-1 text-gray-400">
+                              <button
                                 onClick={() => setViewingOrder(order)}
-                                className="p-2 hover:bg-[#ffffff] rounded-lg text-[#9ca3af] hover:text-[#00AEEF] transition-colors shadow-sm border border-transparent hover:border-[#f3f4f6]"
+                                className="p-1.5 lg:p-2 flex items-center justify-center rounded-lg hover:bg-gray-100 hover:text-gray-900 transition-colors border border-transparent hover:border-gray-200"
                                 title="View Order"
                               >
-                                <Eye size={14} />
+                                <Eye size={15} />
                               </button>
-                              <button 
+                              <button
                                 onClick={() => {
                                   setSelectedOrderForPrint(order);
-                                  setPrintType('a5');
+                                  setPrintType("a5");
                                 }}
-                                className="p-2 hover:bg-[#ffffff] rounded-lg text-[#9ca3af] hover:text-[#00AEEF] transition-colors shadow-sm border border-transparent hover:border-[#f3f4f6]"
+                                className="p-1.5 lg:p-2 flex items-center justify-center rounded-lg hover:bg-gray-100 hover:text-gray-900 transition-colors border border-transparent hover:border-gray-200"
                                 title="Print Invoice"
                               >
-                                <Printer size={14} />
+                                <Printer size={15} />
                               </button>
-                              <button 
+                              <button
                                 onClick={() => handleSendToCourier(order)}
-                                className="p-2 hover:bg-[#ffffff] rounded-lg text-[#9ca3af] hover:text-[#16a34a] transition-colors shadow-sm border border-transparent hover:border-[#f3f4f6]"
-                                title="Send to Courier"
+                                className="p-1.5 lg:p-2 flex items-center justify-center rounded-lg hover:bg-gray-100 hover:text-gray-900 transition-colors border border-transparent hover:border-gray-200"
+                                title="Ship Order"
                               >
-                                <Truck size={14} />
+                                <Truck size={15} />
                               </button>
-                              {order.source !== 'woocommerce' && (
+                              {order.source !== "woocommerce" && (
                                 <>
-                                  <button 
+                                  <button
                                     onClick={() => handleOpenEditModal(order)}
-                                    className="p-2 hover:bg-[#ffffff] rounded-lg text-[#9ca3af] hover:text-[#141414] transition-colors shadow-sm border border-transparent hover:border-[#f3f4f6]"
+                                    className="p-1.5 lg:p-2 flex items-center justify-center rounded-lg hover:bg-gray-100 hover:text-gray-900 transition-colors border border-transparent hover:border-gray-200"
+                                    title="Edit Order"
                                   >
-                                    <Edit size={14} />
+                                    <Edit size={15} />
                                   </button>
-                                  <button 
+                                  <button
                                     onClick={() => handleDeleteOrder(order.id)}
-                                    className="p-2 hover:bg-[#fef2f2] rounded-lg text-[#9ca3af] hover:text-[#dc2626] transition-colors shadow-sm border border-transparent hover:border-[#fee2e2]"
+                                    className="p-1.5 lg:p-2 flex items-center justify-center rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors border border-transparent hover:border-red-100"
+                                    title="Delete Order"
                                   >
-                                    <Trash2 size={14} />
+                                    <Trash2 size={15} />
                                   </button>
                                 </>
                               )}
                             </div>
                           </td>
-                        </tr>
+                        </motion.tr>
                       ))
                     )}
                   </tbody>
                 </table>
               </div>
+            </div>
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between px-6 py-4 bg-white border-t border-[#f3f4f6]">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-[#6b7280]">
-                      Showing <span className="font-bold text-[#141414]">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-bold text-[#141414]">{Math.min(currentPage * itemsPerPage, filteredOrders.length)}</span> of <span className="font-bold text-[#141414]">{filteredOrders.length}</span> orders
+            {/* Modern Pagination */}
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-8">
+                <div className="flex items-center gap-3">
+                  <span className="text-[11px] font-black uppercase tracking-widest text-gray-400">
+                    Phase{" "}
+                    <span className="text-black">
+                      {(currentPage - 1) * itemsPerPage + 1}
+                    </span>{" "}
+                    —{" "}
+                    <span className="text-black">
+                      {Math.min(
+                        currentPage * itemsPerPage,
+                        filteredOrders.length,
+                      )}
+                    </span>{" "}
+                    of{" "}
+                    <span className="text-gray-200">
+                      {filteredOrders.length}
                     </span>
-                  </div>
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 p-1.5 glass rounded-2xl">
+                  <button
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(prev - 1, 1))
+                    }
+                    disabled={currentPage === 1}
+                    className="p-2.5 rounded-xl hover:bg-white hover:shadow-sm text-gray-400 disabled:opacity-20 transition-all active:scale-90"
+                  >
+                    <ChevronLeft size={16} strokeWidth={3} />
+                  </button>
+
                   <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="p-2 rounded-lg hover:bg-[#f9fafb] text-[#9ca3af] disabled:opacity-50 transition-colors"
-                    >
-                      <ChevronLeft size={16} />
-                    </button>
-                    
                     {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter(page => {
-                        if (totalPages <= 7) return true;
+                      .filter((page) => {
+                        if (totalPages <= 5) return true;
                         if (page === 1 || page === totalPages) return true;
-                        if (page >= currentPage - 1 && page <= currentPage + 1) return true;
+                        if (page >= currentPage - 1 && page <= currentPage + 1)
+                          return true;
                         return false;
                       })
                       .map((page, index, array) => {
-                        const showEllipsis = index > 0 && page - array[index - 1] > 1;
+                        const showEllipsis =
+                          index > 0 && page - array[index - 1] > 1;
+                        const isActive = currentPage === page;
                         return (
                           <React.Fragment key={page}>
-                            {showEllipsis && <span className="text-[#9ca3af] px-1">...</span>}
+                            {showEllipsis && (
+                              <span className="text-gray-300 px-1 text-[10px] font-black">
+                                •••
+                              </span>
+                            )}
                             <button
                               onClick={() => setCurrentPage(page)}
-                              className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
-                                currentPage === page 
-                                  ? 'bg-[#00AEEF] text-white shadow-md shadow-[#00AEEF]/20' 
-                                  : 'text-[#6b7280] hover:bg-[#f9fafb]'
+                              className={`w-9 h-9 rounded-xl text-[11px] font-black transition-all ${
+                                isActive
+                                  ? "bg-black text-white shadow-xl shadow-black/10"
+                                  : "text-gray-400 hover:bg-white hover:text-black hover:shadow-sm"
                               }`}
                             >
-                              {page}
+                              {String(page).padStart(2, "0")}
                             </button>
                           </React.Fragment>
                         );
                       })}
-
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className="p-2 rounded-lg hover:bg-[#f9fafb] text-[#9ca3af] disabled:opacity-50 transition-colors"
-                    >
-                      <ChevronRight size={16} />
-                    </button>
                   </div>
+
+                  <button
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                    }
+                    disabled={currentPage === totalPages}
+                    className="p-2.5 rounded-xl hover:bg-white hover:shadow-sm text-gray-400 disabled:opacity-20 transition-all active:scale-90"
+                  >
+                    <ChevronRight size={16} strokeWidth={3} />
+                  </button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         ) : (
-            <DragDropContext onDragEnd={onDragEnd}>
-              <div className="flex gap-6 overflow-x-auto pb-6 no-scrollbar min-h-[600px]">
-                {statuses.map(status => (
+          <DragDropContext onDragEnd={onDragEnd}>
+            <div className="flex gap-8 overflow-x-auto pb-12 pt-4 custom-scrollbar min-h-[700px] px-2 -mx-2">
+              {statuses.map((status) => {
+                const columnOrders = filteredOrders.filter(
+                  (o) => o.status === status,
+                );
+                return (
                   <Droppable key={status} droppableId={status}>
                     {(provided: DroppableProvided) => (
-                      <div 
+                      <div
                         {...provided.droppableProps}
                         ref={provided.innerRef}
-                        className="flex-shrink-0 w-80 space-y-4"
+                        className="flex-shrink-0 w-[19rem] flex flex-col gap-4"
                       >
-                        <div className="flex items-center justify-between px-2">
+                        <div className="flex items-center justify-between px-3">
                           <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${
-                              status === 'pending' ? 'bg-[#fb923c]' :
-                              status === 'delivered' ? 'bg-[#4ade80]' :
-                              status === 'cancelled' ? 'bg-[#f87171]' : 'bg-[#60a5fa]'
-                            }`} />
-                            <h3 className="text-xs font-bold tracking-widest text-[#6b7280]">{status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1)}</h3>
-                            <span className="px-2 py-0.5 bg-[#f3f4f6] rounded-full text-[10px] font-bold text-[#6b7280]">
-                              {filteredOrders.filter(o => o.status === status).length}
+                            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#141414]">
+                              {status.replace(/_/g, " ")}
+                            </h3>
+                            <span className="px-2 py-0.5 bg-black text-white rounded-md text-[8px] font-black shadow-md">
+                              {columnOrders.length}
                             </span>
                           </div>
-                          <Link to="/orders/new" className="p-1 hover:bg-[#f3f4f6] rounded-md transition-colors">
-                            <Plus size={14} className="text-[#9ca3af]" />
+                          <Link
+                            to="/orders/new"
+                            className="p-1.5 hover:bg-black hover:text-white rounded-lg transition-all active:scale-90"
+                          >
+                            <Plus size={14} strokeWidth={3} />
                           </Link>
                         </div>
-                        
-                        <div className="space-y-3 min-h-[100px]">
-                          {filteredOrders.filter(o => o.status === status).map((order, index) => {
+
+                        <div className="flex-1 space-y-3 min-h-[500px] p-2 rounded-2xl bg-gray-50/50 border border-gray-100/50">
+                          {columnOrders.map((order, index) => {
                             const DraggableAny = Draggable as any;
                             return (
-                              <DraggableAny key={order.id} draggableId={order.id} index={index}>
-                                {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
-                                  <div 
+                              <DraggableAny
+                                key={order.id}
+                                draggableId={order.id}
+                                index={index}
+                              >
+                                {(
+                                  provided: DraggableProvided,
+                                  snapshot: DraggableStateSnapshot,
+                                ) => (
+                                  <div
                                     ref={provided.innerRef}
                                     {...provided.draggableProps}
                                     {...provided.dragHandleProps}
                                     onClick={() => {
-                                      if (order.source !== 'woocommerce') {
+                                      if (order.source !== "woocommerce") {
                                         handleOpenEditModal(order);
                                       } else {
-                                        toast.info('WooCommerce orders cannot be edited locally.');
+                                        toast.info(
+                                          "WooCommerce orders cannot be edited locally.",
+                                        );
                                       }
                                     }}
-                                    className={`bg-[#ffffff] p-4 rounded-2xl border border-[#f3f4f6] shadow-sm hover:shadow-md transition-all cursor-pointer group ${
-                                      snapshot.isDragging ? 'shadow-2xl ring-2 ring-[#00AEEF]/20 rotate-2 scale-105' : ''
+                                    className={`bg-white rounded-[20px] p-4 group cursor-pointer border border-gray-200 shadow-sm transition-all duration-300 ${
+                                      snapshot.isDragging
+                                        ? "shadow-xl ring-2 ring-[#0066FF] rotate-1 scale-105 z-[100]"
+                                        : "hover:border-[#0066FF]/30 hover:shadow-md"
                                     }`}
                                   >
-                                    <div className="flex justify-between items-start mb-2">
+                                    <div className="flex justify-between items-start mb-4">
                                       <div className="flex flex-col gap-1">
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">
-                                            #ORD-{order.orderNumber || order.id.slice(0, 8)}
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">
+                                            #
+                                            {order.orderNumber ||
+                                              order.id.slice(0, 8)}
                                           </span>
-                                          {order.source === 'woocommerce' && (
-                                            <span className="px-1 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded text-[8px] font-bold uppercase tracking-wider">Woo</span>
+                                          {order.source === "woocommerce" && (
+                                            <span className="px-1 py-0.5 bg-cyan-50 text-[#0066FF] rounded text-[7px] font-black uppercase">
+                                              Woo
+                                            </span>
                                           )}
                                         </div>
-                                        <div className="relative">
-                                          <StatusBadge 
-                                            status={order.status} 
-                                            onClick={(e) => {
-                                              e?.stopPropagation();
-                                              setIsStatusMenuOpen(isStatusMenuOpen === order.id ? null : order.id);
-                                            }}
-                                            isOpen={isStatusMenuOpen === order.id}
-                                          />
+                                      </div>
+                                      <div className="relative">
+                                        <StatusBadge
+                                          status={order.status}
+                                          onClick={(e) => {
+                                            e?.stopPropagation();
+                                            setIsStatusMenuOpen(
+                                              isStatusMenuOpen === order.id
+                                                ? null
+                                                : order.id,
+                                            );
+                                          }}
+                                          isOpen={isStatusMenuOpen === order.id}
+                                        />
+                                        <AnimatePresence>
                                           {isStatusMenuOpen === order.id && (
-                                            <div className="absolute left-0 mt-2 w-44 bg-white rounded-xl shadow-2xl border border-gray-100 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                            <motion.div
+                                              initial={{
+                                                opacity: 0,
+                                                y: 10,
+                                                scale: 0.95,
+                                              }}
+                                              animate={{
+                                                opacity: 1,
+                                                y: 0,
+                                                scale: 1,
+                                              }}
+                                              exit={{
+                                                opacity: 0,
+                                                y: 10,
+                                                scale: 0.95,
+                                              }}
+                                              className="absolute top-full mt-2 w-44 bg-white rounded-3xl shadow-2xl border border-gray-100 p-2 z-[70] ring-1 ring-black/5"
+                                            >
                                               <div className="grid grid-cols-1 gap-1">
-                                                {statuses.map(s => (
+                                                {statuses.map((s) => (
                                                   <button
                                                     key={s}
                                                     onClick={(e) => {
                                                       e.stopPropagation();
-                                                      handleUpdateStatus(order.id, s);
+                                                      handleUpdateStatus(
+                                                        order.id,
+                                                        s,
+                                                      );
                                                       setIsStatusMenuOpen(null);
                                                     }}
-                                                    className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold transition-colors flex items-center justify-between ${
-                                                      order.status === s 
-                                                        ? 'bg-[#00AEEF] text-white' 
-                                                        : 'text-gray-700 hover:bg-gray-50'
+                                                    className={`w-full text-left px-3 py-2.5 rounded-2xl text-[10px] font-black transition-all flex items-center justify-between group/item ${
+                                                      order.status === s
+                                                        ? "bg-[#141414] text-white shadow-lg"
+                                                        : "text-gray-500 hover:bg-gray-50 hover:text-black"
                                                     }`}
                                                   >
-                                                    {s.replace(/_/g, ' ').charAt(0).toUpperCase() + s.replace(/_/g, ' ').slice(1)}
-                                                    {order.status === s && <CheckCircle size={10} />}
+                                                    <span className="uppercase tracking-widest">
+                                                      {s.replace(/_/g, " ")}
+                                                    </span>
+                                                    {order.status === s ? (
+                                                      <CheckCircle size={10} />
+                                                    ) : (
+                                                      <div className="w-1.5 h-1.5 rounded-full bg-gray-200 group-hover/item:bg-black transition-colors" />
+                                                    )}
                                                   </button>
                                                 ))}
                                               </div>
+                                            </motion.div>
+                                          )}
+                                        </AnimatePresence>
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-1 mb-6">
+                                      <h4 className="text-sm font-black text-[#141414] tracking-tight">
+                                        {order.customerName}
+                                      </h4>
+                                      <p className="text-[10px] font-bold text-gray-400">
+                                        {order.customerPhone}
+                                      </p>
+                                      <div className="flex items-center gap-1.5 pt-1">
+                                        <Calendar
+                                          size={10}
+                                          className="text-gray-200"
+                                        />
+                                        <span className="text-[9px] font-bold text-gray-300">
+                                          {order.createdAt?.toDate
+                                            ? order.createdAt
+                                                .toDate()
+                                                .toLocaleDateString("en-GB")
+                                            : "N/A"}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex justify-between items-center pt-5 border-t border-gray-50">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs font-black text-[#141414]">
+                                          {currencySymbol}
+                                          {(
+                                            order.totalAmount || 0
+                                          ).toLocaleString()}
+                                        </span>
+                                        <div className="flex -space-x-2">
+                                          {order.items
+                                            ?.slice(0, 2)
+                                            .map((_: any, i: number) => (
+                                              <div
+                                                key={i}
+                                                className="w-6 h-6 rounded-full bg-black text-white border-2 border-white flex items-center justify-center text-[8px] font-black shadow-sm"
+                                              >
+                                                {i + 1}
+                                              </div>
+                                            ))}
+                                          {order.items?.length > 2 && (
+                                            <div className="w-6 h-6 rounded-full bg-gray-100 text-gray-400 border-2 border-white flex items-center justify-center text-[8px] font-black">
+                                              +{order.items.length - 2}
                                             </div>
                                           )}
                                         </div>
                                       </div>
-                                      <span className="text-[10px] font-bold text-[#141414] bg-[#f9fafb] px-2 py-0.5 rounded-md">{order.channel}</span>
-                                    </div>
-                                    <h4 className="text-sm font-bold text-[#141414] mb-1">{order.customerName}</h4>
-                                    <p className="text-xs text-[#6b7280] mb-3">{order.customerPhone}</p>
-                                    <div className="flex justify-between items-center pt-3 border-t border-[#f9fafb]">
-                                      <div className="flex items-center gap-1">
-                                        <button 
+                                      <div className="flex items-center gap-1.5 opacity-100 transition-all">
+                                        <button
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             setViewingOrder(order);
                                           }}
-                                          className="p-1 hover:bg-[#e5e7eb] rounded transition-colors text-[#6b7280]"
-                                          title="View Order"
+                                          className="p-2 hover:bg-slate-900 dark:hover:bg-white hover:text-white dark:hover:text-black rounded-xl transition-all text-slate-400"
+                                          title="View Details"
                                         >
-                                          <Eye size={12} />
+                                          <Eye size={14} strokeWidth={2.5} />
                                         </button>
-                                        <button 
+                                        <button
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             setSelectedOrderForPrint(order);
-                                            setPrintType('a5');
+                                            setPrintType("a5");
                                           }}
-                                          className="p-1 hover:bg-[#e5e7eb] rounded transition-colors text-[#6b7280]"
-                                          title="Print Invoice"
+                                          className="p-2 hover:bg-slate-900 dark:hover:bg-white hover:text-white dark:hover:text-black rounded-xl transition-all text-slate-400"
+                                          title="Print"
                                         >
-                                          <Printer size={12} />
+                                          <Printer
+                                            size={14}
+                                            strokeWidth={2.5}
+                                          />
                                         </button>
-                                        <span className="text-sm font-bold">{currencySymbol}{(order.totalAmount || 0).toLocaleString()}</span>
-                                      </div>
-                                      <div className="flex -space-x-2">
-                                        {order.items?.slice(0, 3).map((_: any, i: number) => (
-                                          <div key={i} className="w-6 h-6 rounded-full bg-[#f3f4f6] border-2 border-[#ffffff] flex items-center justify-center text-[8px] font-bold">
-                                            {i === 2 && order.items.length > 2 ? `+${order.items.length - 2}` : i + 1}
-                                          </div>
-                                        ))}
                                       </div>
                                     </div>
                                   </div>
@@ -2294,711 +3403,752 @@ export default function Orders() {
                             );
                           })}
                           {provided.placeholder}
-                          {orders.filter(o => o.status === status).length === 0 && (
-                            <div className="h-24 border-2 border-dashed border-[#f3f4f6] rounded-2xl flex items-center justify-center text-xs text-[#d1d5db]">
-                              No orders
+                          {columnOrders.length === 0 && (
+                            <div className="h-40 border-2 border-dashed border-gray-100 rounded-[2rem] flex flex-col items-center justify-center gap-2 grayscale opacity-40">
+                              <PackageOpen
+                                size={24}
+                                strokeWidth={1.5}
+                                className="text-gray-300"
+                              />
+                              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                Station Empty
+                              </span>
                             </div>
                           )}
                         </div>
                       </div>
                     )}
                   </Droppable>
-                ))}
-              </div>
-            </DragDropContext>
-          )}
-        </div>
-      </div>
-
-      {/* Add/Edit Order Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-[#00000080] backdrop-blur-sm z-50 flex items-center justify-center p-6 no-print">
-          <div className="bg-[#ffffff] w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="px-6 py-4 border-b border-[#f3f4f6] flex items-center justify-between bg-[#f9fafb]/50">
-              <h3 className="text-lg font-bold text-[#141414]">
-                {editingOrder ? `Edit Order #ORD-${editingOrder.orderNumber || editingOrder.id.slice(0, 8)}` : 'New Order'}
-              </h3>
-              <div className="flex items-center gap-2">
-                {editingOrder && (
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setSelectedOrderForPrint(editingOrder);
-                      setPrintType('a5');
-                    }}
-                    className="p-2 hover:bg-[#ffffff] rounded-full transition-colors text-[#9ca3af] hover:text-[#00AEEF]"
-                    title="Print Invoice"
-                  >
-                    <Printer size={20} />
-                  </button>
-                )}
-                <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-[#ffffff] rounded-full transition-colors">
-                  <X size={20} className="text-[#9ca3af]" />
-                </button>
-              </div>
+                );
+              })}
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[85vh] overflow-y-auto">
-              {/* Customer Section */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-bold uppercase tracking-widest text-[#9ca3af] flex items-center gap-2">
-                  <UserCheck size={14} /> Customer Information
-                </h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Customer Name *</label>
-                    <input 
-                      required
-                      className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all"
-                      value={orderForm.customerName}
-                      onChange={e => setOrderForm({...orderForm, customerName: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Phone Number *</label>
-                    <div className="flex gap-2">
-                      <input 
-                        required
-                        className="flex-1 px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all"
-                        value={orderForm.customerPhone}
-                        onChange={e => handlePhoneChange(e.target.value)}
-                      />
-                      {orderForm.customerPhone.length >= 11 && (
-                        <a 
-                          href={`https://wa.me/88${orderForm.customerPhone.replace(/\D/g, '')}`} 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="p-2 bg-[#25D366] text-white rounded-lg hover:bg-[#128C7E] transition-all shadow-md flex items-center justify-center"
-                          title="Chat on WhatsApp"
-                        >
-                          <Smartphone size={16} />
-                        </a>
-                      )}
-                    </div>
-                    
-                    {isFetchingHistory && (
-                      <div className="flex items-center gap-2 mt-1 px-2">
-                        <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                        <span className="text-[10px] text-blue-500 font-medium italic">Checking courier history...</span>
-                      </div>
-                    )}
+          </DragDropContext>
+        )}
 
-                    {courierHistory && (
-                      <div className="mt-2 p-3 bg-white border border-gray-100 rounded-xl shadow-sm animate-in fade-in slide-in-from-top-1 duration-300">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-1.5">
-                            <ShieldCheck size={14} className="text-green-500" />
-                            <span className="text-[10px] font-bold text-gray-900 uppercase tracking-tight">Courier Trust Score</span>
-                          </div>
-                          <span className="text-[9px] font-bold text-gray-400 uppercase bg-gray-50 px-1.5 py-0.5 rounded-md border border-gray-100">{courierHistory.courier}</span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div className="bg-green-50/50 p-2 rounded-lg border border-green-100/50">
-                            <p className="text-[8px] font-bold text-green-600 uppercase tracking-wider mb-0.5">Delivered</p>
-                            <p className="text-sm font-black text-green-700">{courierHistory.total_delivered || 0}</p>
-                          </div>
-                          <div className="bg-red-50/50 p-2 rounded-lg border border-red-100/50">
-                            <p className="text-[8px] font-bold text-red-600 uppercase tracking-wider mb-0.5">Canceled</p>
-                            <p className="text-sm font-black text-red-700">{courierHistory.total_cancelled || 0}</p>
-                          </div>
-                          <div className="bg-blue-50/50 p-2 rounded-lg border border-blue-100/50">
-                            <p className="text-[8px] font-bold text-blue-600 uppercase tracking-wider mb-0.5">Success Rate</p>
-                            <p className="text-sm font-black text-blue-700">{courierHistory.success_rate || '0%'}</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+        {/* Premium Add/Edit Order Modal */}
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 no-print overflow-hidden">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm"
+              onClick={() => setIsModalOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="bg-white w-full max-w-4xl rounded-xl shadow-2xl relative z-[60] overflow-hidden flex flex-col max-h-[95vh] border border-gray-100"
+            >
+              <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-white">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 text-[#0066FF] flex items-center justify-center">
+                    <ShoppingCart size={20} />
+                  </div>
+                  <div className="flex flex-col">
+                    <h3 className="text-lg font-bold text-gray-900 leading-tight">
+                      {editingOrder
+                        ? `Edit Order #${editingOrder.orderNumber || editingOrder.id.slice(0, 8)}`
+                        : "Create New Order"}
+                    </h3>
+                    <p className="text-xs text-gray-400 font-medium tracking-wide uppercase">
+                      OMS TRANSACTION TERMINAL
+                    </p>
                   </div>
                 </div>
-                <div className="space-y-1 relative">
-                  <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Full Address</label>
-                  <textarea 
-                    className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all resize-none"
-                    rows={2}
-                    placeholder="Type or paste full address (e.g. House 10, Dhanmondi, Dhaka)"
-                    value={orderForm.customerAddress}
-                    onChange={e => handleAddressChange(e.target.value)}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">District</label>
-                    <select 
-                      className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all"
-                      value={orderForm.district}
-                      onChange={e => {
-                        setOrderForm({...orderForm, district: e.target.value, area: ''});
-                        if (courierConfigs.pathao?.isActive) autoMatchPathao(e.target.value, '');
-                        if (courierConfigs.carrybee?.isActive) autoMatchCarrybee(e.target.value, '');
+                <div className="flex items-center gap-2">
+                  {editingOrder && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedOrderForPrint(editingOrder);
+                        setPrintType("a5");
                       }}
+                      className="p-2 hover:bg-gray-50 rounded-lg transition-all text-gray-400 hover:text-[#0066FF] border border-gray-200"
+                      title="Invoice Preview"
                     >
-                      <option value="">Select District</option>
-                      {districts.map(d => (
-                        <option key={d.id} value={d.nameEn}>{d.nameEn}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Area / Thana</label>
-                    <select 
-                      className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all"
-                      value={orderForm.area}
-                      onChange={e => {
-                        setOrderForm({...orderForm, area: e.target.value});
-                        if (courierConfigs.pathao?.isActive) autoMatchPathao(orderForm.district, e.target.value);
-                        if (courierConfigs.carrybee?.isActive) autoMatchCarrybee(orderForm.district, e.target.value);
-                      }}
-                      disabled={!orderForm.district}
-                    >
-                      <option value="">Select Area</option>
-                      {upazilas
-                        .filter(u => orderForm.district && districts.find(d => d.nameEn === orderForm.district)?.id === u.districtId)
-                        .map(u => (
-                          <option key={u.id} value={u.nameEn}>{u.nameEn}</option>
-                        ))
-                      }
-                    </select>
-                  </div>
+                      <Printer size={18} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setIsModalOpen(false)}
+                    className="p-2 hover:bg-gray-50 rounded-lg transition-all text-gray-400 hover:text-red-500 border border-gray-200"
+                  >
+                    <X size={20} />
+                  </button>
                 </div>
               </div>
 
-              {/* Items Section */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-bold uppercase tracking-widest text-[#9ca3af] flex items-center gap-2">
-                  <Truck size={14} /> Order Items & Fulfillment
-                </h4>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Fulfillment Warehouse</label>
-                  <select 
-                    required
-                    className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all"
-                    value={orderForm.warehouseId}
-                    onChange={e => setOrderForm({...orderForm, warehouseId: e.target.value})}
-                  >
-                    <option value="">Select Warehouse</option>
-                    {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                  </select>
-                </div>
-
-                <div className="bg-[#f9fafb] p-4 rounded-xl space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <select 
-                      className="p-2 bg-[#ffffff] border border-[#f3f4f6] rounded-lg text-xs"
-                      value={newItem.productId}
-                      onChange={e => {
-                        const p = products.find(prod => prod.id === e.target.value);
-                        setNewItem({...newItem, productId: e.target.value, variantId: '', price: p?.price || 0});
-                      }}
-                    >
-                      <option value="">Product</option>
-                      {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
-                    {newItem.productId && products.find(p => p.id === newItem.productId)?.type === 'variable' && (
-                      <select 
-                        className="p-2 bg-[#ffffff] border border-[#f3f4f6] rounded-lg text-xs"
-                        value={newItem.variantId}
-                        onChange={e => {
-                          const v = variants.find(varnt => varnt.id === e.target.value);
-                          setNewItem({...newItem, variantId: e.target.value, price: v?.price || newItem.price});
-                        }}
-                      >
-                        <option value="">Variant</option>
-                        {variants.filter(v => v.productId === newItem.productId).map(v => (
-                          <option key={v.id} value={v.id}>{v.size} / {v.color}</option>
-                        ))}
-                      </select>
-                    )}
-                    <div className="flex gap-2">
-                      <div className="flex items-center bg-[#ffffff] border border-[#f3f4f6] rounded-lg overflow-hidden">
-                        <button 
-                          type="button"
-                          onClick={() => setNewItem(prev => ({...prev, quantity: Math.max(1, prev.quantity - 1)}))}
-                          className="px-2 py-1 hover:bg-gray-50 text-gray-500 transition-colors border-r border-[#f3f4f6]"
-                        >
-                          -
-                        </button>
-                        <input 
-                          type="number" 
-                          placeholder="Qty" 
-                          className="w-12 text-center py-1 text-xs outline-none"
-                          value={newItem.quantity || 0}
-                          onChange={e => setNewItem({...newItem, quantity: parseInt(e.target.value) || 0})}
-                        />
-                        <button 
-                          type="button"
-                          onClick={() => setNewItem(prev => ({...prev, quantity: prev.quantity + 1}))}
-                          className="px-2 py-1 hover:bg-gray-50 text-gray-500 transition-colors border-l border-[#f3f4f6]"
-                        >
-                          +
-                        </button>
+              <form
+                onSubmit={handleSubmit}
+                className="p-6 overflow-y-auto no-scrollbar flex-1 bg-gray-50/30"
+              >
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  {/* Left Column: Customer & Items */}
+                  <div className="lg:col-span-12 space-y-6">
+                    {/* Customer & Residence Section */}
+                    <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-4">
+                      <div className="flex items-center gap-2 pb-2 border-b border-gray-50">
+                        <User size={14} className="text-[#0066FF]" />
+                        <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Customer & Residence</h4>
                       </div>
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          if (!newItem.productId) return;
-                          const p = products.find(prod => prod.id === newItem.productId);
-                          const v = variants.find(varnt => varnt.id === newItem.variantId);
-                          const itemWithInfo = {
-                            ...newItem,
-                            name: p?.name || 'Unknown Product',
-                            variant: v ? `${v.size} / ${v.color}` : ''
-                          };
-                          setOrderForm({...orderForm, items: [...orderForm.items, itemWithInfo]});
-                          setNewItem({ productId: '', variantId: '', quantity: 1, price: 0 });
-                        }}
-                        className="flex-1 bg-[#141414] text-white rounded-lg text-xs font-bold px-4 py-2"
-                      >
-                        Add
-                      </button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {orderForm.items.map((item, idx) => {
-                      const p = products.find(prod => prod.id === item.productId);
-                      const v = variants.find(varnt => varnt.id === item.variantId);
-                      return (
-                        <div key={idx} className="flex justify-between items-center bg-[#ffffff] p-3 rounded-lg border border-[#f3f4f6] text-xs">
-                          <div className="flex flex-col">
-                            <span className="font-bold">{p?.name}</span>
-                            {v && <span className="text-[10px] text-[#9ca3af]">{v.size} / {v.color}</span>}
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[11px] font-semibold text-gray-500 ml-1">Customer Name</label>
+                          <input
+                            required
+                            placeholder="Full name"
+                            className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-[13px] focus:border-[#0066FF] focus:ring-4 focus:ring-blue-500/5 outline-none transition-all placeholder:text-gray-300"
+                            value={orderForm.customerName}
+                            onChange={(e) => setOrderForm({...orderForm, customerName: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[11px] font-semibold text-gray-500 ml-1">Contact Phone</label>
+                          <div className="flex gap-2">
+                            <input
+                              required
+                              placeholder="01XXXXXXXXX"
+                              className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-[13px] font-mono focus:border-[#0066FF] focus:ring-4 focus:ring-blue-500/5 outline-none transition-all placeholder:text-gray-300"
+                              value={orderForm.customerPhone}
+                              onChange={(e) => handlePhoneChange(e.target.value)}
+                            />
+                             {orderForm.customerPhone.length >= 11 && (
+                              <a
+                                href={`https://wa.me/88${orderForm.customerPhone.replace(/\D/g, "")}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-2.5 bg-[#25D366] text-white rounded-lg hover:bg-[#128C7E] transition-all flex items-center justify-center shadow-lg shadow-green-500/20"
+                              >
+                                <MessageSquare size={18} />
+                              </a>
+                            )}
                           </div>
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center bg-gray-50 border border-gray-100 rounded-lg overflow-hidden">
-                              <button 
-                                type="button"
-                                onClick={() => {
-                                  const newItems = [...orderForm.items];
-                                  newItems[idx].quantity = Math.max(1, newItems[idx].quantity - 1);
-                                  setOrderForm({...orderForm, items: newItems});
-                                }}
-                                className="px-2 py-1 hover:bg-white text-gray-500 transition-colors"
-                              >
-                                -
-                              </button>
-                              <input 
-                                type="number"
-                                className="w-8 text-center bg-transparent text-[10px] font-bold outline-none"
-                                value={item.quantity}
-                                onChange={(e) => {
-                                  const val = parseInt(e.target.value) || 0;
-                                  const newItems = [...orderForm.items];
-                                  newItems[idx].quantity = val;
-                                  setOrderForm({...orderForm, items: newItems});
-                                }}
-                              />
-                              <button 
-                                type="button"
-                                onClick={() => {
-                                  const newItems = [...orderForm.items];
-                                  newItems[idx].quantity = newItems[idx].quantity + 1;
-                                  setOrderForm({...orderForm, items: newItems});
-                                }}
-                                className="px-2 py-1 hover:bg-white text-gray-500 transition-colors"
-                              >
-                                +
-                              </button>
-                            </div>
-                            <span className="font-bold">{currencySymbol}{(item.quantity * item.price).toLocaleString()}</span>
-                            <button 
-                              type="button"
-                              onClick={() => setOrderForm({...orderForm, items: orderForm.items.filter((_, i) => i !== idx)})}
-                              className="text-[#dc2626] hover:text-[#b91c1c]"
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-semibold text-gray-500 ml-1">Delivery Address</label>
+                        <textarea
+                          rows={2}
+                          placeholder="House, Road, Area details..."
+                          className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-[13px] focus:border-[#0066FF] focus:ring-4 focus:ring-blue-500/5 outline-none transition-all resize-none placeholder:text-gray-300"
+                          value={orderForm.customerAddress}
+                          onChange={(e) => handleAddressChange(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[11px] font-semibold text-gray-500 ml-1">District</label>
+                          <div className="relative">
+                            <select
+                              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-[13px] focus:border-[#0066FF] outline-none appearance-none cursor-pointer"
+                              value={orderForm.district}
+                              onChange={(e) => {
+                                setOrderForm({...orderForm, district: e.target.value, area: ""});
+                                if (courierConfigs.pathao?.isActive) autoMatchPathao(e.target.value, "");
+                                if (courierConfigs.carrybee?.isActive) autoMatchCarrybee(e.target.value, "");
+                              }}
                             >
-                              <Trash2 size={14} />
+                              <option value="">Select District</option>
+                              {districts.map(d => <option key={d.id} value={d.nameEn}>{d.nameEn}</option>)}
+                            </select>
+                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[11px] font-semibold text-gray-500 ml-1">Area / Upazila</label>
+                          <div className="relative">
+                            <select
+                              disabled={!orderForm.district}
+                              className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-[13px] focus:border-[#0066FF] outline-none appearance-none cursor-pointer disabled:bg-gray-50 disabled:text-gray-400"
+                              value={orderForm.area}
+                              onChange={(e) => {
+                                setOrderForm({...orderForm, area: e.target.value});
+                                if (courierConfigs.pathao?.isActive) autoMatchPathao(orderForm.district, e.target.value);
+                                if (courierConfigs.carrybee?.isActive) autoMatchCarrybee(orderForm.district, e.target.value);
+                              }}
+                            >
+                              <option value="">Select Area</option>
+                              {upazilas.filter(u => orderForm.district && districts.find(d => d.nameEn === orderForm.district)?.id === u.districtId).map(u => (
+                                <option key={u.id} value={u.nameEn}>{u.nameEn}</option>
+                              ))}
+                            </select>
+                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Order Composition Section */}
+                    <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-4">
+                      <div className="flex items-center gap-2 pb-2 border-b border-gray-50">
+                        <Box size={14} className="text-[#0066FF]" />
+                        <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Order Composition</h4>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="relative">
+                            <select
+                              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-[13px] outline-none appearance-none cursor-pointer"
+                              value={newItem.productId}
+                              onChange={(e) => {
+                                const p = products.find(prod => prod.id === e.target.value);
+                                setNewItem({...newItem, productId: e.target.value, variantId: "", price: p?.sellingPrice || 0});
+                              }}
+                            >
+                              <option value="">Search Product...</option>
+                              {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            </select>
+                            <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+                          </div>
+                          
+                          {newItem.productId && products.find(p => p.id === newItem.productId)?.type === "variable" && (
+                            <div className="relative">
+                              <select
+                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-[13px] outline-none appearance-none cursor-pointer"
+                                value={newItem.variantId}
+                                onChange={(e) => {
+                                  const v = variants.find(varnt => varnt.id === e.target.value);
+                                  setNewItem({...newItem, variantId: e.target.value, price: v?.price || newItem.price});
+                                }}
+                              >
+                                <option value="">Select Variant</option>
+                                {variants.filter(v => v.productId === newItem.productId).map(v => (
+                                  <option key={v.id} value={v.id}>{v.size} / {v.color}</option>
+                                ))}
+                              </select>
+                              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg px-2">
+                            <button
+                              type="button"
+                              onClick={() => setNewItem(prev => ({...prev, quantity: Math.max(1, prev.quantity - 1)}))}
+                              className="p-1.5 text-gray-400 hover:text-gray-900"
+                            >
+                              <Minus size={14} />
+                            </button>
+                            <input
+                              type="number"
+                              className="w-10 text-center bg-transparent text-[13px] font-bold outline-none"
+                              value={newItem.quantity}
+                              onChange={(e) => setNewItem({...newItem, quantity: parseInt(e.target.value) || 0})}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setNewItem(prev => ({...prev, quantity: prev.quantity + 1}))}
+                              className="p-1.5 text-gray-400 hover:text-gray-900"
+                            >
+                              <Plus size={14} />
                             </button>
                           </div>
+                          
+                          <div className="flex-1 min-w-[120px]">
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">{currencySymbol}</span>
+                              <input
+                                type="number"
+                                placeholder="Unit Price"
+                                className="w-full pl-7 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-[13px] font-bold outline-none"
+                                value={newItem.price || ""}
+                                onChange={(e) => setNewItem({...newItem, price: parseFloat(e.target.value) || 0})}
+                              />
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!newItem.productId) return;
+                              const p = products.find(prod => prod.id === newItem.productId);
+                              if (!p) return;
+                              setOrderForm({
+                                ...orderForm,
+                                items: [...orderForm.items, { ...newItem, productName: p.name, price: newItem.price || p.sellingPrice || 0 }]
+                              });
+                              setNewItem({ productId: "", variantId: "", quantity: 1, price: 0 });
+                            }}
+                            className="bg-[#0066FF] text-white px-5 py-2.5 rounded-lg text-[13px] font-bold hover:bg-blue-600 transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20"
+                          >
+                            <Plus size={16} /> Add 
+                          </button>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+                      </div>
 
-              {/* Payment & Charges Section */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-bold uppercase tracking-widest text-[#9ca3af] flex items-center gap-2">
-                  <CreditCard size={14} /> Payment & Charges
-                </h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Delivery Zone</label>
-                    <select 
-                      className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all"
-                      value={orderForm.customerZone}
-                      onChange={e => handleZoneChange(e.target.value)}
-                    >
-                      <option value="Inside Dhaka">Inside Dhaka</option>
-                      <option value="Sub Area">Sub Area</option>
-                      <option value="Outside Dhaka">Outside Dhaka</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Delivery Charge</label>
-                    <input 
-                      type="number"
-                      className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all font-bold text-blue-600"
-                      value={orderForm.deliveryCharge}
-                      onChange={e => setOrderForm({...orderForm, deliveryCharge: parseFloat(e.target.value) || 0})}
-                    />
-                  </div>
-                </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Discount</label>
-                    <input 
-                      type="number"
-                      className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all"
-                      value={orderForm.discount}
-                      onChange={e => setOrderForm({...orderForm, discount: parseFloat(e.target.value) || 0})}
-                    />
-                  </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Paid Amount (Advance)</label>
-                    <input 
-                      type="number"
-                      className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all"
-                      value={orderForm.paidAmount}
-                      onChange={e => setOrderForm({...orderForm, paidAmount: parseFloat(e.target.value) || 0})}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Payment Method</label>
-                    <select 
-                      className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all"
-                      value={orderForm.paymentMethod}
-                      onChange={e => setOrderForm({...orderForm, paymentMethod: e.target.value as any})}
-                    >
-                      <option value="COD">Cash on Delivery</option>
-                      <option value="bKash">bKash</option>
-                      <option value="Nagad">Nagad</option>
-                      <option value="Rocket">Rocket</option>
-                      <option value="Bank Transfer">Bank Transfer</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Additional Info Section */}
-              <div className="space-y-4">
-                <h4 className="text-xs font-bold uppercase tracking-widest text-[#9ca3af] flex items-center gap-2">
-                  <AlertCircle size={14} /> Additional Information
-                </h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Order Tags</label>
-                    <input 
-                      type="text"
-                      className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all"
-                      placeholder="e.g. VIP, Urgent, Gift"
-                      value={orderForm.tags}
-                      onChange={e => setOrderForm({...orderForm, tags: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Order Source</label>
-                    <select 
-                      className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all"
-                      value={orderForm.channel}
-                      onChange={e => setOrderForm({...orderForm, channel: e.target.value})}
-                    >
-                      <option value="whatsapp">WhatsApp</option>
-                      <option value="messenger">Messenger</option>
-                      <option value="instagram">Instagram</option>
-                      <option value="call">Call</option>
-                      <option value="website">Website</option>
-                      <option value="tiktok">TikTok</option>
-                      <option value="others">Others</option>
-                    </select>
-                  </div>
-                  {editingOrder && (
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Order Status</label>
-                      <select 
-                        className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all"
-                        value={orderForm.status}
-                        onChange={e => setOrderForm({...orderForm, status: e.target.value as any})}
-                      >
-                        {statuses.map(s => (
-                          <option key={s} value={s}>{s.replace(/_/g, ' ').charAt(0).toUpperCase() + s.replace(/_/g, ' ').slice(1)}</option>
+                      {/* Items List */}
+                      <div className="space-y-2 mt-4 max-h-[240px] overflow-y-auto no-scrollbar lg:pr-1">
+                        {orderForm.items.length === 0 && (
+                          <div className="py-8 text-center bg-gray-50/50 rounded-lg border border-dashed border-gray-200">
+                            <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">No items added yet</p>
+                          </div>
+                        )}
+                        {orderForm.items.map((item, idx) => (
+                          <motion.div
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            key={idx}
+                            className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-lg group hover:shadow-md transition-all"
+                          >
+                            <div className="flex flex-col flex-1 min-w-0 pr-4">
+                              <span className="text-[13px] font-bold text-gray-900 truncate">
+                                {item.productName}
+                              </span>
+                              {item.variantId && (
+                                <span className="text-[10px] text-gray-400 font-medium">
+                                  Variant: {item.variantId.split('-').pop()}
+                                </span>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center bg-gray-50 rounded-lg px-1.5 border border-gray-100">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const next = [...orderForm.items];
+                                    next[idx].quantity = Math.max(1, next[idx].quantity - 1);
+                                    setOrderForm({ ...orderForm, items: next });
+                                  }}
+                                  className="p-1 text-gray-400 hover:text-gray-900"
+                                >
+                                  <Minus size={12} />
+                                </button>
+                                <span className="w-8 text-center text-[12px] font-bold text-gray-900">
+                                  {item.quantity}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const next = [...orderForm.items];
+                                    next[idx].quantity += 1;
+                                    setOrderForm({ ...orderForm, items: next });
+                                  }}
+                                  className="p-1 text-gray-400 hover:text-gray-900"
+                                >
+                                  <Plus size={12} />
+                                </button>
+                              </div>
+                              
+                              <div className="w-20 text-right">
+                                <span className="text-[13px] font-bold text-gray-900">
+                                  {currencySymbol}{(item.quantity * item.price).toLocaleString()}
+                                </span>
+                              </div>
+                              
+                              <button
+                                type="button"
+                                onClick={() => setOrderForm({ ...orderForm, items: orderForm.items.filter((_, i) => i !== idx) })}
+                                className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </motion.div>
                         ))}
-                      </select>
+                      </div>
                     </div>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Order Notes</label>
-                  <textarea 
-                    className="w-full px-4 py-2 bg-[#f9fafb] border border-transparent rounded-lg text-sm focus:bg-[#ffffff] focus:border-[#e5e7eb] outline-none transition-all resize-none"
-                    rows={2}
-                    placeholder="Special instructions for delivery or packing..."
-                    value={orderForm.notes}
-                    onChange={e => setOrderForm({...orderForm, notes: e.target.value})}
-                  />
-                </div>
-              </div>
+                  </div>
 
-              {/* Summary Section */}
-              <div className="bg-[#141414] text-white p-6 rounded-2xl space-y-2 shadow-xl">
-                <div className="flex justify-between text-xs opacity-60">
-                  <span>Subtotal</span>
-                  <span>{currencySymbol}{calculateTotals(orderForm.items, orderForm.deliveryCharge, orderForm.discount, orderForm.paidAmount).subtotal.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-xs opacity-60">
-                  <span>Delivery Charge</span>
-                  <span>+ {currencySymbol}{orderForm.deliveryCharge.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-xs opacity-60">
-                  <span>Discount</span>
-                  <span>- {currencySymbol}{orderForm.discount.toLocaleString()}</span>
-                </div>
-                <div className="h-px bg-[#ffffff1a] my-2" />
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold uppercase tracking-widest">Total Amount</span>
-                  <span className="text-2xl font-bold">{currencySymbol}{calculateTotals(orderForm.items, orderForm.deliveryCharge, orderForm.discount, orderForm.paidAmount).totalAmount.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center pt-2 text-[#fb923c]">
-                  <span className="text-[10px] font-bold uppercase tracking-widest">Due Amount</span>
-                  <span className="text-lg font-bold">{currencySymbol}{calculateTotals(orderForm.items, orderForm.deliveryCharge, orderForm.discount, orderForm.paidAmount).dueAmount.toLocaleString()}</span>
-                </div>
-              </div>
+                  {/* Settings & Financial Summary */}
+                  <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Operational Settings */}
+                    <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-4 h-fit">
+                      <div className="flex items-center gap-2 pb-2 border-b border-gray-50">
+                        <Activity size={14} className="text-[#0066FF]" />
+                        <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Logistics Settings</h4>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[11px] font-semibold text-gray-500 ml-1">Warehouse</label>
+                          <div className="relative">
+                            <select
+                               required
+                               className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-[13px] focus:border-[#0066FF] outline-none appearance-none cursor-pointer"
+                               value={orderForm.warehouseId}
+                               onChange={(e) => setOrderForm({ ...orderForm, warehouseId: e.target.value })}
+                             >
+                               <option value="">Select Warehouse</option>
+                               {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                             </select>
+                             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+                          </div>
+                        </div>
 
-              <div className="pt-4 flex gap-3">
-                <button 
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 py-3 border border-[#e5e7eb] rounded-xl font-bold hover:bg-[#f9fafb] transition-all"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 py-3 bg-[#141414] text-white rounded-xl font-bold hover:bg-black transition-all shadow-lg"
-                >
-                  {editingOrder ? 'Save Changes' : 'Confirm Order'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      {/* Courier Selection Modal */}
-      {courierSelection.isOpen && (
-        <div className="fixed inset-0 bg-[#00000080] backdrop-blur-sm z-[70] flex items-center justify-center p-6 no-print">
-          <div className="bg-[#ffffff] w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="px-6 py-4 border-b border-[#f3f4f6] flex items-center justify-between bg-[#f9fafb]/50">
-              <h3 className="text-lg font-bold text-[#141414]">Select Courier</h3>
-              <button 
-                onClick={() => setCourierSelection(prev => ({ ...prev, isOpen: false }))}
-                className="p-2 hover:bg-[#f3f4f6] rounded-full transition-colors text-[#9ca3af]"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-6 space-y-3">
-              <p className="text-xs text-gray-500 mb-4">Multiple couriers are active. Please choose which one to use for this order.</p>
-              {courierSelection.activeCouriers.map(([name]) => (
-                <button
-                  key={name}
-                  onClick={() => {
-                    handleSendToCourier(courierSelection.order, name);
-                    setCourierSelection(prev => ({ ...prev, isOpen: false }));
-                  }}
-                  className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-[#f3f4f6] hover:border-[#00AEEF] hover:bg-[#00AEEF]/5 transition-all group"
-                >
-                  <span className="font-bold text-gray-700 group-hover:text-[#00AEEF]">
-                    {name.charAt(0).toUpperCase() + name.slice(1)}
-                  </span>
-                  <ChevronRight size={16} className="text-gray-400 group-hover:text-[#00AEEF]" />
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <label className="text-[11px] font-semibold text-gray-500 ml-1">Order Status</label>
+                            <div className="relative">
+                              <select
+                                className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-[13px] font-bold focus:border-[#0066FF] outline-none appearance-none cursor-pointer"
+                                value={orderForm.status}
+                                onChange={(e) => setOrderForm({ ...orderForm, status: e.target.value as any })}
+                              >
+                                {statuses.map(s => <option key={s} value={s}>{s.replace(/_/g, " ").toUpperCase()}</option>)}
+                              </select>
+                              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+                            </div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-[11px] font-semibold text-gray-500 ml-1">Source Channel</label>
+                            <div className="relative">
+                              <select
+                                className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-[13px] focus:border-[#0066FF] outline-none appearance-none cursor-pointer"
+                                value={orderForm.channel}
+                                onChange={(e) => setOrderForm({ ...orderForm, channel: e.target.value })}
+                              >
+                                <option value="messenger">Messenger</option>
+                                <option value="whatsapp">WhatsApp</option>
+                                <option value="instagram">Instagram</option>
+                                <option value="website">Website</option>
+                                <option value="others">Others</option>
+                              </select>
+                              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+                            </div>
+                          </div>
+                        </div>
 
-      {/* Print Modal */}
-      {selectedOrderForPrint && (
-        <div className="fixed inset-0 bg-[#00000080] backdrop-blur-sm z-[60] flex items-center justify-center p-6 no-print">
-          <div className="bg-[#ffffff] w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="px-6 py-4 border-b border-[#f3f4f6] flex items-center justify-between bg-[#f9fafb]/50">
-              <h3 className="text-lg font-bold text-[#141414]">Print/Download Invoice</h3>
-              <button 
-                onClick={() => {
-                  setSelectedOrderForPrint(null);
-                  setPrintType(null);
-                }}
-                className="p-2 hover:bg-[#f3f4f6] rounded-full transition-colors text-[#9ca3af]"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-6 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { id: 'a5', name: 'A5 Invoice', icon: FileText },
-                  { id: 'pos', name: 'POS', icon: Printer },
-                ].map((type) => (
+                        <div className="space-y-1.5">
+                          <label className="text-[11px] font-semibold text-gray-500 ml-1">Internal Notes</label>
+                          <textarea
+                            rows={1}
+                            placeholder="Optional notes..."
+                            className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-[13px] focus:border-[#0066FF] outline-none transition-all resize-none placeholder:text-gray-300"
+                            value={orderForm.notes}
+                            onChange={(e) => setOrderForm({ ...orderForm, notes: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Financial Summary Dashboard */}
+                    <div className="bg-[#0F172A] p-5 rounded-xl border border-gray-800 shadow-xl space-y-4 text-white">
+                      <div className="flex items-center gap-2 pb-2 border-b border-gray-800">
+                        <CreditCard size={14} className="text-blue-400" />
+                        <h4 className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Financial Summary</h4>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                           <div className="space-y-1.5">
+                             <label className="text-[11px] font-medium text-gray-400">Delivery Tier</label>
+                             <select
+                               className="w-full px-3 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-[12px] font-bold text-white outline-none appearance-none cursor-pointer"
+                               value={orderForm.customerZone}
+                               onChange={(e) => handleZoneChange(e.target.value)}
+                             >
+                               <option value="Inside Dhaka">Inside Dhaka</option>
+                               <option value="Sub Area">Sub Area</option>
+                               <option value="Outside Dhaka">Outside Dhaka</option>
+                             </select>
+                           </div>
+                           <div className="space-y-1.5">
+                             <label className="text-[11px] font-medium text-gray-400">Payment Protocol</label>
+                             <select
+                               className="w-full px-3 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-[12px] font-bold text-white outline-none appearance-none cursor-pointer"
+                               value={orderForm.paymentMethod}
+                               onChange={(e) => setOrderForm({ ...orderForm, paymentMethod: e.target.value as any })}
+                             >
+                               <option value="COD">CASH ON DELIVERY</option>
+                               <option value="bKash">BKASH</option>
+                               <option value="Nagad">NAGAD</option>
+                             </select>
+                           </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 pt-2">
+                           <div className="bg-gray-800/30 p-3 rounded-lg border border-gray-800">
+                             <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Subtotal</p>
+                             <p className="text-sm font-bold text-white">{currencySymbol}{orderForm.totalAmount.toLocaleString()}</p>
+                           </div>
+                           <div className="bg-gray-800/30 p-3 rounded-lg border border-gray-800">
+                             <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Fee & Adj.</p>
+                             <div className="flex items-center gap-2">
+                               <p className="text-sm font-bold text-blue-400">+{orderForm.deliveryCharge}</p>
+                               <p className="text-sm font-bold text-red-400">-{orderForm.discount}</p>
+                             </div>
+                           </div>
+                        </div>
+
+                        <div className="bg-blue-600/10 p-4 rounded-xl border border-blue-500/20 flex items-center justify-between">
+                          <div>
+                            <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest mb-0.5">Total Payable</p>
+                            <h3 className="text-xl font-black text-white">
+                              {currencySymbol}{(orderForm.totalAmount + (orderForm.deliveryCharge || 0) - (orderForm.discount || 0)).toLocaleString()}
+                            </h3>
+                          </div>
+                          <div className="text-right">
+                             <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-1">Advance</p>
+                             <input
+                               type="number"
+                               className="w-20 bg-emerald-500/20 border border-emerald-500/40 rounded-lg px-2 py-1 text-right text-[13px] font-black text-emerald-400 outline-none focus:bg-emerald-500/30 transition-all"
+                               value={orderForm.paidAmount}
+                               onChange={(e) => setOrderForm({ ...orderForm, paidAmount: parseFloat(e.target.value) || 0 })}
+                             />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-gray-100 flex items-center justify-end gap-3">
                   <button
-                    key={type.id}
-                    onClick={() => setPrintType(type.id as any)}
-                    className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 transition-all ${
-                      printType === type.id 
-                        ? 'border-[#00AEEF] bg-[#00AEEF]/5 text-[#00AEEF]' 
-                        : 'border-[#f3f4f6] hover:border-[#e5e7eb] text-[#6b7280]'
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-6 py-2.5 rounded-lg text-[13px] font-bold text-gray-500 hover:bg-gray-50 transition-all border border-transparent hover:border-gray-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 max-w-[240px] px-8 py-2.5 bg-[#0066FF] text-white rounded-lg text-[13px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all active:scale-98 shadow-xl shadow-blue-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {loading ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
+                    {editingOrder ? "Update Order" : "Confirm Order"}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+        {/* Courier Selection Modal */}
+        {courierSelection.isOpen && (
+          <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-[70] flex items-center justify-center p-6 no-print">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="bg-white w-full max-w-sm rounded-xl shadow-2xl overflow-hidden border border-gray-100"
+            >
+              <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between bg-white">
+                <div className="flex flex-col">
+                  <h3 className="text-base font-bold text-gray-900">
+                    Select Courier
+                  </h3>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Logistic Dispatch</p>
+                </div>
+                <button
+                  onClick={() =>
+                    setCourierSelection((prev) => ({ ...prev, isOpen: false }))
+                  }
+                  className="p-1.5 hover:bg-gray-50 rounded-lg transition-colors text-gray-400 hover:text-gray-600 border border-gray-200"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <p className="text-[12px] text-gray-500 font-medium leading-relaxed">
+                  Multiple couriers are active for this region. Please select the preferred carrier.
+                </p>
+                <div className="space-y-2">
+                  {courierSelection.activeCouriers.map(([name]) => (
+                    <button
+                      key={name}
+                      onClick={() => {
+                        handleSendToCourier(courierSelection.order, name);
+                        setCourierSelection((prev) => ({
+                          ...prev,
+                          isOpen: false,
+                        }));
+                      }}
+                      className="w-full flex items-center justify-between p-3.5 rounded-xl border border-gray-200 hover:border-[#0066FF] hover:bg-blue-50/50 transition-all group shadow-sm bg-white"
+                    >
+                      <div className="flex items-center gap-3">
+                         <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-400 group-hover:text-[#0066FF] group-hover:bg-blue-50">
+                           <Truck size={16} />
+                         </div>
+                         <span className="font-bold text-[13px] text-gray-700 group-hover:text-[#0066FF]">
+                           {name.charAt(0).toUpperCase() + name.slice(1)}
+                         </span>
+                      </div>
+                      <ChevronRight
+                        size={14}
+                        className="text-gray-300 group-hover:text-[#0066FF]"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Print Modal */}
+        {selectedOrderForPrint && (
+          <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-6 no-print">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="bg-white w-full max-w-sm rounded-xl shadow-2xl overflow-hidden border border-gray-100"
+            >
+              <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between bg-white">
+                <div className="flex flex-col">
+                  <h3 className="text-base font-bold text-gray-900">
+                    Print Invoice
+                  </h3>
+                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Document Generation</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedOrderForPrint(null);
+                    setPrintType(null);
+                  }}
+                  className="p-1.5 hover:bg-gray-50 rounded-lg transition-colors text-gray-400 hover:text-gray-600 border border-gray-200"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="p-6 space-y-6">
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { id: "a5", name: "A5 Invoice", icon: FileText },
+                    { id: "pos", name: "POS Receipt", icon: Printer },
+                  ].map((type) => (
+                    <button
+                      key={type.id}
+                      onClick={() => setPrintType(type.id as any)}
+                      className={`flex flex-col items-center gap-3 p-4 rounded-xl border transition-all ${
+                        printType === type.id
+                          ? "border-[#0066FF] bg-blue-50/50 text-[#0066FF] shadow-sm"
+                          : "border-gray-100 bg-gray-50/50 hover:bg-gray-100 text-gray-500"
+                      }`}
+                    >
+                      <type.icon size={20} />
+                      <span className="text-[11px] font-bold">{type.name}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => {
+                      if (!printType) {
+                        toast.error("Please select an invoice type first");
+                        return;
+                      }
+                      handlePrint();
+                    }}
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-[13px] font-bold transition-all ${
+                      !printType
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : "bg-gray-900 text-white hover:bg-black shadow-lg shadow-gray-200"
                     }`}
                   >
-                    <type.icon size={24} />
-                    <span className="text-xs font-bold">{type.name}</span>
+                    <Printer size={16} /> Standard Print
                   </button>
-                ))}
+                  
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        if (!printType) {
+                          toast.error("Please select an invoice type first");
+                          return;
+                        }
+                        handleDownloadPDF();
+                      }}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-[13px] font-bold transition-all border ${
+                        !printType
+                          ? "bg-gray-50 text-gray-400 border-gray-100"
+                          : "bg-white text-[#0066FF] border-[#0066FF] hover:bg-blue-50"
+                      }`}
+                    >
+                      <Download size={16} /> PDF
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!printType) {
+                          toast.error("Please select an invoice type first");
+                          return;
+                        }
+                        window.print();
+                      }}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-[13px] font-bold transition-all border ${
+                        !printType
+                          ? "bg-gray-50 text-gray-400 border-gray-100"
+                          : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      Manual
+                    </button>
+                  </div>
+                </div>
               </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    if (!printType) {
-                      toast.error("Please select an invoice type first");
-                      return;
-                    }
-                    handlePrint();
-                  }}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${
-                    !printType 
-                      ? 'bg-[#f3f4f6] text-[#9ca3af] cursor-not-allowed' 
-                      : 'bg-[#141414] text-white hover:bg-black'
-                  }`}
-                >
-                  <Printer size={18} /> Print
-                </button>
-                <button
-                  onClick={() => {
-                    if (!printType) {
-                      toast.error("Please select an invoice type first");
-                      return;
-                    }
-                    toast.info("Opening system print dialog...");
-                    setTimeout(() => window.print(), 500);
-                  }}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${
-                    !printType 
-                      ? 'bg-[#f3f4f6] text-[#9ca3af] cursor-not-allowed' 
-                      : 'bg-[#6b7280] text-white hover:bg-[#4b5563]'
-                  }`}
-                  title="Use this if the standard print button fails"
-                >
-                  <Printer size={18} /> Manual
-                </button>
-                <button
-                  onClick={() => {
-                    if (!printType) {
-                      toast.error("Please select an invoice type first");
-                      return;
-                    }
-                    handleDownloadPDF();
-                  }}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${
-                    !printType 
-                      ? 'bg-[#f3f4f6] text-[#9ca3af] cursor-not-allowed' 
-                      : 'bg-[#00AEEF] text-white hover:bg-[#0096ce]'
-                  }`}
-                >
-                  <Download size={18} /> Download PDF
-                </button>
-              </div>
-            </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Bulk Actions Bar */}
-      {selectedOrders.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#141414] text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-6 z-50 animate-in slide-in-from-bottom-4 duration-300">
-          <div className="flex items-center gap-3 pr-6 border-r border-white/10">
-            <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center text-xs font-bold">
-              {selectedOrders.length}
-            </div>
-            <span className="text-sm font-medium text-white/80">Orders Selected</span>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => handleBulkStatusUpdate('confirmed')}
-              className="px-4 py-2 hover:bg-white/10 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
-            >
-              <CheckCircle size={16} className="text-green-400" />
-              Confirm
-            </button>
-            <button 
-              onClick={handleBulkSendToCourier}
-              className="px-4 py-2 hover:bg-white/10 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
-            >
-              <Truck size={16} className="text-blue-400" />
-              Send to Courier
-            </button>
-            <button 
-              onClick={handleBulkPrint}
-              className="px-4 py-2 hover:bg-white/10 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
-            >
-              <Printer size={16} />
-              Print Invoices
-            </button>
-            <button 
-              onClick={() => setSelectedOrders([])}
-              className="px-4 py-2 hover:bg-white/10 rounded-lg text-sm font-bold transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      <ConfirmModal 
-        isOpen={confirmConfig.isOpen}
-        title={confirmConfig.title}
-        message={confirmConfig.message}
-        variant={confirmConfig.variant}
-        onConfirm={confirmConfig.onConfirm}
-        onCancel={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
-      />
-
-      {viewingOrder && (
-        <OrderDetailsModal 
-          order={viewingOrder}
-          onClose={() => setViewingOrder(null)}
-          products={products}
-          variants={variants}
-          currencySymbol={currencySymbol}
-          onPrintInvoice={(order) => {
-            setSelectedOrderForPrint(order);
-            setPrintType('a5');
-          }}
-          onSendToCourier={handleSendToCourier}
+        <ConfirmModal
+          isOpen={confirmConfig.isOpen}
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+          variant={confirmConfig.variant}
+          onConfirm={confirmConfig.onConfirm}
+          onCancel={() =>
+            setConfirmConfig((prev) => ({ ...prev, isOpen: false }))
+          }
         />
-      )}
 
-      {/* Hidden Print Containers - Moved outside conditional blocks to ensure refs are always attached and accessible */}
-      <div className="print-only">
-        <div ref={printRef}>
-          {selectedOrderForPrint && (
-            <>
-              {printType === 'a5' && <A5Invoice order={selectedOrderForPrint} company={companySettings || {}} currencySymbol={currencySymbol} />}
-              {printType === 'pos' && <POSInvoice order={selectedOrderForPrint} company={companySettings || {}} currencySymbol={currencySymbol} />}
-            </>
-          )}
+        {viewingOrder && (
+          <OrderDetailsModal
+            order={viewingOrder}
+            onClose={() => setViewingOrder(null)}
+            products={products}
+            variants={variants}
+            currencySymbol={currencySymbol}
+            onPrintInvoice={(order) => handleDirectPrint(order, "a5")}
+            onSendToCourier={handleSendToCourier}
+          />
+        )}
+
+        {/* Hidden Print Containers - Moved outside conditional blocks to ensure refs are always attached and accessible */}
+        <div className="print-only">
+          <div ref={printRef}>
+            {selectedOrderForPrint && (
+              <>
+                {printType === "a5" && (
+                  <A5Invoice
+                    order={selectedOrderForPrint}
+                    company={companySettings || {}}
+                    currencySymbol={currencySymbol}
+                  />
+                )}
+                {printType === "pos" && (
+                  <POSInvoice
+                    order={selectedOrderForPrint}
+                    company={companySettings || {}}
+                    currencySymbol={currencySymbol}
+                  />
+                )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Hidden Bulk Print Content */}
-      <div className="print-only">
-        <div ref={bulkPrintRef}>
-          {selectedOrders.length > 0 && selectedOrders.map(id => {
-            const order = orders.find(o => o.id === id);
-            if (!order) return null;
-            return (
-              <div key={id} className="page-break-after">
-                <A5Invoice order={order} company={companySettings || {}} currencySymbol={currencySymbol} />
-              </div>
-            );
-          })}
+        {/* Hidden Bulk Print Content */}
+        <div className="print-only">
+          <div ref={bulkPrintRef}>
+            {selectedOrders.length > 0 &&
+              selectedOrders.map((id) => {
+                const order = orders.find((o) => o.id === id);
+                if (!order) return null;
+                return (
+                  <div key={id} className="page-break-after">
+                    <A5Invoice
+                      order={order}
+                      company={companySettings || {}}
+                      currencySymbol={currencySymbol}
+                    />
+                  </div>
+                );
+              })}
+          </div>
         </div>
       </div>
     </div>

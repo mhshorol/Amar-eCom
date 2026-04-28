@@ -117,7 +117,6 @@ export class SteadfastAdapter implements CourierInterface {
 
     for (const url of urls) {
       try {
-        console.log(`Steadfast: Checking fraud at ${url}/check_client/${sanitizedPhone}`);
         const response = await axios.get(`${url}/check_client/${sanitizedPhone}`, {
           headers: {
             'api-key': this.apiKey,

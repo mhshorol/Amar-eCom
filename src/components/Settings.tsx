@@ -22,7 +22,12 @@ import {
   ClipboardList,
   Check,
   X,
-  Loader2
+  Loader2,
+  DollarSign,
+  Languages,
+  Star,
+  Info,
+  ChevronDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { db, auth, doc, getDoc, setDoc, onSnapshot, collection, getDocs, query, where, deleteDoc, writeBatch, updateDoc, addDoc, Timestamp, orderBy, limit } from '../firebase';
@@ -403,12 +408,10 @@ export default function Settings() {
   };
 
   const handleSave = async () => {
-    console.log('handleSave called for tab:', activeTab);
     setSaving(true);
     setMessage(null);
     try {
       if (activeTab === 'General' || activeTab === 'Company Info' || activeTab === 'Integrations') {
-        console.log('Saving company info:', companyInfo);
         await setDoc(doc(db, 'settings', 'company'), companyInfo, { merge: true });
       }
       
@@ -444,11 +447,11 @@ export default function Settings() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-8 max-w-[1200px] mx-auto pb-10">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-[#141414] tracking-tight">Settings</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Settings</h2>
           <p className="text-sm text-gray-500 mt-1">Manage your account, integrations, and system preferences.</p>
         </div>
         {message && (
@@ -461,137 +464,199 @@ export default function Settings() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
         {/* Navigation */}
-        <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-6">
-            <div className="space-y-1">
-              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider px-3 mb-2">Business</h4>
-              {[
-                { name: 'General', icon: SettingsIcon },
-                { name: 'Company Info', icon: Building2 },
-              ].map((item) => (
-                <button
-                  key={item.name}
-                  onClick={() => setActiveTab(item.name)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                    activeTab === item.name 
-                      ? 'bg-blue-50 text-blue-600' 
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <item.icon size={18} className={activeTab === item.name ? 'text-blue-600' : 'text-gray-400'} />
-                  {item.name}
-                </button>
-              ))}
-            </div>
+        <div className="w-full lg:w-[280px] shrink-0 bg-white p-4 rounded-2xl border border-gray-200 shadow-sm space-y-6">
+          <div className="space-y-1">
+            <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 mb-3">Business</h4>
+            {[
+              { name: 'General', icon: SettingsIcon },
+              { name: 'Company Info', icon: Building2 },
+            ].map((item) => (
+              <button
+                key={item.name}
+                onClick={() => setActiveTab(item.name)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all ${
+                  activeTab === item.name 
+                    ? 'bg-[#EBF3FF] text-[#0866FF]' 
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <item.icon size={18} className={activeTab === item.name ? 'text-[#0866FF]' : 'text-gray-400'} />
+                {item.name}
+              </button>
+            ))}
+          </div>
 
-            <div className="space-y-1">
-              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider px-3 mb-2">User</h4>
-              {[
-                { name: 'Account', icon: UserIcon },
-                { name: 'Notifications', icon: Bell },
-                { name: 'Security', icon: Shield },
-              ].map((item) => (
-                <button
-                  key={item.name}
-                  onClick={() => setActiveTab(item.name)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                    activeTab === item.name 
-                      ? 'bg-blue-50 text-blue-600' 
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <item.icon size={18} className={activeTab === item.name ? 'text-blue-600' : 'text-gray-400'} />
-                  {item.name}
-                </button>
-              ))}
-            </div>
+          <div className="space-y-1">
+            <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 mb-3">User</h4>
+            {[
+              { name: 'Account', icon: UserIcon },
+              { name: 'Notifications', icon: Bell },
+              { name: 'Security', icon: Shield },
+            ].map((item) => (
+              <button
+                key={item.name}
+                onClick={() => setActiveTab(item.name)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all ${
+                  activeTab === item.name 
+                    ? 'bg-[#EBF3FF] text-[#0866FF]' 
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <item.icon size={18} className={activeTab === item.name ? 'text-[#0866FF]' : 'text-gray-400'} />
+                {item.name}
+              </button>
+            ))}
+          </div>
 
-            <div className="space-y-1">
-              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider px-3 mb-2">System</h4>
-              {[
-                { name: 'Integrations', icon: Globe },
-                { name: 'SMS Settings', icon: Smartphone },
-                { name: 'Data Management', icon: Database },
-                { name: 'Mobile App', icon: Smartphone },
-                { name: 'Activity Logs', icon: ClipboardList },
-              ].map((item) => (
-                <button
-                  key={item.name}
-                  onClick={() => setActiveTab(item.name)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                    activeTab === item.name 
-                      ? 'bg-blue-50 text-blue-600' 
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <item.icon size={18} className={activeTab === item.name ? 'text-blue-600' : 'text-gray-400'} />
-                  {item.name}
-                </button>
-              ))}
-            </div>
+          <div className="space-y-1">
+            <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-3 mb-3">System</h4>
+            {[
+              { name: 'Integrations', icon: Globe },
+              { name: 'SMS Settings', icon: Smartphone },
+              { name: 'Data Management', icon: Database },
+              { name: 'Mobile App', icon: Smartphone },
+              { name: 'Activity Logs', icon: ClipboardList },
+            ].map((item) => (
+              <button
+                key={item.name}
+                onClick={() => setActiveTab(item.name)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all ${
+                  activeTab === item.name 
+                    ? 'bg-[#EBF3FF] text-[#0866FF]' 
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <item.icon size={18} className={activeTab === item.name ? 'text-[#0866FF]' : 'text-gray-400'} />
+                {item.name}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Content */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white p-8 rounded-xl border border-gray-100 shadow-sm space-y-8">
+        <div className="flex-1 w-full flex flex-col justify-between space-y-6 lg:space-y-0 min-h-[600px] bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+          <div>
             {activeTab === 'General' && (
-              <div className="space-y-6">
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                  <SettingsIcon size={20} /> General Settings
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Currency</label>
-                    <select 
-                      value={companyInfo.currency}
-                      onChange={e => setCompanyInfo({...companyInfo, currency: e.target.value})}
-                      className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all"
-                    >
-                      <option value="BDT">BDT (৳)</option>
-                      <option value="USD">USD ($)</option>
-                      <option value="EUR">EUR (€)</option>
-                      <option value="GBP">GBP (£)</option>
-                    </select>
+              <div className="space-y-8">
+                <div className="flex items-center gap-4 border-b border-gray-50 pb-6">
+                  <div className="w-14 h-14 bg-[#0866FF] rounded-2xl flex items-center justify-center shadow-sm text-white shrink-0">
+                    <SettingsIcon size={26} />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Timezone</label>
-                    <select 
-                      value={companyInfo.timezone}
-                      onChange={e => setCompanyInfo({...companyInfo, timezone: e.target.value})}
-                      className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all"
-                    >
-                      <option value="Asia/Dhaka">Asia/Dhaka (GMT+6)</option>
-                      <option value="UTC">UTC</option>
-                      <option value="America/New_York">America/New_York</option>
-                    </select>
+                  <div>
+                    <h3 className="text-[19px] font-bold text-gray-900">General Settings</h3>
+                    <p className="text-[13px] text-gray-500">Configure basic system preferences and defaults.</p>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">System Language</label>
-                    <select 
-                      value={companyInfo.language}
-                      onChange={e => setCompanyInfo({...companyInfo, language: e.target.value})}
-                      className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all"
-                    >
-                      <option value="English">English</option>
-                      <option value="Bengali">Bengali</option>
-                      <option value="Spanish">Spanish</option>
-                    </select>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
+                  {/* Currency */}
+                  <div className="space-y-2.5">
+                    <label className="text-[13px] font-bold text-gray-700">Currency</label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <div className="w-7 h-7 rounded-full bg-[#EBF3FF] flex items-center justify-center text-[#0866FF]">
+                          <DollarSign size={14} strokeWidth={2.5} />
+                        </div>
+                      </div>
+                      <select 
+                        value={companyInfo.currency}
+                        onChange={e => setCompanyInfo({...companyInfo, currency: e.target.value})}
+                        className="w-full pl-12 pr-10 py-3 bg-white border border-gray-200 group-hover:border-gray-300 rounded-xl text-[14px] font-medium text-gray-700 appearance-none focus:border-[#0866FF] focus:ring-1 focus:ring-[#0866FF] outline-none transition-all"
+                      >
+                        <option value="BDT">BDT (৳)</option>
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (€)</option>
+                        <option value="GBP">GBP (£)</option>
+                      </select>
+                      <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-gray-400">
+                        <ChevronDown size={16} />
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Reward Points (per 100 {companyInfo.currency})</label>
-                    <div className="relative">
+
+                  {/* Timezone */}
+                  <div className="space-y-2.5">
+                    <label className="text-[13px] font-bold text-gray-700">Timezone</label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <div className="w-7 h-7 rounded-full bg-[#F3E8FF] flex items-center justify-center text-[#9333EA]">
+                          <Globe size={14} strokeWidth={2.5} />
+                        </div>
+                      </div>
+                      <select 
+                        value={companyInfo.timezone}
+                        onChange={e => setCompanyInfo({...companyInfo, timezone: e.target.value})}
+                        className="w-full pl-12 pr-10 py-3 bg-white border border-gray-200 group-hover:border-gray-300 rounded-xl text-[14px] font-medium text-gray-700 appearance-none focus:border-[#0866FF] focus:ring-1 focus:ring-[#0866FF] outline-none transition-all"
+                      >
+                        <option value="Asia/Dhaka">Asia/Dhaka (GMT+6)</option>
+                        <option value="UTC">UTC</option>
+                        <option value="America/New_York">America/New_York</option>
+                      </select>
+                      <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-gray-400">
+                        <ChevronDown size={16} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* System Language */}
+                  <div className="space-y-2.5">
+                    <label className="text-[13px] font-bold text-gray-700">System Language</label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <div className="w-7 h-7 rounded-full bg-[#E5FDF4] flex items-center justify-center text-[#059669]">
+                          <Languages size={14} strokeWidth={2.5} />
+                        </div>
+                      </div>
+                      <select 
+                        value={companyInfo.language}
+                        onChange={e => setCompanyInfo({...companyInfo, language: e.target.value})}
+                        className="w-full pl-12 pr-10 py-3 bg-white border border-gray-200 group-hover:border-gray-300 rounded-xl text-[14px] font-medium text-gray-700 appearance-none focus:border-[#0866FF] focus:ring-1 focus:ring-[#0866FF] outline-none transition-all"
+                      >
+                        <option value="English">English</option>
+                        <option value="Bengali">Bengali</option>
+                        <option value="Spanish">Spanish</option>
+                      </select>
+                      <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-gray-400">
+                        <ChevronDown size={16} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Reward Points */}
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[13px] font-bold text-gray-700">Reward Points (per 100 BDT)</label>
+                      <Info size={14} className="text-gray-400" />
+                    </div>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <div className="w-7 h-7 rounded-full bg-[#FFF7ED] flex items-center justify-center text-[#EA580C]">
+                          <Star size={14} strokeWidth={2.5} />
+                        </div>
+                      </div>
                       <input 
                         type="number" 
                         value={companyInfo.rewardPointsRate} 
                         onChange={e => setCompanyInfo({...companyInfo, rewardPointsRate: parseFloat(e.target.value) || 0})}
-                        className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:border-gray-200 outline-none transition-all pr-12" 
+                        className="w-full pl-12 pr-20 py-3 bg-white border border-gray-200 group-hover:border-gray-300 rounded-xl text-[14px] font-medium text-gray-700 focus:border-[#0866FF] focus:ring-1 focus:ring-[#0866FF] outline-none transition-all" 
                       />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400 uppercase">Points</div>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
+                        <span className="text-[10px] font-bold bg-[#F1F5F9] text-gray-500 px-2.5 py-1 rounded-md">POINTS</span>
+                      </div>
                     </div>
-                    <p className="text-[10px] text-gray-400 mt-1">Example: 1 point for every 100 {companyInfo.currency} spent.</p>
+                    <p className="text-[11px] text-gray-500">Example: 1 point for every 100 {companyInfo.currency} spent.</p>
+                  </div>
+                </div>
+
+                <div className="mt-8 bg-[#F4F9FF] border border-[#E5F0FF] rounded-2xl p-4 flex items-start gap-4">
+                  <div className="w-7 h-7 rounded-full bg-white shadow-sm flex items-center justify-center text-[#0866FF] shrink-0">
+                    <Info size={14} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <h4 className="text-[13px] font-bold text-[#1E293B] mb-0.5">Reward Points</h4>
+                    <p className="text-[12px] text-gray-500">Customers will earn points based on the amount spent. Points can be redeemed during checkout.</p>
                   </div>
                 </div>
               </div>
@@ -956,7 +1021,7 @@ export default function Settings() {
 
                   <div className="pt-6 border-t border-gray-50 space-y-6">
                     <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                      <ShoppingCart size={16} className="text-[#00AEEF]" /> WooCommerce Integration
+                      <ShoppingCart size={16} className="text-[#0066FF]" /> WooCommerce Integration
                     </h4>
                     <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-xs text-blue-700 leading-relaxed">
                       Connect your WooCommerce store to sync orders and manage them directly from here. 
@@ -1096,7 +1161,7 @@ export default function Settings() {
                   </div>
                   <button 
                     onClick={handleDownloadApp}
-                    className="text-xs font-bold text-blue-600 hover:underline"
+                    className="text-xs font-bold text-[#0066FF] hover:underline"
                   >
                     Copy App Link
                   </button>
@@ -1109,13 +1174,13 @@ export default function Settings() {
               <ActivityLogsTab />
             )}
 
-            <div className="pt-8 border-t border-gray-100 flex justify-end gap-3">
+            <div className="pt-8 flex justify-end">
               <button 
                 onClick={handleSave}
                 disabled={saving}
-                className="flex items-center gap-2 px-6 py-2 bg-[#141414] text-white rounded-lg text-sm font-medium hover:bg-black transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-6 py-3 bg-[#0866FF] text-white rounded-xl text-[14px] font-semibold hover:bg-[#0056e0] transition-colors shadow-sm disabled:opacity-50"
               >
-                {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
                 {saving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>

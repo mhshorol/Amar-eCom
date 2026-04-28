@@ -520,7 +520,7 @@ const HR: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded-md text-[10px] font-bold uppercase">
+                      <span className="px-2 py-1 bg-blue-50 text-[#0066FF] rounded-md text-[10px] font-bold uppercase">
                         {emp.designationName}
                       </span>
                     </td>
@@ -546,7 +546,7 @@ const HR: React.FC = () => {
                             setSelectedEmployee(emp);
                             setIsProfileModalOpen(true);
                           }}
-                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md"
+                          className="p-1.5 text-gray-400 hover:text-[#0066FF] hover:bg-blue-50 rounded-md"
                         >
                           <Eye size={14} />
                         </button>
@@ -687,7 +687,7 @@ const HR: React.FC = () => {
                               record.status === 'Present' ? 'bg-green-50 text-green-600' :
                               record.status === 'Absent' ? 'bg-red-50 text-red-600' :
                               record.status === 'Late' ? 'bg-yellow-50 text-yellow-600' :
-                              'bg-blue-50 text-blue-600'
+                              'bg-blue-50 text-[#0066FF]'
                             }`}>
                               {record.status}
                             </span>
@@ -759,7 +759,7 @@ const HR: React.FC = () => {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <button className="p-1 text-gray-400 hover:text-blue-600">
+                            <button className="p-1 text-gray-400 hover:text-[#0066FF]">
                               <Download size={14} />
                             </button>
                           </td>
@@ -1013,7 +1013,7 @@ const HR: React.FC = () => {
                               ? status === 'Present' ? 'bg-green-600 text-white' :
                                 status === 'Absent' ? 'bg-red-600 text-white' :
                                 status === 'Late' ? 'bg-yellow-600 text-white' :
-                                'bg-blue-600 text-white'
+                                'bg-[#0066FF] text-white'
                               : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                           }`}
                         >

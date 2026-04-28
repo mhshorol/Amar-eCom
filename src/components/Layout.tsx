@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Plus,
   FileText,
+  FilePlus,
   UserPlus,
   CheckCircle2,
   Activity,
@@ -31,13 +32,17 @@ import {
   Mail,
   Check,
   Circle,
-  Download
+  Download,
+  Sun,
+  Moon,
+  MessageSquare
 } from 'lucide-react';
 import { db, auth, signOut, collection, query, where, orderBy, onSnapshot, limit } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { UserPermissions } from '../types';
 import { formatDistanceToNow } from 'date-fns';
 import { markNotificationAsRead } from '../services/notificationService';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -76,6 +81,7 @@ const navItems: {
     ]
   },
   { name: 'CRM', path: '/crm', icon: Users, permission: 'crm' },
+  { name: 'Inbox', path: '/inbox', icon: MessageSquare, permission: 'crm' },
   { name: 'Suppliers', path: '/suppliers', icon: UserPlus, permission: 'suppliers' },
   { name: 'Logistics', path: '/logistics', icon: Truck, permission: 'logistics' },
   { name: 'Tasks', path: '/tasks', icon: ClipboardList, permission: 'tasks' },
@@ -87,6 +93,7 @@ const navItems: {
 
 export default function Layout({ children, user }: LayoutProps) {
   const location = useLocation();
+  const { theme, toggleTheme } = useTheme();
   const { hasPermission } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarMinimized, setIsSidebarMinimized] = useState(false);
@@ -99,7 +106,7 @@ export default function Layout({ children, user }: LayoutProps) {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
-  const unreadCount = notifications.filter(n => !n.readBy.includes(user?.uid)).length;
+  const unreadCount = notifications.filter(n => Array.isArray(n.readBy) && !n.readBy.includes(user?.uid)).length;
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -118,12 +125,7 @@ export default function Layout({ children, user }: LayoutProps) {
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      console.log('User accepted the install prompt');
-    } else {
-      console.log('User dismissed the install prompt');
-    }
+    await deferredPrompt.userChoice;
     setDeferredPrompt(null);
     setShowInstallBtn(false);
   };
@@ -181,127 +183,123 @@ export default function Layout({ children, user }: LayoutProps) {
   const filteredNavItems = navItems.filter(item => hasPermission(item.permission));
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] flex font-sans selection:bg-[#00AEEF]/30">
+    <div className="min-h-screen bg-surface flex selection:bg-accent/20 transition-colors duration-300">
       {/* Sidebar - Desktop */}
-      <aside className={`hidden md:flex flex-col ${isSidebarMinimized ? 'w-20' : 'w-64'} bg-white border-r border-[#f1f2f4] shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-30 no-print transition-all duration-300 relative group/sidebar`}>
-        <div className={`p-6 flex transition-all duration-300 ${isSidebarMinimized ? 'flex-col items-center gap-6' : 'items-center justify-between gap-4'}`}>
-          {/* Sidebar Toggle - Top when minimized, right of logo when maximized */}
-          <button 
-            onClick={() => setIsSidebarMinimized(!isSidebarMinimized)}
-            className={`p-2 hover:bg-gray-100 text-gray-500 hover:text-[#00AEEF] rounded-xl transition-all active:scale-95 ${isSidebarMinimized ? 'order-1' : 'order-2'}`}
-            title={isSidebarMinimized ? "Expand Sidebar" : "Minimize Sidebar"}
-          >
-            {isSidebarMinimized ? <PanelLeftOpen size={22} strokeWidth={2.5} /> : <PanelLeftClose size={22} strokeWidth={2.5} />}
-          </button>
-
-          <div className={`flex items-center gap-4 ${isSidebarMinimized ? 'order-2 flex-col' : 'order-1 animate-in fade-in slide-in-from-left-2 duration-300'}`}>
-            <div className={`w-12 h-12 bg-gradient-to-tr from-[#00AEEF] to-[#0186b8] rounded-2xl flex items-center justify-center text-white shadow-xl shadow-[#00AEEF]/20 rotate-3 hover:rotate-0 transition-transform duration-300 flex-shrink-0`}>
-              <ShoppingCart size={24} strokeWidth={2.5} />
+      <aside className={`hidden md:flex flex-col ${isSidebarMinimized ? 'w-16' : 'w-[240px]'} bg-white border-r border-gray-100 z-30 no-print transition-all duration-300 relative shadow-sm`}>
+        <div className={`p-4 flex transition-all duration-300 ${isSidebarMinimized ? 'flex-col items-center gap-4' : 'items-center justify-between gap-3'}`}>
+          <div className={`flex items-center gap-2.5 ${isSidebarMinimized ? 'flex-col' : 'animate-in fade-in slide-in-from-left-2 duration-300'}`}>
+            <div className="w-9 h-9 bg-[#0066FF] rounded-lg flex items-center justify-center text-white shadow-lg shadow-blue-500/20 transition-transform duration-300 flex-shrink-0 group-hover:scale-105">
+              <ShoppingCart size={18} strokeWidth={2.5} />
             </div>
             {!isSidebarMinimized && (
               <div className="flex-1">
-                <h1 className="text-xl font-black tracking-tight text-[#141414] leading-tight flex flex-col">
-                  Amar 
-                  <span className="text-[#00AEEF]">Supply</span>
+                <h1 className="text-[1rem] font-bold tracking-tight text-[#111827] leading-[1.1] flex flex-col items-start font-[Inter,sans-serif]">
+                  <span className="font-extrabold text-[#000000]">Amar</span>
+                  <span className="text-[#0066FF] font-bold mb-0.5">Supply</span>
                 </h1>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">Enterprise</p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="w-1 h-1 rounded-full bg-[#10B981]"></span>
+                  <p className="text-[8px] uppercase tracking-widest text-gray-500 font-bold">Enterprise</p>
                 </div>
               </div>
             )}
           </div>
+
+          <button 
+            onClick={() => setIsSidebarMinimized(!isSidebarMinimized)}
+            className={`p-1 hover:bg-gray-50 border border-gray-200 text-gray-400 hover:text-gray-600 rounded-md transition-all active:scale-95 ${isSidebarMinimized ? 'order-2' : 'order-1'} bg-white shrink-0`}
+          >
+            {isSidebarMinimized ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+          </button>
         </div>
 
-
-        
-        <nav className="flex-1 px-4 py-2 space-y-1 overflow-y-auto no-scrollbar">
-          {showInstallBtn && !isSidebarMinimized && (
-            <button
-              onClick={handleInstallClick}
-              className="w-full relative overflow-hidden group mb-6 px-4 py-4 bg-gradient-to-br from-green-600 to-green-700 text-white rounded-2xl hover:shadow-lg transition-all border border-green-500/20"
-            >
-              <div className="absolute top-0 right-0 -mt-2 -mr-2 w-12 h-12 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-500" />
-              <div className="relative flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-md">
-                  <Download size={20} strokeWidth={2.5} />
-                </div>
-                <div className="text-left">
-                  <p className="text-sm font-black leading-tight">Install App</p>
-                  <p className="text-[10px] font-bold text-white/70">Mobile Experience</p>
-                </div>
-              </div>
-            </button>
-          )}
-
-          <div className={`pb-4 ${!isSidebarMinimized ? 'border-b border-gray-50' : ''} mb-4`}>
-            {!isSidebarMinimized && <p className="px-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 animate-in fade-in duration-300">Main View</p>}
+        <nav className="flex-1 px-3 py-1 space-y-0.5 overflow-y-auto custom-scrollbar">
+          <div className={`pb-3 ${!isSidebarMinimized ? 'border-b border-gray-50' : ''} mb-4`}>
+            {!isSidebarMinimized && <p className="px-3 text-[9px] font-black tracking-[0.12em] text-gray-400 mb-2 uppercase">Overview</p>}
             {filteredNavItems.slice(0, 3).map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
               return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  title={isSidebarMinimized ? item.name : ''}
-                  className={`flex items-center ${isSidebarMinimized ? 'justify-center' : 'justify-between'} px-4 py-3 rounded-2xl transition-all duration-300 group mb-1 ${
-                    isActive 
-                      ? 'bg-gradient-to-r from-[#00AEEF] to-[#0186b8] text-white shadow-xl shadow-[#00AEEF]/20 font-bold scale-[1.02]' 
-                      : 'text-gray-500 hover:text-[#00AEEF] hover:bg-[#00AEEF]/5'
-                  }`}
-                >
-                  <div className={`flex items-center ${isSidebarMinimized ? '' : 'gap-3'}`}>
-                    <Icon size={18} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'text-white' : 'text-gray-400 group-hover:text-[#00AEEF]'} />
-                    {!isSidebarMinimized && <span className="text-sm truncate">{item.name}</span>}
-                  </div>
-                </Link>
+                <div key={item.path} className="relative mb-0.5">
+                   {isActive && !isSidebarMinimized && (
+                     <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#0066FF] rounded-r-sm" />
+                   )}
+                  <Link
+                    to={item.path}
+                    className={`flex items-center ${isSidebarMinimized ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-xl transition-all duration-300 group ${
+                      isActive 
+                        ? 'bg-[#F0F7FF] text-[#0066FF] font-bold' 
+                        : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50 font-medium'
+                    }`}
+                  >
+                    <Icon size={18} className={isActive ? 'text-[#0066FF]' : 'text-gray-400 group-hover:text-gray-600'} />
+                    {!isSidebarMinimized && <span className="text-[13px]">{item.name}</span>}
+                  </Link>
+                </div>
               );
             })}
           </div>
 
           <div>
-            {!isSidebarMinimized && <p className="px-4 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 animate-in fade-in duration-300">Operations</p>}
+            {!isSidebarMinimized && <p className="px-3 text-[9px] font-black tracking-[0.12em] text-gray-400 mb-2 uppercase">Operations</p>}
             {filteredNavItems.slice(3).map((item) => {
               const Icon = item.icon;
-              const isActive = location.pathname === item.path || (item.subItems?.some(sub => location.pathname === sub.path));
+              const isChildActive = item.subItems?.some(sub => location.pathname === sub.path || location.pathname.startsWith(sub.path + ' '));
+              const isActive = location.pathname === item.path || isChildActive;
               const isExpanded = expandedItems.includes(item.name);
               
               if (item.subItems && !isSidebarMinimized) {
                 return (
-                  <div key={item.name} className="space-y-1 mb-1">
+                  <div key={item.name} className={`mb-1.5 ${isExpanded ? 'bg-[#F8FAFC] rounded-xl pb-2' : ''}`}>
                     <button
                       onClick={() => toggleExpand(item.name)}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all duration-300 group ${
-                        isActive 
-                          ? 'bg-[#00AEEF]/5 text-[#00AEEF] font-bold' 
-                          : 'text-gray-500 hover:text-[#00AEEF] hover:bg-[#00AEEF]/5'
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all group ${
+                        isExpanded ? 'text-[#0066FF] font-bold' : isActive ? 'bg-[#F0F7FF] text-[#0066FF] font-bold' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50 font-medium'
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <Icon size={18} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'text-[#00AEEF]' : 'text-gray-400 group-hover:text-[#00AEEF]'} />
-                        <span className="text-sm">{item.name}</span>
+                        <Icon size={18} className={isExpanded || isActive ? 'text-[#0066FF]' : 'text-gray-400 group-hover:text-gray-600'} />
+                        <span className="text-[13px]">{item.name}</span>
                       </div>
-                      <ChevronDown size={14} className={`transition-all duration-300 ${isExpanded ? 'rotate-180 text-[#00AEEF]' : 'text-gray-400'}`} />
+                      <ChevronDown size={14} strokeWidth={2.5} className={`transition-transform duration-300 ${isExpanded ? 'rotate-180 text-[#0066FF]' : 'text-gray-400'}`} />
                     </button>
-                    
                     {isExpanded && (
-                      <div className="ml-6 space-y-1 border-l border-gray-100 pl-3 py-1">
-                        {item.subItems.filter(sub => hasPermission(sub.permission)).map(sub => {
-                          const isSubActive = location.pathname === sub.path;
-                          return (
-                            <Link
-                              key={sub.path}
-                              to={sub.path}
-                              className={`block px-4 py-2.5 rounded-xl text-xs transition-all duration-200 ${
-                                isSubActive 
-                                  ? 'bg-[#00AEEF] text-white font-black shadow-lg shadow-[#00AEEF]/10' 
-                                  : 'text-gray-500 hover:text-[#00AEEF] hover:bg-[#00AEEF]/5 font-medium'
-                              }`}
-                            >
-                              {sub.name}
-                            </Link>
-                          );
-                        })}
+                      <div className="mt-0.5 ml-6 relative">
+                        {/* Connecting Line Track */}
+                        <div className="absolute top-2 bottom-4 left-[1px] w-[1px] bg-[#E2E8F0]" />
+                        
+                        <div className="flex flex-col gap-1 relative z-10 w-full pl-6">
+                           {item.subItems.filter(sub => hasPermission(sub.permission)).map((sub, idx) => {
+                             const isSubActive = location.pathname === sub.path;
+                             
+                             let SubIcon = FileText;
+                             if (sub.name.includes('New')) SubIcon = FilePlus;
+                             else if (sub.name.includes('Return')) SubIcon = RotateCcw;
+                             else if (sub.name.includes('List')) SubIcon = FileText;
+                             
+                             return (
+                               <Link
+                                 key={sub.name}
+                                 to={sub.path}
+                                 className={`relative flex items-center gap-3 px-1 py-1 rounded-lg text-[12px] transition-all group ${
+                                   isSubActive ? 'text-[#0066FF] font-bold' : 'text-gray-500 hover:text-gray-900 font-medium'
+                                 }`}
+                               >
+                                 <div className={`absolute top-1/2 -translate-y-1/2 -left-[1.58rem] w-1.5 h-1.5 rounded-full ring-[3px] ring-[#F8FAFC] transition-all z-20 ${isSubActive ? 'bg-[#0066FF]' : 'bg-gray-300 group-hover:bg-gray-400'}`} />
+                                 {isSubActive ? (
+                                   <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 bg-[#E5F1FF] text-[#0066FF] z-10 shadow-sm border border-blue-100">
+                                     <SubIcon size={14} strokeWidth={2.5} />
+                                   </div>
+                                 ) : (
+                                   <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-gray-400 group-hover:text-gray-600 z-10">
+                                     <SubIcon size={14} strokeWidth={2} />
+                                   </div>
+                                 )}
+                                 {sub.name}
+                               </Link>
+                             );
+                           })}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -309,79 +307,77 @@ export default function Layout({ children, user }: LayoutProps) {
               }
 
               return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  title={isSidebarMinimized ? item.name : ''}
-                  className={`flex items-center ${isSidebarMinimized ? 'justify-center' : 'justify-between'} px-4 py-3 rounded-2xl transition-all duration-300 group mb-1 ${
-                    isActive 
-                      ? 'bg-gradient-to-r from-[#00AEEF] to-[#0186b8] text-white shadow-xl shadow-[#00AEEF]/20 font-bold scale-[1.02]' 
-                      : 'text-gray-500 hover:text-[#00AEEF] hover:bg-[#00AEEF]/5'
-                  }`}
-                >
-                  <div className={`flex items-center ${isSidebarMinimized ? '' : 'gap-3'}`}>
-                    <Icon size={18} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'text-white' : 'text-gray-400 group-hover:text-[#00AEEF]'} />
-                    {!isSidebarMinimized && <span className="text-sm truncate">{item.name}</span>}
-                  </div>
-                </Link>
+                <div key={item.path} className="relative mb-0.5">
+                   {isActive && !isSidebarMinimized && (
+                     <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#0066FF] rounded-r-sm" />
+                   )}
+                  <Link
+                    to={item.path}
+                    className={`flex items-center ${isSidebarMinimized ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-xl transition-all duration-300 group ${
+                      isActive 
+                        ? 'bg-[#F0F7FF] text-[#0066FF] font-bold' 
+                        : (isActive ? 'bg-[#F0F7FF] text-[#0066FF] font-bold' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50 font-medium')
+                    }`}
+                  >
+                    <Icon size={18} className={isActive ? 'text-[#0066FF]' : 'text-gray-400 group-hover:text-gray-600'} />
+                    {!isSidebarMinimized && <span className="text-[13px]">{item.name}</span>}
+                  </Link>
+                </div>
               );
             })}
           </div>
         </nav>
 
-        <div className={`p-4 border-t border-gray-50 mt-auto`}>
-          <div className={`${isSidebarMinimized ? 'flex justify-center' : 'p-3 bg-gray-50 rounded-2xl flex items-center justify-between'} transition-all`}>
-            <button 
-              onClick={handleLogout}
-              className={`flex items-center ${isSidebarMinimized ? 'justify-center' : 'gap-3'} text-gray-500 hover:text-red-600 transition-colors w-full`}
-            >
-              <div className={`${isSidebarMinimized ? 'w-10 h-10' : 'w-8 h-8'} rounded-lg bg-white shadow-sm flex items-center justify-center text-gray-400 group-hover:text-red-600 transition-all`}>
-                <LogOut size={16} />
-              </div>
-              {!isSidebarMinimized && <span className="text-xs font-black uppercase tracking-wider animate-in fade-in duration-300">Sign Out</span>}
-            </button>
-          </div>
+        <div className="p-3 border-t border-gray-100">
+           <button 
+             onClick={handleLogout}
+             className={`flex items-center ${isSidebarMinimized ? 'justify-center' : 'gap-3'} w-full text-gray-500 hover:text-red-500 px-3 py-2.5 rounded-lg hover:bg-red-50 transition-all outline-none font-medium text-[13px]`}
+           >
+             <LogOut size={18} />
+             {!isSidebarMinimized && <span>Log out</span>}
+           </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header */}
-        <header className="h-20 sm:h-24 bg-white/80 backdrop-blur-xl border-b border-gray-100 flex items-center justify-between gap-6 px-6 sm:px-10 sticky top-0 z-20 no-print transition-all duration-300">
-          <div className="flex items-center gap-4 sm:gap-8 flex-1 min-w-0">
+        <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 lg:px-8 sticky top-0 z-20 no-print transition-all">
+          <div className="flex items-center gap-3 s:gap-6 flex-1 min-w-0">
             {/* Mobile Menu Toggle */}
             <button 
               onClick={() => setIsMobileMenuOpen(true)}
-              className="md:hidden p-3 bg-gray-50 text-gray-600 hover:bg-gray-100 rounded-2xl shrink-0 transition-all border border-gray-100 shadow-sm"
+              className="md:hidden w-10 h-10 flex items-center justify-center bg-surface text-primary hover:bg-slate-100 rounded-xl shrink-0 transition-all border border-border/60 shadow-sm"
+              aria-label="Toggle Mobile Menu"
             >
-              <Menu size={22} />
+              <Menu size={20} />
             </button>
             
-            <div className="relative max-w-lg w-full hidden md:block group">
+            <div className="relative max-w-md w-full hidden md:block group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Search className="text-gray-400 group-focus-within:text-[#00AEEF] transition-colors" size={20} />
+                <Search className="text-slate-400 group-focus-within:text-[#0066FF] transition-colors" size={18} />
               </div>
               <input 
                 type="text"
-                placeholder="Search across all modules..."
-                className="w-full pl-12 pr-4 py-3 bg-gray-100/50 border border-transparent rounded-2xl text-[13px] font-medium focus:bg-white focus:border-[#00AEEF]/20 focus:ring-4 focus:ring-[#00AEEF]/5 outline-none transition-all placeholder:text-gray-400"
+                placeholder="Search resources..."
+                className="w-full pl-11 pr-4 py-2.5 bg-surface border border-transparent rounded-2xl text-[14px] font-medium focus:bg-card focus:border-accent/20 focus:ring-4 focus:ring-accent/5 outline-none transition-all placeholder:text-slate-400 h-11"
               />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 rounded border border-gray-200 bg-white text-[10px] font-black text-gray-400 shadow-sm">⌘</kbd>
-                <kbd className="px-1.5 py-0.5 rounded border border-gray-200 bg-white text-[10px] font-black text-gray-400 shadow-sm">K</kbd>
-              </div>
+            </div>
+            
+            {/* Mobile Brand - Show only on tiny screens */}
+            <div className="md:hidden flex items-center gap-2 flex-1 justify-center sm:justify-start overflow-hidden">
+               <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center text-white shrink-0">
+                 <ShoppingCart size={16} />
+               </div>
+               <span className="text-sm font-bold text-primary truncate sm:hidden">Amar Supply</span>
             </div>
           </div>
 
           <div className="flex items-center gap-6">
-            {/* POS Button */}
             {hasPermission('pos') && (
-              <Link 
-                to="/pos" 
-                className="flex items-center gap-2 px-5 py-3 bg-[#00AEEF] hover:bg-[#0095cc] rounded-2xl text-[13px] font-black text-white transition-all shadow-xl shadow-[#00AEEF]/20 shrink-0 group scale-100 hover:scale-105 active:scale-95"
-              >
-                <Calculator size={18} strokeWidth={2.5} />
-                <span className="hidden lg:inline">Quick POS</span>
+              <Link to="/pos" className="hidden sm:flex items-center gap-2 px-5 py-2.5 bg-accent/10 text-accent hover:bg-accent hover:text-white rounded-2xl transition-all font-bold text-sm">
+                <Calculator size={18} />
+                Quick POS
               </Link>
             )}
 
@@ -389,7 +385,7 @@ export default function Layout({ children, user }: LayoutProps) {
             <div className="relative shrink-0 hidden sm:block" ref={quickActionRef}>
               <button 
                 onClick={() => setIsQuickActionOpen(!isQuickActionOpen)}
-                className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-[13px] font-black transition-all border ${isQuickActionOpen ? 'bg-[#00AEEF]/5 text-[#00AEEF] border-[#00AEEF]/10' : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-transparent'}`}
+                className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-[13px] font-black transition-all border ${isQuickActionOpen ? 'bg-[#0066FF]/5 text-[#0066FF] border-[#0066FF]/10' : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-transparent'}`}
               >
                 <Plus size={18} strokeWidth={2.5} />
                 <span className="hidden lg:inline">New Action</span>
@@ -405,9 +401,9 @@ export default function Layout({ children, user }: LayoutProps) {
                     <Link 
                       to="/orders/new" 
                       onClick={() => setIsQuickActionOpen(false)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#00AEEF]/5 rounded-xl text-[13px] font-bold text-gray-700 transition-colors group"
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#0066FF]/5 rounded-xl text-[13px] font-bold text-gray-700 transition-colors group"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-[#00AEEF] group-hover:bg-[#00AEEF] group-hover:text-white transition-all">
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-[#0066FF] group-hover:bg-[#0066FF] group-hover:text-white transition-all">
                         <ShoppingCart size={16} strokeWidth={2.5} />
                       </div>
                       Order
@@ -417,7 +413,7 @@ export default function Layout({ children, user }: LayoutProps) {
                     <Link 
                       to="/tasks"
                       onClick={() => setIsQuickActionOpen(false)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#00AEEF]/5 rounded-xl text-[13px] font-bold text-gray-700 transition-colors group"
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#0066FF]/5 rounded-xl text-[13px] font-bold text-gray-700 transition-colors group"
                     >
                       <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all">
                         <ClipboardList size={16} strokeWidth={2.5} />
@@ -429,7 +425,7 @@ export default function Layout({ children, user }: LayoutProps) {
                     <Link 
                       to="/inventory/new"
                       onClick={() => setIsQuickActionOpen(false)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#00AEEF]/5 rounded-xl text-[13px] font-bold text-gray-700 transition-colors group"
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#0066FF]/5 rounded-xl text-[13px] font-bold text-gray-700 transition-colors group"
                     >
                       <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all">
                         <Package size={16} strokeWidth={2.5} />
@@ -442,7 +438,7 @@ export default function Layout({ children, user }: LayoutProps) {
                     <Link 
                       to="/crm"
                       onClick={() => setIsQuickActionOpen(false)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#00AEEF]/5 rounded-xl text-[13px] font-bold text-gray-700 transition-colors group"
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#0066FF]/5 rounded-xl text-[13px] font-bold text-gray-700 transition-colors group"
                     >
                       <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600 group-hover:bg-green-600 group-hover:text-white transition-all">
                         <UserPlus size={16} strokeWidth={2.5} />
@@ -455,29 +451,37 @@ export default function Layout({ children, user }: LayoutProps) {
             </div>
 
             <div className="flex items-center gap-1 sm:gap-2">
-              <button className="relative p-2.5 text-gray-400 hover:bg-gray-50 hover:text-[#00AEEF] rounded-xl transition-all pointer">
+              <button className="relative p-2.5 text-slate-400 hover:bg-surface hover:text-[#0066FF] rounded-xl transition-all pointer">
                 <Search className="md:hidden" size={22} />
+              </button>
+
+              <button 
+                onClick={toggleTheme}
+                className="relative p-2.5 text-slate-400 hover:bg-surface hover:text-accent rounded-xl transition-all"
+                title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+              >
+                {theme === 'light' ? <Moon size={22} /> : <Sun size={22} />}
               </button>
               
               <div className="relative" ref={notificationsRef}>
                 <button 
                   onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                  className={`relative p-2.5 rounded-xl transition-all border border-transparent ${isNotificationsOpen ? 'bg-[#00AEEF]/5 text-[#00AEEF] border-[#00AEEF]/10' : 'text-gray-400 hover:bg-gray-50'}`}
+                  className={`relative p-2.5 rounded-xl transition-all border border-transparent ${isNotificationsOpen ? 'bg-accent/5 text-accent border border-accent/10' : 'text-slate-400 hover:bg-surface'}`}
                 >
-                  <Bell size={22} className={unreadCount > 0 ? 'fill-[#FF5A5F]/10' : ''} />
+                  <Bell size={22} className={unreadCount > 0 ? 'fill-danger/10' : ''} />
                   {unreadCount > 0 && (
-                    <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-[#FF5A5F] rounded-full border-2 border-white ring-4 ring-[#FF5A5F]/20 animate-pulse"></span>
+                    <span className="absolute top-2 right-2 w-2 h-2 bg-danger rounded-full border-2 border-card ring-4 ring-danger/10"></span>
                   )}
                 </button>
 
                 {isNotificationsOpen && (
-                  <div className="absolute right-0 mt-4 w-80 sm:w-[420px] bg-white rounded-[2rem] shadow-2xl border border-gray-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
-                    <div className="px-6 py-5 border-b border-gray-50 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white">
+                  <div className="absolute right-0 mt-4 w-80 sm:w-[420px] bg-card rounded-[2rem] shadow-2xl border border-border/60 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="px-6 py-5 border-b border-border/20 flex items-center justify-between bg-gradient-to-r from-surface to-card">
                       <div>
-                        <h3 className="font-extrabold text-gray-900 text-lg uppercase tracking-tight">Activity</h3>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-0.5">Real-time updates</p>
+                        <h3 className="font-extrabold text-primary text-lg uppercase tracking-tight">Activity</h3>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Real-time updates</p>
                       </div>
-                      <button className="text-xs font-bold text-[#00AEEF] hover:underline px-3 py-1 bg-[#00AEEF]/5 rounded-full transition-all">Mark all read</button>
+                      <button className="text-xs font-bold text-accent hover:underline px-3 py-1 bg-accent/5 rounded-full transition-all">Mark all read</button>
                     </div>
                     <div className="max-h-[480px] overflow-y-auto no-scrollbar">
                       {notifications.length > 0 ? (
@@ -497,7 +501,7 @@ export default function Layout({ children, user }: LayoutProps) {
                               >
                                 <div className="flex gap-4">
                                   <div className="flex-shrink-0">
-                                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${!isRead ? 'bg-[#00AEEF] text-white shadow-lg shadow-[#00AEEF]/20' : 'bg-gray-100 text-gray-400'}`}>
+                                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${!isRead ? 'bg-[#0066FF] text-white shadow-lg shadow-[#0066FF]/20' : 'bg-gray-100 text-gray-400'}`}>
                                       <Bell size={18} />
                                     </div>
                                   </div>
@@ -534,31 +538,23 @@ export default function Layout({ children, user }: LayoutProps) {
 
             <div className="h-8 w-px bg-gray-100 hidden sm:block mx-1" />
 
-            <div className="flex items-center gap-3 cursor-pointer group p-1.5 hover:bg-gray-50 rounded-2xl transition-all pr-4">
-              <div className="relative">
-                <div className="w-11 h-11 rounded-2xl bg-[#00AEEF] overflow-hidden shadow-xl shadow-[#00AEEF]/10 border-2 border-white group-hover:scale-110 transition-transform duration-300">
+              <div className="flex items-center gap-3 p-1 rounded-2xl hover:bg-slate-50 transition-all cursor-pointer group">
+                <div className="w-10 h-10 rounded-xl bg-slate-100 overflow-hidden border-2 border-white shadow-sm group-hover:scale-110 transition-transform duration-300">
                   {user?.photoURL ? (
                     <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#00AEEF] to-[#0186b8] text-white font-black text-lg">
-                      {(user?.name?.[0] || user?.displayName?.[0] || 'J')}
+                    <div className="w-full h-full flex items-center justify-center bg-accent/10 text-accent font-bold">
+                       {(user?.displayName?.[0] || 'U')}
                     </div>
                   )}
                 </div>
-                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
-              </div>
-              <div className="hidden lg:block text-left">
-                <p className="text-sm font-black text-gray-900 leading-tight truncate max-w-[120px]">
-                  {user?.name || user?.displayName || 'User'}
-                </p>
-                <div className="flex items-center gap-1">
-                  <span className="text-[10px] font-black text-[#00AEEF] uppercase tracking-widest">Admin</span>
-                  <ChevronDown size={12} className="text-gray-400 group-hover:text-gray-900 transition-colors" />
+                <div className="hidden lg:block text-left pr-3">
+                  <p className="text-sm font-bold text-primary leading-none mb-1">{user?.displayName || 'Admin'}</p>
+                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Enterprise Master</p>
                 </div>
               </div>
             </div>
-          </div>
-        </header>
+          </header>
 
         {/* Main Content */}
         <main className="flex-1 overflow-auto">
@@ -574,10 +570,10 @@ export default function Layout({ children, user }: LayoutProps) {
           <div className="w-80 bg-white h-full px-6 py-8 shadow-2xl animate-in slide-in-from-right duration-500 overflow-y-auto no-scrollbar">
             <div className="flex justify-between items-center mb-10">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-tr from-[#00AEEF] to-[#0186b8] rounded-xl flex items-center justify-center text-white shadow-lg">
+                <div className="w-10 h-10 bg-gradient-to-tr from-[#0066FF] to-[#0186b8] rounded-xl flex items-center justify-center text-white shadow-lg">
                   <ShoppingCart size={20} strokeWidth={2.5} />
                 </div>
-                <h1 className="text-xl font-black text-[#141414]">Amar <span className="text-[#00AEEF]">Supply</span></h1>
+                <h1 className="text-xl font-black text-[#141414]">Amar <span className="text-[#0066FF]">Supply</span></h1>
               </div>
               <button 
                 onClick={() => setIsMobileMenuOpen(false)} 
@@ -616,14 +612,14 @@ export default function Layout({ children, user }: LayoutProps) {
                       <button
                         onClick={() => toggleExpand(item.name)}
                         className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all ${
-                          isActive ? 'bg-[#00AEEF]/5 text-[#00AEEF] font-bold' : 'text-gray-500 hover:bg-gray-50'
+                          isActive ? 'bg-[#0066FF]/5 text-[#0066FF] font-bold' : 'text-gray-500 hover:bg-gray-50'
                         }`}
                       >
                         <div className="flex items-center gap-4">
                           <Icon size={20} strokeWidth={2.5} />
                           <span className="font-bold">{item.name}</span>
                         </div>
-                        <ChevronDown size={16} className={`transition-transform duration-300 ${isExpanded ? 'rotate-180 text-[#00AEEF]' : ''}`} />
+                        <ChevronDown size={16} className={`transition-transform duration-300 ${isExpanded ? 'rotate-180 text-[#0066FF]' : ''}`} />
                       </button>
                       {isExpanded && (
                         <div className="ml-8 space-y-1 border-l border-gray-100 pl-4 py-1">
@@ -635,7 +631,7 @@ export default function Layout({ children, user }: LayoutProps) {
                                 to={sub.path}
                                 onClick={() => setIsMobileMenuOpen(false)}
                                 className={`block px-4 py-3 rounded-xl text-[13px] transition-all font-bold ${
-                                  isSubActive ? 'bg-[#00AEEF] text-white shadow-lg shadow-[#00AEEF]/10' : 'text-gray-500 hover:bg-gray-50'
+                                  isSubActive ? 'bg-[#0066FF] text-white shadow-lg shadow-[#0066FF]/10' : 'text-gray-500 hover:bg-gray-50'
                                 }`}
                               >
                                 {sub.name}
@@ -655,7 +651,7 @@ export default function Layout({ children, user }: LayoutProps) {
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={`flex items-center gap-4 px-5 py-4 rounded-2xl transition-all mb-1 ${
                       isActive 
-                        ? 'bg-gradient-to-r from-[#00AEEF] to-[#0186b8] text-white shadow-xl shadow-[#00AEEF]/20 font-bold' 
+                        ? 'bg-gradient-to-r from-[#0066FF] to-[#0186b8] text-white shadow-xl shadow-[#0066FF]/20 font-bold' 
                         : 'text-gray-500 hover:bg-gray-50'
                     }`}
                   >

@@ -279,14 +279,14 @@ export default function CRM() {
         <div className="flex items-center gap-3">
           <button 
             onClick={handleExportCSV}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-[13px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
           >
             <Download size={16} />
             Export CRM
           </button>
           <button 
             onClick={handleOpenAddModal}
-            className="flex items-center gap-2 px-4 py-2 bg-[#141414] text-white rounded-lg text-sm font-medium hover:bg-black transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#0866FF] text-white rounded-xl text-[13px] font-semibold hover:bg-[#0056e0] transition-colors shadow-sm"
           >
             <Plus size={16} />
             Add Customer
@@ -295,43 +295,79 @@ export default function CRM() {
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-            <Users size={20} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6">
+        <div className="bg-white p-5 lg:p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#EBF3FF] text-[#0866FF] flex items-center justify-center shrink-0">
+              <Users size={24} />
+            </div>
+            <div>
+              <p className="text-[12px] font-semibold text-gray-500 mb-1">Total Customers</p>
+              <p className="text-2xl font-bold text-gray-900">{customers.length}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Total Customers</p>
-            <p className="text-xl font-bold">{customers.length}</p>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
-            <ShoppingBag size={20} />
-          </div>
-          <div>
-            <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Repeat Customers</p>
-            <p className="text-xl font-bold">
-              {customers.length > 0 ? Math.round((customers.filter(c => c.orderCount > 1).length / customers.length) * 100) : 0}%
-            </p>
+          <div className="flex items-center justify-between mt-4">
+            <p className="text-[11px] text-gray-400">All time customers</p>
+            <div className="flex items-center gap-1 text-[11px] font-bold text-green-500">
+               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m19 12-7-7-7 7"/><path d="M12 19V5"/></svg>
+               12%
+            </div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-green-50 text-green-600 rounded-lg">
-            <History size={20} />
+        <div className="bg-white p-5 lg:p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#F3E8FF] text-[#9333EA] flex items-center justify-center shrink-0">
+              <History size={24} />
+            </div>
+            <div>
+              <p className="text-[12px] font-semibold text-gray-500 mb-1">Repeat Customers</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {customers.length > 0 ? Math.round((customers.filter(c => c.orderCount > 1).length / customers.length) * 100) : 0}%
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Avg. Customer Value</p>
-            <p className="text-xl font-bold">{currencySymbol} {(Math.round(avgSpent) || 0).toLocaleString()}</p>
+          <div className="flex items-center justify-between mt-4">
+            <p className="text-[11px] text-gray-400">Percentage of repeat</p>
+            <div className="flex items-center gap-1 text-[11px] font-bold text-[#9333EA]">
+               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m19 12-7-7-7 7"/><path d="M12 19V5"/></svg>
+               8%
+            </div>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-orange-50 text-orange-600 rounded-lg">
-            <MessageSquare size={20} />
+        <div className="bg-white p-5 lg:p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#E5FDF4] text-[#059669] flex items-center justify-center shrink-0">
+              <ShoppingBag size={24} />
+            </div>
+            <div>
+              <p className="text-[12px] font-semibold text-gray-500 mb-1">Avg. Customer Value</p>
+              <p className="text-2xl font-bold text-gray-900">{currencySymbol} {(Math.round(avgSpent) || 0).toLocaleString()}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Active Chats</p>
-            <p className="text-xl font-bold">0</p>
+          <div className="flex items-center justify-between mt-4">
+            <p className="text-[11px] text-gray-400">Average order value</p>
+            <div className="flex items-center gap-1 text-[11px] font-bold text-green-500">
+               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m19 12-7-7-7 7"/><path d="M12 19V5"/></svg>
+               15%
+            </div>
+          </div>
+        </div>
+        <div className="bg-white p-5 lg:p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#FFF7ED] text-[#EA580C] flex items-center justify-center shrink-0">
+              <MessageSquare size={24} />
+            </div>
+            <div>
+              <p className="text-[12px] font-semibold text-gray-500 mb-1">Active Chats</p>
+              <p className="text-2xl font-bold text-gray-900">0</p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between mt-4">
+            <p className="text-[11px] text-gray-400">Open conversations</p>
+            <div className="flex items-center gap-1 text-[11px] font-bold text-orange-500">
+               <div className="w-2 h-0.5 bg-orange-500 rounded-full"></div>
+               0%
+            </div>
           </div>
         </div>
       </div>
@@ -339,20 +375,20 @@ export default function CRM() {
       {/* Main Content Area */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:h-[calc(100vh-320px)] min-h-[600px]">
         {/* Left Column: Customer List */}
-        <div className="lg:col-span-4 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
-          <div className="p-4 border-b border-gray-50 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest">All customers</h3>
-              <div className="flex items-center gap-2">
-                <button className="p-2 hover:bg-gray-50 rounded-lg text-gray-400">
-                  <History size={18} />
+        <div className="lg:col-span-5 xl:col-span-4 bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col overflow-hidden max-h-[800px]">
+          <div className="p-4 border-b border-gray-100 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-[17px] font-bold text-[#1E293B]">All Customers</h3>
+              <div className="flex items-center gap-2 flex-1 justify-end">
+                <button className="w-8 h-8 flex items-center justify-center hover:bg-gray-50 border border-gray-200 rounded-full text-gray-500 shrink-0 shadow-sm transition-colors">
+                  <History size={14} className="scale-x-[-1]" />
                 </button>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <div className="relative w-full max-w-[160px]">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                   <input
                     type="text"
-                    placeholder="Search customers"
-                    className="pl-9 pr-4 py-2 bg-gray-50 border border-transparent rounded-xl text-xs focus:bg-white focus:border-gray-200 outline-none transition-all w-48"
+                    placeholder="Search customers..."
+                    className="w-full pl-8 pr-3 py-1.5 bg-[#F8FAFC] border border-gray-200 rounded-full text-[12px] focus:bg-white focus:border-[#0866FF] focus:ring-1 focus:ring-[#0866FF] outline-none transition-all"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -360,147 +396,203 @@ export default function CRM() {
               </div>
             </div>
             
-            <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-              <span className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                New Customer
-              </span>
-              <span className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                Regular
-              </span>
+            <div className="flex items-center gap-4 text-[11px] font-medium text-gray-500">
+              <button className="flex items-center gap-1.5 px-3 py-1 bg-[#EBF3FF] text-[#0866FF] rounded-full font-bold">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#0866FF]" />
+                All ({customers.length})
+              </button>
+              <button className="flex items-center gap-1.5 hover:text-gray-900 transition-colors">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                New ({customers.filter(c => c.orderCount <= 1).length})
+              </button>
+              <button className="flex items-center gap-1.5 hover:text-gray-900 transition-colors">
+                <div className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                Regular ({customers.filter(c => c.orderCount > 1).length})
+              </button>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          <div className="flex-1 overflow-y-auto w-full">
             {loading ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-2">
+              <div className="flex flex-col items-center justify-center h-full gap-2 py-12">
                 <Loader2 className="animate-spin text-gray-300" size={24} />
                 <span className="text-xs text-gray-400">Loading...</span>
               </div>
             ) : filteredCustomers.length === 0 ? (
               <div className="text-center py-12 text-gray-400 text-xs">No customers found</div>
             ) : (
-              filteredCustomers.map((customer) => (
-                <button
-                  key={customer.id}
-                  onClick={() => setSelectedCustomer(customer)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left group relative ${
-                    selectedCustomer?.id === customer.id ? 'bg-blue-50/50 border border-blue-100/50' : 'hover:bg-gray-50 border border-transparent'
-                  }`}
-                >
-                  <div className="relative">
-                    <div className={`absolute -left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full ${
-                      customer.orderCount > 1 ? 'bg-green-500' : 'bg-blue-500'
-                    }`} />
-                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-white shadow-sm">
-                      <Users size={20} className="text-gray-400" />
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold text-gray-900 truncate">{customer.name}</span>
-                      <span className="text-[9px] text-gray-400 font-medium">
-                        {customer.createdAt?.toDate ? customer.createdAt.toDate().toLocaleDateString('en-GB') : 'N/A'}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-gray-500 truncate block">{customer.email}</span>
-                  </div>
-                  {selectedCustomer?.id === customer.id && (
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-500 rounded-l-full" />
-                  )}
-                </button>
-              ))
+              <div className="divide-y divide-gray-50/50">
+                {filteredCustomers.map((customer) => {
+                  const isActive = selectedCustomer?.id === customer.id;
+                  const getInitials = (name: string) => {
+                    if (!name) return 'U';
+                    const parts = name.trim().split(' ');
+                    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+                    return name.substring(0, 2).toUpperCase();
+                  };
+                  return (
+                    <button
+                      key={customer.id}
+                      onClick={() => setSelectedCustomer(customer)}
+                      className={`w-full flex items-center gap-3 px-4 py-3.5 transition-all text-left relative ${
+                        isActive ? 'bg-[#F8FAFC]' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      {isActive && (
+                        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#0866FF]" />
+                      )}
+                      <div className="relative shrink-0">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-bold shadow-sm ${
+                          isActive 
+                            ? 'bg-[#EBF3FF] text-[#0866FF]' 
+                            : 'bg-[#F1F5F9] text-[#1E293B] border border-gray-200/50'
+                        }`}>
+                          {getInitials(customer.name)}
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0 pr-2">
+                        <div className="flex items-center justify-between gap-2 mb-0.5">
+                          <span className="text-[13px] font-bold text-[#1E293B] truncate">{customer.name || 'Unnamed Customer'}</span>
+                          <div className="flex items-center gap-1.5 shrink-0 text-gray-400">
+                             <span className="text-[10px] whitespace-nowrap">
+                               {customer.createdAt?.toDate ? customer.createdAt.toDate().toLocaleDateString('en-GB') : 'N/A'}
+                             </span>
+                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                          </div>
+                        </div>
+                        <span className="text-[11px] text-gray-500 truncate block">{customer.email || 'No email provided'}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             )}
+          </div>
+          
+          {/* Pagination */}
+          <div className="p-3.5 border-t border-gray-100 flex items-center justify-between text-[11px] font-medium text-gray-500">
+             <span>Showing 1 to {Math.min(10, filteredCustomers.length)} of {filteredCustomers.length}</span>
+             <div className="flex items-center gap-1.5">
+               <button className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+               </button>
+               <button className="w-6 h-6 flex items-center justify-center rounded border border-[#0866FF] bg-[#EBF3FF] text-[#0866FF] font-bold">1</button>
+               <button className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100">2</button>
+               <button className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100">3</button>
+               <span>...</span>
+               <button className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 max-sm:hidden">{Math.max(1, Math.ceil(filteredCustomers.length / 10))}</button>
+               <button className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+               </button>
+             </div>
           </div>
         </div>
 
         {/* Right Column: Customer Details */}
-        <div className="lg:col-span-8 space-y-6 overflow-y-auto pr-2">
+        <div className="lg:col-span-7 xl:col-span-8 space-y-6 overflow-y-auto pr-2 max-h-[800px]">
           {selectedCustomer ? (
             <>
               {/* Profile Header */}
-              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-white shadow-md">
-                    <Users size={32} className="text-gray-400" />
+              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-start justify-between gap-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-[72px] h-[72px] rounded-full bg-[#EBF3FF] flex items-center justify-center border-4 border-white shadow-sm shrink-0">
+                    <Users size={32} className="text-[#0866FF]" />
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-bold text-gray-900">{selectedCustomer.name}</h3>
-                      <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider ${
-                        selectedCustomer.segment === 'VIP' ? 'bg-purple-50 text-purple-600 border border-purple-100' :
-                        selectedCustomer.segment === 'Repeat' ? 'bg-green-50 text-green-600 border border-green-100' :
-                        selectedCustomer.segment === 'At Risk' ? 'bg-red-50 text-red-600 border border-red-100' :
-                        'bg-blue-50 text-blue-600 border border-blue-100'
+                  <div className="pt-1">
+                    <div className="flex items-center gap-3 mb-1.5">
+                      <h3 className="text-[19px] font-bold text-[#1E293B]">{selectedCustomer.name || 'Unnamed Customer'}</h3>
+                      <span className={`px-2.5 py-1 rounded border text-[10px] font-bold uppercase tracking-wider ${
+                        selectedCustomer.segment === 'VIP' ? 'bg-[#F3E8FF] text-[#9333EA] border-[#E9D5FF]' :
+                        selectedCustomer.segment === 'Repeat' ? 'bg-[#E5FDF4] text-[#059669] border-[#A7F3D0]' :
+                        selectedCustomer.segment === 'At Risk' ? 'bg-[#FEF2F2] text-[#DC2626] border-[#FECACA]' :
+                        'bg-[#EBF3FF] text-[#0866FF] border-[#BFDBFE]'
                       }`}>
                         {selectedCustomer.segment || 'New Customer'}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500 font-medium">{selectedCustomer.email}</p>
-                    <p className="text-[11px] text-gray-500 mt-1">{selectedCustomer.address}</p>
-                    <p className="text-[10px] text-gray-400 font-medium mt-1">
+                    <div className="flex items-center gap-2 mb-2 text-[13px] text-gray-500">
+                      <span>{selectedCustomer.email || 'No email provided'}</span>
+                      {selectedCustomer.email && (
+                         <button className="text-gray-400 hover:text-gray-600 transition-colors">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                         </button>
+                      )}
+                    </div>
+                    <p className="text-[12px] text-gray-500 mb-2 leading-relaxed max-w-lg">{selectedCustomer.address || 'No address provided'}</p>
+                    <p className="text-[11px] text-gray-400 font-medium">
                       Member Since {selectedCustomer.createdAt?.toDate ? selectedCustomer.createdAt.toDate().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : 'N/A'}
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Contact</p>
-                  <div className="flex items-center justify-end gap-2">
-                    <p className="text-sm font-bold text-gray-900">{selectedCustomer.phone}</p>
-                    <a 
-                      href={`https://wa.me/88${selectedCustomer.phone.replace(/\D/g, '')}`} 
-                      target="_blank" 
-                      rel="noreferrer"
-                      className="p-1.5 bg-[#25D366] text-white rounded-lg hover:bg-[#128C7E] transition-colors shadow-sm"
-                      title="Chat on WhatsApp"
-                    >
-                      <MessageSquare size={12} />
-                    </a>
+                <div className="flex flex-col items-end shrink-0 pt-1">
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Contact</p>
+                  <div className="flex items-center gap-2 mb-6">
+                    <p className="text-[15px] font-bold text-[#1E293B]">{selectedCustomer.phone || 'No phone'}</p>
+                    {selectedCustomer.phone && (
+                      <a 
+                        href={`https://wa.me/88${selectedCustomer.phone.replace(/\D/g, '')}`} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="w-6 h-6 flex items-center justify-center bg-[#25D366] text-white rounded-md hover:bg-[#128C7E] transition-colors shadow-sm"
+                        title="Chat on WhatsApp"
+                      >
+                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                      </a>
+                    )}
                   </div>
-                  <div className="mt-2 flex items-center gap-2 justify-end">
+                  <div className="flex items-center gap-2">
                     <button 
                       onClick={() => handleOpenEditModal(selectedCustomer)}
-                      className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors"
+                      className="w-8 h-8 flex items-center justify-center hover:bg-gray-50 border border-gray-200 rounded-lg text-gray-500 shadow-sm transition-colors"
                       title="Edit Customer"
                     >
-                      <Edit size={16} />
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
                     </button>
                     <button 
                       onClick={() => handleDeleteCustomer(selectedCustomer.id)}
-                      className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600 transition-colors"
+                      className="w-8 h-8 flex items-center justify-center hover:bg-red-50 border border-gray-200 hover:border-red-200 rounded-lg text-gray-500 hover:text-red-500 shadow-sm transition-colors"
                       title="Delete Customer"
                     >
-                      <Trash2 size={16} />
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                     </button>
-                    <div className="px-2 py-1 bg-orange-50 text-orange-600 rounded-lg text-[10px] font-bold border border-orange-100 flex items-center gap-1">
-                      <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                      {selectedCustomer.points || 0} Points
+                    <div className="px-3 py-1.5 bg-[#FFF7ED] text-[#EA580C] rounded-lg text-[11px] font-bold border border-[#FFEDD5] flex items-center gap-1.5 shadow-sm">
+                       <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                       {selectedCustomer.points || 0} Points
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Average Order Value Card */}
-              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
-                <span className="text-sm font-bold text-gray-500 uppercase tracking-wider">Average Order Value</span>
-                <span className="text-lg font-black text-gray-900">
+              <div className="bg-white p-4 lg:p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                   <div className="w-8 h-8 rounded-lg bg-[#EBF3FF] text-[#0866FF] flex items-center justify-center">
+                      <ShoppingBag size={16} />
+                   </div>
+                   <span className="text-[13px] font-bold text-[#1E293B]">Average Order Value</span>
+                </div>
+                <span className="text-[18px] font-bold text-[#1E293B]">
                   {currencySymbol} {selectedCustomer.orderCount > 0 ? (Math.round(selectedCustomer.totalSpent / selectedCustomer.orderCount) || 0).toLocaleString() : 0}
                 </span>
               </div>
 
               {/* Bills Table */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-gray-50 flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest">Bills</h3>
-                  <button className="p-2 hover:bg-gray-50 rounded-lg text-gray-400">
-                    <History size={18} />
+                <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                     <div className="w-8 h-8 rounded-lg bg-[#EBF3FF] text-[#0866FF] flex items-center justify-center">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+                     </div>
+                     <h3 className="text-[14px] font-bold text-[#1E293B]">Bills</h3>
+                  </div>
+                  <button className="w-8 h-8 flex items-center justify-center hover:bg-gray-50 border border-gray-200 rounded-full text-gray-500 shadow-sm transition-colors">
+                    <History size={14} className="scale-x-[-1]" />
                   </button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left min-w-[800px] whitespace-nowrap">
                     <thead>
-                      <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-50">
+                      <tr className="text-[10px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100">
                         <th className="px-6 py-4">Bill no.</th>
                         <th className="px-6 py-4">Date</th>
                         <th className="px-6 py-4">Time</th>
@@ -516,7 +608,13 @@ export default function CRM() {
                         </tr>
                       ) : customerOrders.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="px-6 py-8 text-center text-xs text-gray-400 italic">No bills found</td>
+                          <td colSpan={4} className="px-6 py-12 text-center">
+                             <div className="flex justify-center mb-3 text-gray-300">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="text-[#94A3B8] opacity-50"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+                             </div>
+                             <p className="text-[12px] font-semibold text-[#1E293B]">No bills found</p>
+                             <p className="text-[11px] text-gray-500 mt-1">This customer has no bills yet.</p>
+                          </td>
                         </tr>
                       ) : (
                         customerOrders.map((order) => (
@@ -541,16 +639,21 @@ export default function CRM() {
 
               {/* Items Bought Table */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-gray-50 flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest">Items Bought</h3>
-                  <button className="p-2 hover:bg-gray-50 rounded-lg text-gray-400">
-                    <History size={18} />
+                <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                     <div className="w-8 h-8 rounded-lg bg-[#E5FDF4] text-[#059669] flex items-center justify-center">
+                        <ShoppingBag size={16} />
+                     </div>
+                     <h3 className="text-[14px] font-bold text-[#1E293B]">Items Bought</h3>
+                  </div>
+                  <button className="w-8 h-8 flex items-center justify-center hover:bg-gray-50 border border-gray-200 rounded-full text-gray-500 shadow-sm transition-colors">
+                    <History size={14} className="scale-x-[-1]" />
                   </button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left min-w-[800px] whitespace-nowrap">
                     <thead>
-                      <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-50">
+                      <tr className="text-[10px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100">
                         <th className="px-6 py-4">Category</th>
                         <th className="px-6 py-4">Item Code</th>
                         <th className="px-6 py-4">Quantity</th>
@@ -566,13 +669,21 @@ export default function CRM() {
                         </tr>
                       ) : customerOrders.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="px-6 py-8 text-center text-xs text-gray-400 italic">No items found</td>
+                          <td colSpan={4} className="px-6 py-12 text-center">
+                             <div className="flex justify-center mb-3 text-gray-300">
+                                <div className="w-16 h-16 rounded-2xl bg-[#E5FDF4] flex items-center justify-center">
+                                   <ShoppingBag size={24} className="text-[#059669]" />
+                                </div>
+                             </div>
+                             <p className="text-[12px] font-semibold text-[#1E293B]">No items found</p>
+                             <p className="text-[11px] text-gray-500 mt-1">This customer has not purchased any items yet.</p>
+                          </td>
                         </tr>
                       ) : (
                         customerOrders.flatMap(order => order.items || []).slice(0, 10).map((item: any, idx: number) => (
                           <tr key={idx} className="hover:bg-gray-50 transition-colors group">
                             <td className="px-6 py-4">
-                              <span className="px-2 py-1 bg-blue-50 text-blue-600 text-[9px] font-bold rounded-lg border border-blue-100 uppercase tracking-wider">
+                              <span className="px-2 py-1 bg-blue-50 text-[#0066FF] text-[9px] font-bold rounded-lg border border-blue-100 uppercase tracking-wider">
                                 {item.category || 'General'}
                               </span>
                             </td>
@@ -590,20 +701,28 @@ export default function CRM() {
               </div>
 
               {/* Messages Section */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-gray-50 flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest">Messages</h3>
-                  <button className="p-2 hover:bg-gray-50 rounded-lg text-gray-400">
-                    <MoreVertical size={18} />
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-8">
+                <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                     <div className="w-8 h-8 rounded-lg bg-[#FFF7ED] text-[#EA580C] flex items-center justify-center">
+                        <MessageSquare size={16} />
+                     </div>
+                     <h3 className="text-[14px] font-bold text-[#1E293B]">Messages</h3>
+                  </div>
+                  <button className="w-8 h-8 flex items-center justify-center hover:bg-gray-50 border border-gray-200 rounded-full text-gray-500 shadow-sm transition-colors">
+                    <MoreVertical size={14} />
                   </button>
                 </div>
-                <div className="p-8 text-center">
-                  <div className="inline-block px-4 py-1.5 bg-gray-50 rounded-full text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-8">
-                    Wednesday, 22 Feb
-                  </div>
-                  <div className="flex flex-col items-center gap-4 text-gray-300">
-                    <MessageSquare size={48} strokeWidth={1} />
-                    <p className="text-xs font-medium">No messages yet</p>
+                <div className="p-12 text-center">
+                  <div className="flex flex-col items-center justify-center">
+                     <div className="flex justify-center mb-3 text-gray-300">
+                        <div className="w-16 h-16 rounded-2xl bg-[#F8FAFC] border border-gray-100 shadow-sm flex items-center justify-center relative">
+                           <MessageSquare size={24} className="text-[#94A3B8]" />
+                           <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-[#0866FF]" />
+                        </div>
+                     </div>
+                     <p className="text-[12px] font-semibold text-[#1E293B]">No messages yet</p>
+                     <p className="text-[11px] text-gray-500 mt-1">Start a conversation with this customer.</p>
                   </div>
                 </div>
               </div>

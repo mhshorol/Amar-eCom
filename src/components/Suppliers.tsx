@@ -18,7 +18,11 @@ import {
   Edit2,
   ExternalLink,
   History,
-  X as CloseIcon
+  X as CloseIcon,
+  Building2,
+  BadgeCheck,
+  ShoppingBag,
+  ChevronDown
 } from 'lucide-react';
 import { db, auth, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy, where, runTransaction } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -264,11 +268,11 @@ export default function Suppliers() {
   );
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-7xl mx-auto space-y-8 pb-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Supplier Management</h1>
-          <p className="text-sm text-gray-500">Manage your supply chain and purchase orders</p>
+          <h1 className="text-[28px] leading-tight font-bold text-[#0F172A] tracking-tight">Supplier Management</h1>
+          <p className="text-[15px] text-slate-500 mt-1">Manage your supply chain and purchase orders</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
@@ -277,28 +281,29 @@ export default function Suppliers() {
               setSupplierForm({ name: '', contactName: '', phone: '', email: '', address: '', leadTimeDays: 7 });
               setIsModalOpen(true);
             }}
-            className="flex items-center gap-2 px-6 py-3 bg-[#00AEEF] text-white rounded-xl font-bold hover:bg-[#0095cc] transition-all shadow-lg shadow-blue-100"
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#0066FF] text-white rounded-[10px] text-[15px] font-medium hover:bg-[#0066FF] transition-all shadow-[0_4px_12px_rgba(0,82,255,0.2)]"
           >
-            <Plus size={20} />
+            <Plus size={18} strokeWidth={2.5} />
             Add Supplier
+            <ChevronDown size={18} className="ml-1 opacity-80" />
           </button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+      <div className="flex items-center gap-1 p-1.5 rounded-xl bg-white border border-gray-200 shadow-sm w-fit">
         <button
           onClick={() => setActiveTab('suppliers')}
-          className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
-            activeTab === 'suppliers' ? 'bg-white text-[#00AEEF] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          className={`px-5 py-2 rounded-lg text-[14px] font-medium transition-all ${
+            activeTab === 'suppliers' ? 'text-[#0066FF] bg-blue-50/50' : 'text-slate-600 hover:text-slate-800'
           }`}
         >
           Suppliers
         </button>
         <button
           onClick={() => setActiveTab('pos')}
-          className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
-            activeTab === 'pos' ? 'bg-white text-[#00AEEF] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          className={`px-5 py-2 rounded-lg text-[14px] font-medium transition-all ${
+            activeTab === 'pos' ? 'text-[#0066FF] bg-blue-50/50' : 'text-slate-600 hover:text-slate-800'
           }`}
         >
           Purchase Orders
@@ -309,27 +314,76 @@ export default function Suppliers() {
         <div className="space-y-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input 
                 type="text"
-                placeholder="Search suppliers by name or phone..."
+                placeholder="Search suppliers by name or phone number..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00AEEF]/20 transition-all"
+                className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-[15px] placeholder:text-gray-400 shadow-sm"
               />
             </div>
-            <button className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50 transition-all">
-              <Filter size={20} />
+            <button className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl text-[15px] font-medium hover:bg-gray-50 transition-all shadow-sm">
+              <Filter size={18} className="text-gray-500" />
               Filters
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Card 1 */}
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 flex items-center gap-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+              <div className="w-14 h-14 bg-[#EFF6FF] text-[#0066FF] rounded-[16px] flex items-center justify-center shrink-0">
+                <Building2 size={24} strokeWidth={1.5} />
+              </div>
+              <div>
+                <p className="text-[13px] text-gray-500 mb-1">Total Suppliers</p>
+                <div className="text-[28px] font-bold text-gray-900 leading-none">{suppliers.length}</div>
+                <p className="text-[13px] text-gray-400 mt-1">Active suppliers</p>
+              </div>
+            </div>
+            {/* Card 2 */}
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 flex items-center gap-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+              <div className="w-14 h-14 bg-emerald-50 text-emerald-500 rounded-[16px] flex items-center justify-center shrink-0">
+                <BadgeCheck size={24} strokeWidth={1.5} />
+              </div>
+              <div>
+                <p className="text-[13px] text-gray-500 mb-1">Active Suppliers</p>
+                <div className="text-[28px] font-bold text-gray-900 leading-none">{suppliers.length}</div>
+                <p className="text-[13px] text-gray-400 mt-1">Currently active</p>
+              </div>
+            </div>
+            {/* Card 3 */}
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 flex items-center gap-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+              <div className="w-14 h-14 bg-orange-50 text-orange-500 rounded-[16px] flex items-center justify-center shrink-0">
+                <Clock size={24} strokeWidth={1.5} />
+              </div>
+              <div>
+                <p className="text-[13px] text-gray-500 mb-1">Balance Due</p>
+                <div className="text-[24px] xl:text-[28px] font-bold text-red-500 leading-none min-w-0">
+                  ৳{suppliers.reduce((sum, s) => sum + getSupplierBalance(s.id), 0).toLocaleString()}
+                </div>
+                <p className="text-[13px] text-gray-400 mt-1">Total outstanding</p>
+              </div>
+            </div>
+            {/* Card 4 */}
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 flex items-center gap-5 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+              <div className="w-14 h-14 bg-purple-50 text-purple-500 rounded-[16px] flex items-center justify-center shrink-0">
+                <ShoppingBag size={24} strokeWidth={1.5} />
+              </div>
+              <div>
+                <p className="text-[13px] text-gray-500 mb-1">Total Orders</p>
+                <div className="text-[28px] font-bold text-gray-900 leading-none">{purchaseOrders.length}</div>
+                <p className="text-[13px] text-gray-400 mt-1">This month</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
             {filteredSuppliers.map((supplier) => (
-              <div key={supplier.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group">
+              <div key={supplier.id} className="bg-white p-6 rounded-[20px] border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col h-full hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-[#00AEEF] font-bold text-xl">
-                    {supplier.name[0]}
+                  <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-[#0066FF] font-medium text-xl">
+                    {supplier.name[0]?.toUpperCase()}
                   </div>
                   <div className="flex items-center gap-2">
                     <button 
@@ -345,65 +399,73 @@ export default function Suppliers() {
                         });
                         setIsModalOpen(true);
                       }}
-                      className="p-2 text-gray-400 hover:text-[#00AEEF] hover:bg-blue-50 rounded-lg transition-all"
+                      className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:text-[#0066FF] hover:bg-blue-50 transition-colors"
                     >
-                      <Edit2 size={18} />
+                      <Edit2 size={14} />
                     </button>
                     <button 
                       onClick={() => handleDeleteSupplier(supplier.id)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                     >
-                      <Trash2 size={18} />
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-bold text-gray-900 group-hover:text-[#00AEEF] transition-colors">{supplier.name}</h3>
-                    <p className="text-xs text-gray-500">{supplier.contactName || 'No contact person'}</p>
-                  </div>
+                <div className="mb-5">
+                  <h3 className="text-[16px] font-bold text-gray-900 leading-tight">{supplier.name}</h3>
+                  <p className="text-[14px] text-gray-500 mt-0.5">{supplier.contactName || 'No contact person'}</p>
+                </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                      <div className="text-xs font-bold text-gray-400 uppercase tracking-widest">Balance Due</div>
-                      <div className={`text-sm font-bold ${getSupplierBalance(supplier.id) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {currencySymbol}{getSupplierBalance(supplier.id).toLocaleString()}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm text-gray-600">
-                      <Phone size={14} className="text-gray-400" />
-                      {supplier.phone}
-                    </div>
-                    {supplier.email && (
-                      <div className="flex items-center gap-3 text-sm text-gray-600">
-                        <Mail size={14} className="text-gray-400" />
-                        {supplier.email}
-                      </div>
-                    )}
-                    {supplier.address && (
-                      <div className="flex items-center gap-3 text-sm text-gray-600">
-                        <MapPin size={14} className="text-gray-400" />
-                        <span className="truncate">{supplier.address}</span>
-                      </div>
-                    )}
-                  </div>
+                <div className="bg-[#F8FAFC] rounded-xl p-3 flex justify-between items-center mb-5">
+                  <span className="text-[11px] font-medium text-gray-500 uppercase tracking-widest">BALANCE DUE</span>
+                  <span className={`text-[15px] font-bold ${getSupplierBalance(supplier.id) > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                    ৳{getSupplierBalance(supplier.id).toLocaleString()}
+                  </span>
+                </div>
 
-                  <div className="pt-4 border-t border-gray-50 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                      <Clock size={14} />
-                      {supplier.leadTimeDays} Days Lead
-                    </div>
-                    <button 
-                      onClick={() => setSelectedSupplierForLedger(supplier)}
-                      className="text-[#00AEEF] text-xs font-bold hover:underline flex items-center gap-1"
-                    >
-                      View Ledger <ChevronRight size={14} />
-                    </button>
+                <div className="space-y-3 mb-6">
+                  <div className="flex items-center gap-3 text-[14px] text-gray-600">
+                    <Phone size={16} className="text-gray-400" />
+                    {supplier.phone || 'N/A'}
                   </div>
+                  <div className="flex items-start gap-3 text-[14px] text-gray-600">
+                    <MapPin size={16} className="text-gray-400 shrink-0 mt-0.5" />
+                    <span className="line-clamp-2">{supplier.address || 'N/A'}</span>
+                  </div>
+                </div>
+
+                <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-[11px] font-medium text-gray-500 uppercase tracking-widest">
+                    <Clock size={14} className="text-gray-400" />
+                    {supplier.leadTimeDays || 0} DAYS LEAD
+                  </div>
+                  <button 
+                    onClick={() => setSelectedSupplierForLedger(supplier)}
+                    className="text-[#0066FF] text-[13px] font-medium hover:text-blue-700 flex items-center gap-1 transition-colors"
+                  >
+                    View Ledger <ChevronRight size={14} />
+                  </button>
                 </div>
               </div>
             ))}
+          </div>
+          
+          <div className="flex items-center justify-between mt-8 text-[14px] text-gray-500">
+            <div>
+              Showing {filteredSuppliers.length > 0 ? 1 : 0} to {filteredSuppliers.length} of {filteredSuppliers.length} suppliers
+            </div>
+            <div className="flex items-center gap-2">
+              <button className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 bg-white hover:bg-gray-50 transition-colors">
+                <ChevronRight className="rotate-180" size={16} />
+              </button>
+              <button className="w-8 h-8 rounded-lg bg-[#0066FF] flex items-center justify-center text-white font-medium">
+                1
+              </button>
+              <button className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 bg-white hover:bg-gray-50 transition-colors">
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -434,7 +496,7 @@ export default function Suppliers() {
                   <td className="px-6 py-4">
                     <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                       po.status === 'received' ? 'bg-green-50 text-green-600' :
-                      po.status === 'ordered' ? 'bg-blue-50 text-blue-600' :
+                      po.status === 'ordered' ? 'bg-blue-50 text-[#0066FF]' :
                       po.status === 'cancelled' ? 'bg-red-50 text-red-600' :
                       'bg-gray-50 text-gray-600'
                     }`}>
@@ -447,7 +509,7 @@ export default function Suppliers() {
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <button className="p-2 text-gray-400 hover:text-[#00AEEF] hover:bg-blue-50 rounded-lg transition-all">
+                    <button className="p-2 text-gray-400 hover:text-[#0066FF] hover:bg-blue-50 rounded-lg transition-all">
                       <ExternalLink size={18} />
                     </button>
                   </td>
@@ -551,7 +613,7 @@ export default function Suppliers() {
                 {/* Ledger Table */}
                 <div className="space-y-4">
                   <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                    <History size={18} className="text-[#00AEEF]" />
+                    <History size={18} className="text-[#0066FF]" />
                     Transaction Ledger
                   </h3>
                   <div className="border border-gray-100 rounded-2xl overflow-hidden">
@@ -594,7 +656,7 @@ export default function Suppliers() {
                             </td>
                             <td className="px-6 py-4">
                               <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
-                                item.type === 'Purchase' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'
+                                item.type === 'Purchase' ? 'bg-blue-50 text-[#0066FF]' : 'bg-green-50 text-green-600'
                               }`}>
                                 {item.type}
                               </span>
@@ -647,7 +709,7 @@ export default function Suppliers() {
                   type="date"
                   value={paymentForm.date}
                   onChange={e => setPaymentForm({...paymentForm, date: e.target.value})}
-                  className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#0066FF]/20 outline-none transition-all"
                 />
               </div>
               <div className="space-y-2">
@@ -660,7 +722,7 @@ export default function Suppliers() {
                     step="0.01"
                     value={paymentForm.amount}
                     onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})}
-                    className="w-full pl-8 pr-4 py-2 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all font-bold"
+                    className="w-full pl-8 pr-4 py-2 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#0066FF]/20 outline-none transition-all font-bold"
                     placeholder="0.00"
                   />
                 </div>
@@ -671,7 +733,7 @@ export default function Suppliers() {
                   required
                   value={paymentForm.accountId}
                   onChange={e => setPaymentForm({...paymentForm, accountId: e.target.value})}
-                  className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#0066FF]/20 outline-none transition-all"
                 >
                   <option value="">Select Account</option>
                   {accounts.map(acc => (
@@ -685,7 +747,7 @@ export default function Suppliers() {
                   type="text"
                   value={paymentForm.voucherNo}
                   onChange={e => setPaymentForm({...paymentForm, voucherNo: e.target.value})}
-                  className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#0066FF]/20 outline-none transition-all"
                   placeholder="e.g. V-123"
                 />
               </div>
@@ -695,7 +757,7 @@ export default function Suppliers() {
                   type="text"
                   value={paymentForm.remark}
                   onChange={e => setPaymentForm({...paymentForm, remark: e.target.value})}
-                  className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all"
+                  className="w-full px-4 py-2 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#0066FF]/20 outline-none transition-all"
                   placeholder="Optional notes"
                 />
               </div>
@@ -733,7 +795,7 @@ export default function Suppliers() {
                     type="text"
                     value={supplierForm.name}
                     onChange={e => setSupplierForm({...supplierForm, name: e.target.value})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all"
+                    className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#0066FF]/20 outline-none transition-all"
                     placeholder="e.g. Global Sourcing Ltd"
                   />
                 </div>
@@ -745,7 +807,7 @@ export default function Suppliers() {
                       type="text"
                       value={supplierForm.contactName}
                       onChange={e => setSupplierForm({...supplierForm, contactName: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all"
+                      className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#0066FF]/20 outline-none transition-all"
                       placeholder="e.g. John Doe"
                     />
                   </div>
@@ -756,7 +818,7 @@ export default function Suppliers() {
                       type="tel"
                       value={supplierForm.phone}
                       onChange={e => setSupplierForm({...supplierForm, phone: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all"
+                      className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#0066FF]/20 outline-none transition-all"
                       placeholder="e.g. 017XXXXXXXX"
                     />
                   </div>
@@ -768,7 +830,7 @@ export default function Suppliers() {
                     type="email"
                     value={supplierForm.email}
                     onChange={e => setSupplierForm({...supplierForm, email: e.target.value})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all"
+                    className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#0066FF]/20 outline-none transition-all"
                     placeholder="supplier@example.com"
                   />
                 </div>
@@ -778,7 +840,7 @@ export default function Suppliers() {
                   <textarea 
                     value={supplierForm.address}
                     onChange={e => setSupplierForm({...supplierForm, address: e.target.value})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all resize-none h-24"
+                    className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#0066FF]/20 outline-none transition-all resize-none h-24"
                     placeholder="Full business address"
                   />
                 </div>
@@ -789,7 +851,7 @@ export default function Suppliers() {
                     type="number"
                     value={supplierForm.leadTimeDays}
                     onChange={e => setSupplierForm({...supplierForm, leadTimeDays: parseInt(e.target.value)})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#00AEEF]/20 outline-none transition-all"
+                    className="w-full px-4 py-3 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-[#0066FF]/20 outline-none transition-all"
                   />
                 </div>
               </div>
@@ -804,7 +866,7 @@ export default function Suppliers() {
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 py-4 px-6 bg-[#00AEEF] text-white rounded-2xl font-bold hover:bg-[#0095cc] transition-all shadow-lg shadow-blue-100"
+                  className="flex-1 py-4 px-6 bg-[#0066FF] text-white rounded-2xl font-bold hover:bg-[#0052CC] transition-all shadow-lg shadow-blue-100"
                 >
                   {editingSupplier ? 'Save Changes' : 'Add Supplier'}
                 </button>
