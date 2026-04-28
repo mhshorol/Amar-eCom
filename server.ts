@@ -244,7 +244,7 @@ app.use(async (req, res, next) => {
   next();
 });
 
-async function startServer() {
+async function setupFirebase() {
   try {
     log('Environment Check: ' + JSON.stringify({
       K_SERVICE: process.env.K_SERVICE,
@@ -293,11 +293,12 @@ async function startServer() {
   } catch (error) {
     console.error('Firebase Admin initialization failed:', error);
   }
+} // End of setupFirebase()
 
-  const PORT = 3000;
+const PORT = 3000;
 
-  // Test route
-  app.get('/api/test', (req, res) => {
+// Test route
+app.get('/api/test', (req, res) => {
     res.json({ message: 'API is working' });
   });
 
@@ -990,6 +991,9 @@ async function startServer() {
   app.all('/api/*', (req, res) => {
     res.status(404).json({ error: `API route ${req.method} ${req.url} not found` });
   });
+
+async function startServer() {
+  await setupFirebase();
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
