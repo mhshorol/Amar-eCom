@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx api/\\[...path\\].ts",
+    "dev": "tsx api/index.ts",
     "build": "vite build",
-    "start": "tsx api/\\[...path\\].ts",
+    "start": "tsx api/index.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
