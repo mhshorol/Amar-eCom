@@ -67,14 +67,18 @@ import {
 } from 'firebase/firestore';
 
 // Initialize Firebase Admin
+let adminApp: admin.app.App;
 try {
-  admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
-    projectId: firebaseConfig.projectId
-  });
-  console.log('Firebase Admin initialized with applicationDefault()');
+  if (admin.apps.length === 0) {
+    adminApp = admin.initializeApp({
+      projectId: firebaseConfig.projectId
+    });
+    console.log('Firebase Admin initialized with projectId:', firebaseConfig.projectId);
+  } else {
+    adminApp = admin.app();
+  }
 } catch (e: any) {
-  console.log('Admin initializeApp failed or already initialized:', e.message);
+  console.error('Initial admin initializeApp failed:', e.message);
 }
 
 let db: any = null;
@@ -87,7 +91,9 @@ function log(msg: string) {
   console.log(formattedMsg);
   logs.push(formattedMsg);
   try {
-    fs.appendFileSync('init_logs.txt', formattedMsg + '\n');
+    if (process.env.NODE_ENV !== 'production') {
+      fs.appendFileSync('init_logs.txt', formattedMsg + '\n');
+    }
   } catch (e) {}
 }
 
@@ -99,19 +105,21 @@ async function getDb() {
   
   log(`[getDb] Starting initialization. Project: ${projectId}, Database: ${dbId}`);
   
+  if (!projectId) {
+    log('[getDb] Error: No Project ID provided. Check environment variables.');
+    throw new Error('Firebase Project ID is missing');
+  }
+
   try {
-    // Prefer Admin SDK as it bypasses security rules and is more robust for server-side logic
-    // We only log if it's explicitly set, to avoid scary logs on default Compute Engine credentials
-    db = getFirestore(admin.app(), dbId);
+    const app = admin.apps.length > 0 ? admin.app() : admin.initializeApp({ projectId });
+    db = getFirestore(app, dbId);
     
-    // Health check verification
-    const snapshot = await db.collection('health_check').limit(1).get();
-    activeDbId = dbId;
+    // Test connection
+    await db.collection('health_check').limit(1).get();
+    activeDbId = dbId || '(default)';
     return db;
   } catch (adminErr: any) {
-    if (!adminErr.message.includes('PERMISSION_DENIED')) {
-      log(`[getDb] Admin SDK fallback due to: ${adminErr.message}`);
-    }
+    log(`[getDb] Admin SDK error: ${adminErr.message}. Attempting client fallback...`);
     
     try {
       const clientApp = getClientApps().length > 0 
@@ -250,59 +258,28 @@ async function getDb() {
 }
 
 async function startServer() {
-  try {
-    log('Environment Check: ' + JSON.stringify({
-      K_SERVICE: process.env.K_SERVICE,
-      GOOGLE_CLOUD_PROJECT: process.env.GOOGLE_CLOUD_PROJECT,
-      NODE_ENV: process.env.NODE_ENV
-    }));
-    
-    const originalProject = process.env.GOOGLE_CLOUD_PROJECT;
-    
-    if (admin.apps.length === 0) {
-      log('Initializing Firebase Admin with default credentials');
-      admin.initializeApp();
-    }
-    
-    // Initial DB connection
-    await getDb();
-    
-    if (db) {
-      try {
-        await db.collection('health_check').doc('startup').set({
-          timestamp: Timestamp.now(),
-          message: 'Server started'
-        }, { merge: true });
-        log(`Successfully verified Firestore connection to ${activeDbId} and wrote startup log`);
-        
-        // Write success file
-        fs.writeFileSync('firestore_success.json', JSON.stringify({
-          status: 'success',
-          database: activeDbId,
-          timestamp: new Date().toISOString()
-        }, null, 2));
-      } catch (e: any) {
-        log(`Initial Firestore verification write failed for ${activeDbId}: ${e.message}`);
-        
-        // Write failure file
-        fs.writeFileSync('firestore_success.json', JSON.stringify({
-          status: 'failure',
-          database: activeDbId,
-          error: e.message,
-          code: e.code,
-          timestamp: new Date().toISOString()
-        }, null, 2));
-      }
-    }
-  } catch (error) {
-    console.error('Firebase Admin initialization failed:', error);
-  }
-
   const app = express();
   const PORT = 3000;
 
   app.use(cors());
   app.use(express.json());
+
+  // Initialize DB in background, don't block app creation
+  getDb().then(async (database) => {
+    if (database) {
+      try {
+        await database.collection('health_check').doc('startup').set({
+          timestamp: admin.firestore.Timestamp.now(),
+          message: 'Server started'
+        }, { merge: true });
+        log(`Successfully verified Firestore connection to ${activeDbId}`);
+      } catch (e: any) {
+        log(`Initial Firestore verification write failed: ${e.message}`);
+      }
+    }
+  }).catch(err => {
+    console.error('Background DB Init Failed:', err.message);
+  });
 
   // Test route
   app.get('/api/test', (req, res) => {
