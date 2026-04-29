@@ -351,7 +351,7 @@ export default function Layout({ children, user }: LayoutProps) {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-background">
         {/* Header */}
         <header className="h-16 bg-surface border-b border-border flex items-center justify-between px-6 lg:px-8 sticky top-0 z-20 no-print transition-all">
           <div className="flex items-center gap-3 s:gap-6 flex-1 min-w-0">
