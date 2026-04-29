@@ -234,19 +234,19 @@ export default function OrderDetailsModal({
                 </div>
 
                 {/* Logistics Bar - Compact */}
-                <div className="bg-slate-900 dark:bg-white text-white dark:text-black p-6 rounded-2xl flex items-center justify-between gap-4 text-white">
+                <div className="bg-slate-900 dark:bg-white p-6 rounded-2xl flex items-center justify-between gap-4 border border-white/5 dark:border-slate-200 shadow-xl shadow-black/10">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-lg bg-surface/10 flex items-center justify-center">
-                        <Truck size={20} />
+                      <div className="w-10 h-10 rounded-lg bg-white/10 dark:bg-slate-900/10 flex items-center justify-center">
+                        <Truck size={20} className="text-white dark:text-slate-900" />
                       </div>
                       <div>
-                        <p className="text-[9px] font-bold text-secondary uppercase tracking-widest">Logistic Method</p>
-                        <h4 className="text-sm font-bold">{order.courierName || 'Standard Shipping'}</h4>
+                        <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Logistic Method</p>
+                        <h4 className="text-sm font-black text-white dark:text-slate-900">{order.courierName || 'Standard Shipping'}</h4>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-[9px] font-bold text-secondary uppercase tracking-widest mb-0.5">Shipping Fee</p>
-                      <span className="text-lg font-bold">{currencySymbol}{calculation.delivery.toLocaleString()}</span>
+                      <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">Shipping Fee</p>
+                      <span className="text-lg font-black text-white dark:text-slate-900">{currencySymbol}{calculation.delivery.toLocaleString()}</span>
                     </div>
                 </div>
               </div>
