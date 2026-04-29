@@ -571,8 +571,8 @@ export default function Dashboard() {
         <div className="lg:col-span-8 bg-surface border border-border rounded-[20px] p-8 shadow-subtle">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
             <div>
-              <h3 className="text-[16px] font-bold text-primary">Sales Intelligence</h3>
-              <p className="text-sm text-secondary font-medium mt-1">Market trajectory and revenue velocity</p>
+              <h3 className="text-[16px] font-bold text-primary">Store Performance</h3>
+              <p className="text-sm text-secondary font-medium mt-1">Order volume and revenue trends</p>
             </div>
             <div className="flex items-center border border-border rounded-lg p-1">
               {[2024, 2025, 2026].map(year => (
@@ -648,7 +648,7 @@ export default function Dashboard() {
         {/* Team Activity Card */}
         <div className="lg:col-span-4 bg-surface border border-border rounded-[20px] p-8 shadow-subtle flex flex-col">
           <div className="mb-8">
-            <h3 className="text-[16px] font-bold text-primary">Staff Velocity</h3>
+            <h3 className="text-[16px] font-bold text-primary">Staff Performance</h3>
             <p className="text-sm text-secondary font-medium mt-1">Order processing efficiency</p>
           </div>
           <div className="flex-1">
