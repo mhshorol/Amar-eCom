@@ -389,7 +389,7 @@ const HR: React.FC = () => {
                 });
                 setIsEmployeeModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-bold hover:bg-black transition-all"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-bold hover:bg-black dark:hover:bg-gray-200 transition-all"
             >
               <UserPlus size={18} />
               Add Employee
@@ -402,7 +402,7 @@ const HR: React.FC = () => {
                 setDesignationForm({ name: '', description: '' });
                 setIsDesignationModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-bold hover:bg-black transition-all"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-bold hover:bg-black dark:hover:bg-gray-200 transition-all"
             >
               <Plus size={18} />
               Add Designation
@@ -417,7 +417,7 @@ const HR: React.FC = () => {
                 setAttendanceMarks(marks);
                 setIsAttendanceModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-bold hover:bg-black transition-all"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-bold hover:bg-black dark:hover:bg-gray-200 transition-all"
             >
               <Clock size={18} />
               Mark Attendance
@@ -434,7 +434,7 @@ const HR: React.FC = () => {
               </button>
               <button 
                 onClick={() => setIsSalaryModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-bold hover:bg-black transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-bold hover:bg-black dark:hover:bg-gray-200 transition-all"
               >
                 <FileText size={18} />
                 Generate Salary
@@ -816,7 +816,7 @@ const HR: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black transition-colors"
+                  className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black dark:hover:bg-gray-200 transition-colors"
                 >
                   {editingId ? 'Update' : 'Save'} Designation
                 </button>
@@ -942,7 +942,7 @@ const HR: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black transition-colors"
+                  className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black dark:hover:bg-gray-200 transition-colors"
                 >
                   {editingId ? 'Update' : 'Save'} Employee
                 </button>
@@ -1035,7 +1035,7 @@ const HR: React.FC = () => {
               </button>
               <button
                 onClick={handleBulkAttendance}
-                className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black transition-colors"
+                className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black dark:hover:bg-gray-200 transition-colors"
               >
                 Save Attendance
               </button>
@@ -1111,7 +1111,7 @@ const HR: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black transition-colors"
+                  className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black dark:hover:bg-gray-200 transition-colors"
                 >
                   Save Advance
                 </button>
@@ -1182,7 +1182,7 @@ const HR: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black transition-colors"
+                  className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black dark:hover:bg-gray-200 transition-colors"
                 >
                   Generate & Pay
                 </button>

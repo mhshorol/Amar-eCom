@@ -69,7 +69,7 @@ export class SteadfastAdapter implements CourierInterface {
 
   async trackOrder(trackingId: string): Promise<any> {
     try {
-      const response = await axios.get(`${this.baseUrl}/status_by_tracking/${trackingId}`, {
+      const response = await axios.get(`${this.baseUrl}/status_by_trackingcode/${trackingId}`, {
         headers: {
           'api-key': this.apiKey,
           'secret-key': this.secretKey
@@ -77,8 +77,10 @@ export class SteadfastAdapter implements CourierInterface {
       });
       return response.data;
     } catch (error: any) {
-      console.error('Steadfast trackOrder error:', error.response?.data || error.message);
-      throw new Error(`Steadfast Tracking failed: ${error.response?.data?.message || error.message}`);
+      const errorData = error.response?.data;
+      const errorMessage = typeof errorData === 'string' ? errorData : (errorData?.message || error.message);
+      console.error('Steadfast trackOrder error:', errorData || error.message);
+      throw new Error(`Steadfast Tracking failed: ${errorMessage}`);
     }
   }
   

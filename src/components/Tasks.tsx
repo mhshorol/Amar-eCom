@@ -681,7 +681,7 @@ export default function Tasks() {
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 py-3 px-6 bg-slate-900 dark:bg-white text-white dark:text-black rounded-2xl font-bold hover:bg-black transition-all shadow-lg"
+                  className="flex-1 py-3 px-6 bg-slate-900 dark:bg-white text-white dark:text-black rounded-2xl font-bold hover:bg-black dark:hover:bg-gray-200 transition-all shadow-lg"
                 >
                   {editingTask ? 'Update Task' : 'Create Task'}
                 </button>

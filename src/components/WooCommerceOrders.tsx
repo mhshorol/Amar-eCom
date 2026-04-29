@@ -513,7 +513,7 @@ export default function WooCommerceOrders() {
                   </button>
                   <button 
                     onClick={() => setSelectedOrder(null)}
-                    className="px-6 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-xl text-sm font-bold hover:bg-black transition-all shadow-lg shadow-black/10"
+                    className="px-6 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-xl text-sm font-bold hover:bg-black dark:hover:bg-gray-200 transition-all shadow-lg shadow-black/10"
                   >
                     Close
                   </button>

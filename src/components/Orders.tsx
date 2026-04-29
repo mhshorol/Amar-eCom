@@ -3090,7 +3090,7 @@ export default function Orders() {
                                           className={`w-full text-left px-4 py-2.5 rounded-2xl text-[10px] font-black transition-all flex items-center justify-between group/item ${
                                             order.status === s
                                               ? "bg-slate-900 dark:bg-white text-white dark:text-black shadow-lg"
-                                              : "text-secondary hover:bg-surface-hover hover:text-black"
+                                              : "text-secondary hover:bg-surface-hover hover:text-black dark:hover:text-white"
                                           }`}
                                         >
                                           <span className="uppercase tracking-widest text-[9px]">
@@ -3099,7 +3099,7 @@ export default function Orders() {
                                           {order.status === s ? (
                                             <CheckCircle size={10} />
                                           ) : (
-                                            <div className="w-1.5 h-1.5 rounded-full bg-gray-200 group-hover/item:bg-black transition-colors" />
+                                            <div className="w-1.5 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 group-hover/item:bg-black dark:group-hover/item:bg-white transition-colors" />
                                           )}
                                         </button>
                                       ))}
@@ -3169,11 +3169,11 @@ export default function Orders() {
                 <div className="flex items-center gap-3">
                   <span className="text-[11px] font-black uppercase tracking-widest text-muted">
                     Phase{" "}
-                    <span className="text-black">
+                    <span className="text-black dark:text-white">
                       {(currentPage - 1) * itemsPerPage + 1}
                     </span>{" "}
                     —{" "}
-                    <span className="text-black">
+                    <span className="text-black dark:text-white">
                       {Math.min(
                         currentPage * itemsPerPage,
                         filteredOrders.length,
@@ -3220,8 +3220,8 @@ export default function Orders() {
                               onClick={() => setCurrentPage(page)}
                               className={`w-9 h-9 rounded-xl text-[11px] font-black transition-all ${
                                 isActive
-                                  ? "bg-black text-white shadow-xl shadow-black/10"
-                                  : "text-muted hover:bg-surface hover:text-black hover:shadow-subtle"
+                                  ? "bg-black text-white shadow-xl shadow-black/10 dark:bg-white dark:text-black dark:shadow-white/10"
+                                  : "text-muted hover:bg-surface hover:text-black dark:hover:text-white hover:shadow-subtle"
                               }`}
                             >
                               {String(page).padStart(2, "0")}
@@ -3264,13 +3264,13 @@ export default function Orders() {
                             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
                               {status.replace(/_/g, " ")}
                             </h3>
-                            <span className="px-2 py-0.5 bg-black text-white rounded-md text-[8px] font-black shadow-premium">
+                            <span className="px-2 py-0.5 bg-black text-white dark:bg-white dark:text-black rounded-md text-[8px] font-black shadow-premium">
                               {columnOrders.length}
                             </span>
                           </div>
                           <Link
                             to="/orders/new"
-                            className="p-1.5 hover:bg-black hover:text-white rounded-lg transition-all active:scale-90"
+                            className="p-1.5 hover:bg-black dark:hover:bg-gray-200 hover:text-white dark:hover:text-black rounded-lg transition-all active:scale-90"
                           >
                             <Plus size={14} strokeWidth={3} />
                           </Link>
@@ -3371,7 +3371,7 @@ export default function Orders() {
                                                     className={`w-full text-left px-3 py-2.5 rounded-2xl text-[10px] font-black transition-all flex items-center justify-between group/item ${
                                                       order.status === s
                                                         ? "bg-slate-900 dark:bg-white text-white dark:text-black shadow-lg"
-                                                        : "text-secondary hover:bg-surface-hover hover:text-black"
+                                                        : "text-secondary hover:bg-surface-hover hover:text-black dark:hover:text-white"
                                                     }`}
                                                   >
                                                     <span className="uppercase tracking-widest">
@@ -3380,7 +3380,7 @@ export default function Orders() {
                                                     {order.status === s ? (
                                                       <CheckCircle size={10} />
                                                     ) : (
-                                                      <div className="w-1.5 h-1.5 rounded-full bg-gray-200 group-hover/item:bg-black transition-colors" />
+                                                      <div className="w-1.5 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 group-hover/item:bg-black dark:group-hover/item:bg-white transition-colors" />
                                                     )}
                                                   </button>
                                                 ))}
@@ -3427,13 +3427,13 @@ export default function Orders() {
                                             .map((_: any, i: number) => (
                                               <div
                                                 key={i}
-                                                className="w-6 h-6 rounded-full bg-black text-white border-2 border-white flex items-center justify-center text-[8px] font-black shadow-subtle"
+                                                className="w-6 h-6 rounded-full bg-black text-white dark:bg-white dark:text-black border-2 border-white dark:border-[#111317] flex items-center justify-center text-[8px] font-black shadow-subtle"
                                               >
                                                 {i + 1}
                                               </div>
                                             ))}
                                           {order.items?.length > 2 && (
-                                            <div className="w-6 h-6 rounded-full bg-surface-hover text-muted border-2 border-white flex items-center justify-center text-[8px] font-black">
+                                            <div className="w-6 h-6 rounded-full bg-surface-hover text-muted border-2 border-white dark:border-[#111317] flex items-center justify-center text-[8px] font-black">
                                               +{order.items.length - 2}
                                             </div>
                                           )}
@@ -3445,7 +3445,7 @@ export default function Orders() {
                                             e.stopPropagation();
                                             setViewingOrder(order);
                                           }}
-                                          className="p-2 hover:bg-surface dark:hover:bg-surface hover:text-white dark:hover:text-black rounded-xl transition-all text-muted"
+                                          className="p-2 hover:bg-surface dark:hover:bg-slate-800 hover:text-primary rounded-xl transition-all text-muted"
                                           title="View Details"
                                         >
                                           <Eye size={14} strokeWidth={2.5} />
@@ -3456,7 +3456,7 @@ export default function Orders() {
                                             setSelectedOrderForPrint(order);
                                             setPrintType("a5");
                                           }}
-                                          className="p-2 hover:bg-surface dark:hover:bg-surface hover:text-white dark:hover:text-black rounded-xl transition-all text-muted"
+                                          className="p-2 hover:bg-surface dark:hover:bg-slate-800 hover:text-primary rounded-xl transition-all text-muted"
                                           title="Print"
                                         >
                                           <Printer
@@ -4107,7 +4107,7 @@ export default function Orders() {
                     className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-[13px] font-bold transition-all ${
                       !printType
                         ? "bg-surface-hover text-muted cursor-not-allowed"
-                        : "bg-gray-900 text-white hover:bg-black shadow-lg shadow-gray-200"
+                        : "bg-gray-900 text-white hover:bg-black dark:hover:bg-gray-200 shadow-lg shadow-gray-200 dark:shadow-none"
                     }`}
                   >
                     <Printer size={16} /> Standard Print

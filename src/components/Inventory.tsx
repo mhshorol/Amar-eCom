@@ -725,7 +725,7 @@ function PurchasesTab({ pos, suppliers, products, variants, onAdd, setConfirmCon
     <div className="bg-surface rounded-xl border border-border shadow-subtle overflow-hidden">
       <div className="p-4 border-b border-border flex justify-between items-center bg-surface-hover/30">
         <h3 className="text-sm font-bold text-secondary uppercase tracking-widest">Purchase Orders</h3>
-        <button onClick={onAdd} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg hover:bg-black transition-all">New PO</button>
+        <button onClick={onAdd} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg hover:bg-black dark:hover:bg-gray-200 transition-all">New PO</button>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left min-w-[800px] whitespace-nowrap">
@@ -1874,7 +1874,7 @@ function WastageModal({ isOpen, onClose, products, variants, warehouses }: any) 
           <button 
             onClick={handleReport} 
             disabled={loading}
-            className="flex-[2] py-5 bg-slate-900 dark:bg-white text-white dark:text-black rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-black/20 hover:bg-black transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
+            className="flex-[2] py-5 bg-slate-900 dark:bg-white text-white dark:text-black rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-black/20 hover:bg-black dark:hover:bg-gray-200 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
           >
             {loading ? <Loader2 className="animate-spin" /> : 'RECORD WASTAGE'}
           </button>

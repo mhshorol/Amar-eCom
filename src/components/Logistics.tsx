@@ -1809,7 +1809,7 @@ export default function Logistics() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black transition-colors"
+                  className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black dark:hover:bg-gray-200 transition-colors"
                 >
                   {editingCourier ? 'Save Changes' : 'Connect Courier'}
                 </button>
@@ -1973,7 +1973,7 @@ export default function Logistics() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black transition-colors"
+                  className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black dark:hover:bg-gray-200 transition-colors"
                 >
                   {editingDelivery ? 'Save Changes' : 'Add Shipment'}
                 </button>

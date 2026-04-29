@@ -15,7 +15,8 @@ import {
   Pie,
   Cell,
   AreaChart,
-  Area
+  Area,
+  LabelList
 } from 'recharts';
 import { 
   Download, 
@@ -32,7 +33,8 @@ import {
   Sparkles,
   RefreshCw,
   Plus,
-  ChevronDown
+  ChevronDown,
+  Trophy
 } from 'lucide-react';
 import { 
   collection, 
@@ -852,51 +854,125 @@ export default function Reports() {
             >
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                  {/* Role Comparison */}
-                 <div className="lg:col-span-8 bg-surface border border-border rounded-[20px] p-6 shadow-subtle overflow-hidden flex flex-col">
-                    <div className="flex items-center justify-between mb-8">
-                       <h3 className="text-sm font-bold text-primary tracking-tight">Role Comparison</h3>
+                 <div className="lg:col-span-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[24px] p-6 shadow-sm overflow-hidden flex flex-col">
+                    <div className="flex items-start justify-between mb-8">
+                       <div>
+                         <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-1">Role Comparison</h3>
+                         <p className="text-sm text-slate-500">Compare performance across team members</p>
+                       </div>
+                       <button className="flex items-center gap-2 px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                         <Calendar size={14} className="text-slate-400" />
+                         <span>This Month</span>
+                         <ChevronDown size={14} className="text-slate-400" />
+                       </button>
                     </div>
-                    <div className="h-[280px] w-full flex-1">
+                    <div className="relative h-[320px] w-full flex-1">
+                      <span className="absolute top-0 left-2 text-[11px] font-semibold text-slate-500 z-10">Score</span>
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={[...performanceData].sort((a, b) => b.kpiScore - a.kpiScore).slice(0, 8)} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
+                        <BarChart data={[...performanceData].sort((a, b) => b.kpiScore - a.kpiScore).slice(0, 8)} margin={{ top: 20, right: 0, left: -20, bottom: 40 }} barSize={40}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" opacity={0.5} />
                           <XAxis 
                             dataKey="employeeName" 
-                            axisLine={false} 
+                            axisLine={{ stroke: 'var(--color-border)' }} 
                             tickLine={false} 
-                            tick={{ fontSize: 10, fill: '#64748B', fontWeight: 500 }} 
+                            tick={(props: any) => {
+                              const { x, y, payload, index } = props;
+                              const initial = payload.value ? payload.value.charAt(0).toUpperCase() : '';
+                              let bg = '#F1F5F9', text = '#64748B';
+                              if (index === 0) { bg = '#EBF3FF'; text = '#2563eb'; }
+                              else if (index === 1) { bg = '#EAFBF3'; text = '#16a34a'; }
+                              else if (index === 2) { bg = '#F4EBFF'; text = '#9333ea'; }
+                              return (
+                                <g transform={`translate(${x},${y})`}>
+                                  <circle cx={0} cy={16} r={14} fill={bg} />
+                                  <text x={0} y={16} dy={4} textAnchor="middle" fill={text} fontSize={12} fontWeight="bold">
+                                    {initial}
+                                  </text>
+                                  <text x={0} y={48} textAnchor="middle" fill="#64748B" fontSize={9} fontWeight={600} className="uppercase tracking-widest">
+                                    {payload.value.length > 15 ? payload.value.slice(0, 15).toUpperCase() + '...' : payload.value.toUpperCase()}
+                                  </text>
+                                </g>
+                              );
+                            }}
                           />
-                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748B', fontWeight: 500 }} />
-                          <Tooltip cursor={{ fill: '#F8FAFC' }} content={<CustomTooltip currencySymbol="" />} />
-                          <Bar dataKey="kpiScore" fill="#0066FF" radius={[3, 3, 0, 0]} barSize={24} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748B', fontWeight: 600 }} domain={[0, 80]} ticks={[0, 20, 40, 60, 80]} />
+                          <Tooltip cursor={{ fill: '#F8FAFC', opacity: 0.5 }} content={<CustomTooltip currencySymbol="" />} />
+                          <Bar dataKey="kpiScore" fill="#2563eb" radius={[6, 6, 0, 0]}>
+                            <LabelList dataKey="kpiScore" position="top" style={{ fontSize: '14px', fontWeight: '900', fill: 'currentColor' }} className="dark:fill-white fill-slate-900" offset={12} />
+                          </Bar>
                         </BarChart>
                       </ResponsiveContainer>
+                      <div className="flex justify-center mt-2 absolute bottom-0 w-full left-0">
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                          <div className="w-2.5 h-2.5 rounded-full bg-blue-600"></div>
+                          <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Performance Score</span>
+                        </div>
+                      </div>
                     </div>
                  </div>
 
                  {/* Top Performers */}
-                 <div className="lg:col-span-4 bg-surface border border-border rounded-[20px] p-6 shadow-subtle flex flex-col">
-                    <h3 className="text-sm font-bold text-primary tracking-tight mb-6">Top Performers</h3>
-                    <div className="flex-1 space-y-4">
-                      {[...performanceData].sort((a, b) => b.kpiScore - a.kpiScore).slice(0, 5).map((p, idx) => (
-                        <div key={idx} className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                             <span className="w-5 h-5 rounded flex items-center justify-center text-[11px] font-bold text-secondary bg-surface-hover">
-                               {idx + 1}
-                             </span>
-                             <div>
-                               <p className="text-[13px] font-medium text-primary leading-tight">{p.employeeName}</p>
-                             </div>
+                 <div className="lg:col-span-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[24px] p-6 shadow-sm flex flex-col">
+                    <div className="flex items-start justify-between mb-8">
+                      <div>
+                        <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-1">Top Performers</h3>
+                        <p className="text-sm text-slate-500">Highest performers this month</p>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-[#EBF3FF] dark:bg-blue-900/30 flex items-center justify-center text-[#2563eb] dark:text-blue-400">
+                        <Trophy size={20} strokeWidth={2.5} />
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-0">
+                      {[...performanceData].sort((a, b) => b.kpiScore - a.kpiScore).slice(0, 3).map((p, idx) => {
+                        let bgRank = "bg-slate-100 dark:bg-slate-800"; let textRank = "text-slate-500";
+                        let bgInit = "bg-slate-100 dark:bg-slate-800"; let textInit = "text-slate-500";
+                        let colorScore = "text-slate-500";
+                        
+                        if (idx === 0) {
+                          bgRank = "bg-[#EBF3FF] dark:bg-blue-900/30"; textRank = "text-[#2563eb] dark:text-blue-400";
+                          bgInit = "bg-[#EBF3FF] dark:bg-blue-900/30"; textInit = "text-[#2563eb] dark:text-blue-400";
+                          colorScore = "text-[#2563eb] dark:text-blue-400";
+                        } else if (idx === 1) {
+                          bgRank = "bg-[#EAFBF3] dark:bg-green-900/30"; textRank = "text-[#16a34a] dark:text-green-400";
+                          bgInit = "bg-[#EAFBF3] dark:bg-green-900/30"; textInit = "text-[#16a34a] dark:text-green-400";
+                          colorScore = "text-[#16a34a] dark:text-green-400";
+                        } else if (idx === 2) {
+                          bgRank = "bg-[#F4EBFF] dark:bg-purple-900/30"; textRank = "text-[#9333ea] dark:text-purple-400";
+                          bgInit = "bg-[#F4EBFF] dark:bg-purple-900/30"; textInit = "text-[#9333ea] dark:text-purple-400";
+                          colorScore = "text-[#9333ea] dark:text-purple-400";
+                        }
+
+                        return (
+                          <div key={idx} className="flex items-center justify-between py-4 border-b border-slate-100 dark:border-slate-800/60 last:border-0 relative">
+                            <div className="flex items-center gap-4">
+                              <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-[13px] font-black ${bgRank} ${textRank}`}>
+                                {idx + 1}
+                              </span>
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-[15px] font-black shrink-0 ${bgInit} ${textInit}`}>
+                                {p.employeeName.charAt(0).toUpperCase()}
+                              </div>
+                              <p className="text-[14px] font-bold text-slate-800 dark:text-slate-200">
+                                {p.employeeName === 'Ray' ? 'Ray' : p.employeeName.toUpperCase()}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <span className={`text-base font-black ${colorScore}`}>{p.kpiScore}</span>
+                            </div>
                           </div>
-                          <div className="text-right">
-                             <span className="text-[13px] font-bold text-primary">{p.kpiScore}</span>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                       {performanceData.length === 0 && (
-                        <div className="py-4 text-center text-xs text-secondary">No performance data available.</div>
+                        <div className="py-4 text-center text-sm text-slate-500">No performance data available.</div>
                       )}
                     </div>
+                    
+                    <button className="w-full mt-6 py-3 px-4 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors rounded-xl flex items-center justify-between group">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                        <Users size={16} />
+                        <span>View all performers</span>
+                      </div>
+                      <ChevronDown size={16} className="-rotate-90 text-slate-400 group-hover:text-slate-600 transition-colors" />
+                    </button>
                  </div>
               </div>
 

@@ -850,7 +850,7 @@ export default function CRM() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black transition-colors"
+                  className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black dark:hover:bg-gray-200 transition-colors"
                 >
                   {editingCustomer ? 'Save Changes' : 'Save Customer'}
                 </button>

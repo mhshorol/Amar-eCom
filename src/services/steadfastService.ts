@@ -112,7 +112,7 @@ export class SteadfastService {
    * Check status of a consignment by tracking code
    */
   async getStatusByTracking(trackingCode: string): Promise<any> {
-    return this.request(`/status_by_tracking/${trackingCode}`);
+    return this.request(`/status_by_trackingcode/${trackingCode}`);
   }
 
   /**

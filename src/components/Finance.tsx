@@ -1291,7 +1291,7 @@ function Finance() {
                 });
                 setIsSupplierPaymentModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-xs font-bold hover:bg-black transition-all"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-xs font-bold hover:bg-black dark:hover:bg-gray-200 transition-all"
             >
               <Plus size={14} />
               Add Payment
@@ -1495,7 +1495,7 @@ function Finance() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black transition-colors"
+                  className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black dark:hover:bg-gray-200 transition-colors"
                 >
                   Save Payment
                 </button>
@@ -1611,7 +1611,7 @@ function Finance() {
               <p className="text-[10px] text-muted italic">* As of {new Date().toLocaleDateString()}</p>
               <button 
                 onClick={() => window.print()}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-xs font-bold hover:bg-black transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-xs font-bold hover:bg-black dark:hover:bg-gray-200 transition-all"
               >
                 <Download size={14} />
                 Download PDF
@@ -1713,7 +1713,7 @@ function Finance() {
               <p className="text-[10px] text-muted italic">* This report shows actual cash movement during the period.</p>
               <button 
                 onClick={() => window.print()}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-xs font-bold hover:bg-black transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-xs font-bold hover:bg-black dark:hover:bg-gray-200 transition-all"
               >
                 <Download size={14} />
                 Download PDF
@@ -1863,7 +1863,7 @@ function Finance() {
               <p className="text-[10px] text-muted italic">* This report is generated based on recorded transactions in the selected period.</p>
               <button 
                 onClick={() => window.print()}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-xs font-bold hover:bg-black transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-xs font-bold hover:bg-black dark:hover:bg-gray-200 transition-all"
               >
                 <Download size={14} />
                 Download PDF
@@ -2031,7 +2031,7 @@ function Finance() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black transition-colors"
+                  className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black dark:hover:bg-gray-200 transition-colors"
                 >
                   {editingTransaction ? 'Save Changes' : 'Save Transaction'}
                 </button>
@@ -2115,7 +2115,7 @@ function Finance() {
               </div>
               <div className="pt-4 flex gap-3">
                 <button type="button" onClick={() => setIsAccountModalOpen(false)} className="flex-1 px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-surface-hover transition-colors">Cancel</button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black transition-colors">Save Account</button>
+                <button type="submit" className="flex-1 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black dark:hover:bg-gray-200 transition-colors">Save Account</button>
               </div>
             </form>
           </div>

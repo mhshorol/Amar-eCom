@@ -517,7 +517,7 @@ export default function NewProduct() {
                   <input type="number" placeholder="Price" className="p-3 rounded-xl text-xs border border-transparent focus:border-brand/20 outline-none" value={newVariant.price || 0} onChange={e => setNewVariant({...newVariant, price: parseFloat(e.target.value) || 0})} />
                   <button 
                     onClick={addVariant} 
-                    className="md:col-span-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-xl text-xs font-bold hover:bg-black transition-all"
+                    className="md:col-span-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-xl text-xs font-bold hover:bg-black dark:hover:bg-gray-200 transition-all"
                   >
                     Add Variant
                   </button>

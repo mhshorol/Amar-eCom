@@ -244,7 +244,7 @@ export default function CourierReconciliation() {
         <button 
           onClick={handleBulkReconcile}
           disabled={isProcessing}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black transition-colors disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:bg-black dark:hover:bg-gray-200 transition-colors disabled:opacity-50"
         >
           {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
           Auto Reconcile All
