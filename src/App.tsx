@@ -80,6 +80,36 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
+function Unauthorized() {
+  const { hasPermission } = useAuth();
+  
+  // Try to find a route this user can access
+  if (hasPermission('dashboard')) return <Navigate to="/" replace />;
+  if (hasPermission('tasks')) return <Navigate to="/tasks" replace />;
+  if (hasPermission('orders')) return <Navigate to="/orders" replace />;
+  if (hasPermission('inventory')) return <Navigate to="/inventory" replace />;
+  if (hasPermission('pos')) return <Navigate to="/pos" replace />;
+  if (hasPermission('crm')) return <Navigate to="/crm" replace />;
+  if (hasPermission('suppliers')) return <Navigate to="/suppliers" replace />;
+  if (hasPermission('logistics')) return <Navigate to="/logistics" replace />;
+  if (hasPermission('finance')) return <Navigate to="/finance" replace />;
+  if (hasPermission('hr')) return <Navigate to="/hr" replace />;
+  if (hasPermission('team')) return <Navigate to="/team" replace />;
+  if (hasPermission('settings')) return <Navigate to="/settings" replace />;
+
+  return (
+    <div className="min-h-[80vh] flex items-center justify-center p-6">
+      <div className="max-w-md w-full text-center space-y-4">
+        <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto text-red-500">
+          <Lock size={32} />
+        </div>
+        <h2 className="text-2xl font-bold">Access Restricted</h2>
+        <p className="text-gray-500">You don't have permission to view any modules. Please contact your administrator.</p>
+      </div>
+    </div>
+  );
+}
+
 function AppContent() {
   const { user, loading, hasPermission } = useAuth();
 
@@ -131,25 +161,26 @@ function AppContent() {
     <Router>
       <Layout user={user}>
         <Routes>
-          <Route path="/" element={hasPermission('dashboard') ? <Dashboard /> : <Navigate to="/tasks" replace />} />
-          <Route path="/pos" element={hasPermission('pos') ? <POS /> : <Navigate to="/" replace />} />
-          <Route path="/orders" element={hasPermission('orders') ? <Orders /> : <Navigate to="/" replace />} />
-          <Route path="/orders/new" element={hasPermission('orders') ? <NewOrder /> : <Navigate to="/" replace />} />
-          <Route path="/inventory" element={hasPermission('inventory') ? <Inventory /> : <Navigate to="/" replace />} />
-          <Route path="/inventory/new" element={hasPermission('inventory') ? <NewProduct /> : <Navigate to="/" replace />} />
-          <Route path="/inventory/edit/:id" element={hasPermission('inventory') ? <NewProduct /> : <Navigate to="/" replace />} />
-          <Route path="/crm" element={hasPermission('crm') ? <CRM /> : <Navigate to="/" replace />} />
-          <Route path="/inbox" element={hasPermission('crm') ? <Inbox /> : <Navigate to="/" replace />} />
-          <Route path="/returns" element={hasPermission('orders') ? <Returns /> : <Navigate to="/" replace />} />
-          <Route path="/suppliers" element={hasPermission('suppliers') ? <Suppliers /> : <Navigate to="/" replace />} />
-          <Route path="/logistics" element={hasPermission('logistics') ? <Logistics /> : <Navigate to="/" replace />} />
-          <Route path="/finance" element={hasPermission('finance') ? <Finance /> : <Navigate to="/" replace />} />
-          <Route path="/hr" element={hasPermission('hr') ? <HR /> : <Navigate to="/" replace />} />
-          <Route path="/team" element={hasPermission('team') ? <Team /> : <Navigate to="/" replace />} />
-          <Route path="/tasks" element={hasPermission('tasks') ? <Tasks /> : <Navigate to="/" replace />} />
-          <Route path="/reports" element={hasPermission('dashboard') ? <Reports /> : <Navigate to="/" replace />} />
-          <Route path="/settings" element={hasPermission('settings') ? <Settings /> : <Navigate to="/" replace />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/" element={hasPermission('dashboard') ? <Dashboard /> : <Navigate to="/unauthorized" replace />} />
+          <Route path="/pos" element={hasPermission('pos') ? <POS /> : <Navigate to="/unauthorized" replace />} />
+          <Route path="/orders" element={hasPermission('orders') ? <Orders /> : <Navigate to="/unauthorized" replace />} />
+          <Route path="/orders/new" element={hasPermission('orders') ? <NewOrder /> : <Navigate to="/unauthorized" replace />} />
+          <Route path="/inventory" element={hasPermission('inventory') ? <Inventory /> : <Navigate to="/unauthorized" replace />} />
+          <Route path="/inventory/new" element={hasPermission('inventory') ? <NewProduct /> : <Navigate to="/unauthorized" replace />} />
+          <Route path="/inventory/edit/:id" element={hasPermission('inventory') ? <NewProduct /> : <Navigate to="/unauthorized" replace />} />
+          <Route path="/crm" element={hasPermission('crm') ? <CRM /> : <Navigate to="/unauthorized" replace />} />
+          <Route path="/inbox" element={hasPermission('crm') ? <Inbox /> : <Navigate to="/unauthorized" replace />} />
+          <Route path="/returns" element={hasPermission('orders') ? <Returns /> : <Navigate to="/unauthorized" replace />} />
+          <Route path="/suppliers" element={hasPermission('suppliers') ? <Suppliers /> : <Navigate to="/unauthorized" replace />} />
+          <Route path="/logistics" element={hasPermission('logistics') ? <Logistics /> : <Navigate to="/unauthorized" replace />} />
+          <Route path="/finance" element={hasPermission('finance') ? <Finance /> : <Navigate to="/unauthorized" replace />} />
+          <Route path="/hr" element={hasPermission('hr') ? <HR /> : <Navigate to="/unauthorized" replace />} />
+          <Route path="/team" element={hasPermission('team') ? <Team /> : <Navigate to="/unauthorized" replace />} />
+          <Route path="/tasks" element={hasPermission('tasks') ? <Tasks /> : <Navigate to="/unauthorized" replace />} />
+          <Route path="/reports" element={hasPermission('dashboard') ? <Reports /> : <Navigate to="/unauthorized" replace />} />
+          <Route path="/settings" element={hasPermission('settings') ? <Settings /> : <Navigate to="/unauthorized" replace />} />
+          <Route path="/unauthorized" element={<Unauthorized />} />
+          <Route path="*" element={<Navigate to="/unauthorized" replace />} />
         </Routes>
       </Layout>
     </Router>

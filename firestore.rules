@@ -41,6 +41,7 @@ service cloud.firestore {
       allow list: if isVerified();
       allow create: if isOwner(userId) && request.resource.data.get('role', 'staff') == 'staff';
       allow update: if isAdmin() || (isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'photoURL', 'lastLogin']));
+      allow delete: if isAdmin();
     }
 
     match /orders/{id} {

@@ -12,15 +12,21 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
-    const saved = localStorage.getItem('theme');
-    if (saved === 'light' || saved === 'dark') return saved;
+    try {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'light' || saved === 'dark') return saved;
+    } catch (e) {
+      console.warn("localStorage access denied", e);
+    }
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
   const setTheme = (newTheme: Theme) => {
     if (newTheme !== 'light' && newTheme !== 'dark') return;
     setThemeState(newTheme);
-    localStorage.setItem('theme', newTheme);
+    try {
+      localStorage.setItem('theme', newTheme);
+    } catch (e) {}
   };
 
   const toggleTheme = () => {
@@ -38,7 +44,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = () => {
-      if (!localStorage.getItem('theme')) {
+      let saved = null;
+      try {
+        saved = localStorage.getItem('theme');
+      } catch (e) {}
+      if (!saved) {
         setTheme(mediaQuery.matches ? 'dark' : 'light');
       }
     };

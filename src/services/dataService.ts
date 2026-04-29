@@ -93,14 +93,22 @@ const STORAGE_KEYS = {
 
 // Helper to get data from local storage or mock
 const getLocalData = <T>(key: string, mock: T[]): T[] => {
-  const stored = localStorage.getItem(key);
-  if (stored) return JSON.parse(stored);
-  localStorage.setItem(key, JSON.stringify(mock));
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) return JSON.parse(stored);
+    localStorage.setItem(key, JSON.stringify(mock));
+  } catch (e) {
+    console.warn("localStorage access denied/failed", e);
+  }
   return mock;
 };
 
 const saveLocalData = <T>(key: string, data: T[]) => {
-  localStorage.setItem(key, JSON.stringify(data));
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.warn("localStorage access denied/failed", e);
+  }
 };
 
 export const dataService = {

@@ -211,13 +211,20 @@ export default function Team() {
 
     try {
       // 1. Delete from Firebase Auth via API
-      const response = await fetch(`/api/users/${userId}`, {
-        method: 'DELETE',
-      });
-      
-      if (!response.ok) {
-        const errorData = await (response.headers.get('content-type')?.includes('json') ? response.json() : Promise.reject(new Error('Invalid non-JSON response from server.')));
-        throw new Error(errorData.error || 'Failed to delete user from Auth');
+      let authDeleteSuccess = false;
+      try {
+        const response = await fetch(`/api/users/${userId}`, {
+          method: 'DELETE',
+        });
+        
+        if (response.ok) {
+          authDeleteSuccess = true;
+        } else {
+          const errorData = await (response.headers.get('content-type')?.includes('json') ? response.json() : { error: 'Unknown error' });
+          console.warn('Failed to delete user from Auth:', errorData.error);
+        }
+      } catch (apiError) {
+        console.warn('API error during auth deletion:', apiError);
       }
 
       // 2. Delete from Firestore
@@ -227,7 +234,11 @@ export default function Team() {
       // Log activity
       await addActivityLog('Deleted User', 'Team', `Deleted user ${userName}`);
       
-      toast.success('User deleted successfully.');
+      if (authDeleteSuccess) {
+        toast.success('User deleted successfully.');
+      } else {
+        toast.success('User removed from team, but may still exist in Auth.');
+      }
     } catch (error: any) {
       console.error('Error deleting user:', error);
       toast.error(`Failed to delete user: ${error.message}`);
