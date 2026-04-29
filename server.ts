@@ -13,7 +13,23 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load Firebase Config
-const firebaseConfig = JSON.parse(fs.readFileSync(path.join(__dirname, 'firebase-applet-config.json'), 'utf8'));
+let firebaseConfig: any = {};
+try {
+  const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+  if (fs.existsSync(configPath)) {
+    firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  } else {
+    // Fallback search in __dirname
+    const altPath = path.join(__dirname, 'firebase-applet-config.json');
+    if (fs.existsSync(altPath)) {
+        firebaseConfig = JSON.parse(fs.readFileSync(altPath, 'utf8'));
+    } else {
+        console.warn('firebase-applet-config.json not found in root or __dirname');
+    }
+  }
+} catch (e: any) {
+  console.error('Error loading firebase-applet-config.json:', e.message);
+}
 
 import { 
   initializeApp as initializeClientApp, 
@@ -365,7 +381,7 @@ async function startServer() {
           'User-Agent': 'KaruKarjo-ERP/1.0',
           'Accept': 'application/json'
         },
-        timeout: 15000 // 15 seconds timeout
+        timeout: 8000 // 8 seconds timeout (Vercel hobby limit is 10s)
       });
 
       res.json({
@@ -417,12 +433,18 @@ async function startServer() {
 
       console.error('WooCommerce API Error:', {
         message: error.message,
+        code: error.code,
         data: errorData,
         status: status
       });
+
+      const details = error.code === 'ECONNABORTED' 
+        ? 'Request timed out. WooCommerce might be slow. Try reducing products per page.'
+        : errorData?.message || (isHtml ? 'Received HTML response. Check WordPress permalinks.' : 'No additional details');
+
       res.status(status || 500).json({ 
         error: error.message,
-        details: errorData?.message || (isHtml ? 'Received HTML response. Check WordPress permalinks.' : 'No additional details')
+        details: typeof details === 'string' ? details : JSON.stringify(details)
       });
     }
   });
@@ -462,7 +484,7 @@ async function startServer() {
           'User-Agent': 'KaruKarjo-ERP/1.0',
           'Accept': 'application/json'
         },
-        timeout: 15000
+        timeout: 8000
       });
 
       res.json({
@@ -508,9 +530,13 @@ async function startServer() {
         } catch (fallbackErr: any) {}
       }
 
+      const details = error.code === 'ECONNABORTED' 
+        ? 'Request timed out. WooCommerce might be slow.'
+        : errorData?.message || (isHtml ? 'Received HTML response. Check WordPress permalinks.' : 'No additional details');
+
       res.status(status || 500).json({ 
         error: error.message,
-        details: errorData?.message || (isHtml ? 'Received HTML response. Check WordPress permalinks.' : 'No additional details')
+        details: typeof details === 'string' ? details : JSON.stringify(details)
       });
     }
   });
@@ -551,7 +577,7 @@ async function startServer() {
             'User-Agent': 'KaruKarjo-ERP/1.0',
             'Accept': 'application/json'
           },
-          timeout: 15000
+          timeout: 8000
         });
         return res.json(response.data);
       } catch (error: any) {
