@@ -17,10 +17,10 @@ export default function Home() {
   }, [user, loading, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface">
+    <div className="min-h-screen flex items-center justify-center bg-gray-900">
       <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-base font-bold text-accent uppercase tracking-widest animate-pulse">Amar e-Com</p>
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-base font-bold text-blue-500 uppercase tracking-widest animate-pulse">Amar e-Com</p>
       </div>
     </div>
   );
