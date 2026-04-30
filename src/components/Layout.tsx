@@ -631,36 +631,36 @@ export default function Layout({ children, user }: LayoutProps) {
                 </button>
 
                 {isNotificationsOpen && (
-                  <div className="absolute right-0 mt-4 w-80 sm:w-[500px] bg-surface rounded-[24px] shadow-2xl border border-border overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
-                    <div className="p-6 pb-4 flex items-start justify-between">
+                  <div className="absolute right-0 mt-4 w-80 sm:w-[420px] bg-surface rounded-[20px] shadow-2xl border border-border overflow-hidden z-[100] animate-in fade-in zoom-in-95 duration-200">
+                    <div className="p-4 pb-3 flex items-start justify-between">
                       <div>
-                        <h3 className="font-bold text-primary text-xl tracking-tight">Notifications</h3>
-                        <p className="text-sm font-medium text-secondary mt-0.5">Stay updated with your latest activity</p>
+                        <h3 className="font-bold text-primary text-lg tracking-tight">Notifications</h3>
+                        <p className="text-[12px] font-medium text-secondary mt-0.5">Stay updated with your latest activity</p>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <button onClick={handleMarkAllAsRead} className="text-sm font-bold text-[#3B82F6] hover:underline transition-all">Mark all as read</button>
-                        <button className="p-2 border border-border rounded-xl text-secondary hover:bg-surface-hover hover:text-primary transition-colors bg-surface shadow-sm">
-                          <SlidersHorizontal size={18} />
+                      <div className="flex items-center gap-3">
+                        <button onClick={handleMarkAllAsRead} className="text-[12px] font-bold text-[#3B82F6] hover:underline transition-all">Mark all as read</button>
+                        <button className="p-1.5 border border-border rounded-lg text-secondary hover:bg-surface-hover hover:text-primary transition-colors bg-surface shadow-sm">
+                          <SlidersHorizontal size={16} />
                         </button>
                       </div>
                     </div>
 
-                    <div className="px-6 pb-4 flex items-center gap-2 overflow-x-auto no-scrollbar border-b border-border/50">
-                      <button onClick={() => setNotificationFilter('All')} className={`flex items-center gap-2 px-4 py-2 rounded-full border ${notificationFilter === 'All' ? 'border-[#3B82F6] bg-[#EFF6FF] dark:bg-blue-500/10 text-[#3B82F6]' : 'border-border bg-surface text-secondary hover:text-primary hover:bg-surface-hover'} font-bold text-[13px] shrink-0 transition-colors`}>
-                        <List size={16} strokeWidth={2.5} /> All
+                    <div className="px-4 pb-3 flex items-center gap-2 overflow-x-auto no-scrollbar border-b border-border/50">
+                      <button onClick={() => setNotificationFilter('All')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border ${notificationFilter === 'All' ? 'border-[#3B82F6] bg-[#EFF6FF] dark:bg-blue-500/10 text-[#3B82F6]' : 'border-border bg-surface text-secondary hover:text-primary hover:bg-surface-hover'} font-bold text-[12px] shrink-0 transition-colors`}>
+                        <List size={14} strokeWidth={2.5} /> All
                       </button>
-                      <button onClick={() => setNotificationFilter('Orders')} className={`flex items-center gap-2 px-4 py-2 rounded-full border ${notificationFilter === 'Orders' ? 'border-[#22C55E] bg-[#F0FDF4] dark:bg-green-500/10 text-[#22C55E]' : 'border-border bg-surface text-secondary hover:text-primary hover:bg-surface-hover'} font-bold text-[13px] shrink-0 transition-colors`}>
-                        <ShoppingCart size={16} strokeWidth={2.5} className={notificationFilter === 'Orders' ? '' : 'text-[#22C55E]'} /> Orders
+                      <button onClick={() => setNotificationFilter('Orders')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border ${notificationFilter === 'Orders' ? 'border-[#22C55E] bg-[#F0FDF4] dark:bg-green-500/10 text-[#22C55E]' : 'border-border bg-surface text-secondary hover:text-primary hover:bg-surface-hover'} font-bold text-[12px] shrink-0 transition-colors`}>
+                        <ShoppingCart size={14} strokeWidth={2.5} className={notificationFilter === 'Orders' ? '' : 'text-[#22C55E]'} /> Orders
                       </button>
-                      <button onClick={() => setNotificationFilter('Tasks')} className={`flex items-center gap-2 px-4 py-2 rounded-full border ${notificationFilter === 'Tasks' ? 'border-[#F97316] bg-[#FFF7ED] dark:bg-orange-500/10 text-[#F97316]' : 'border-border bg-surface text-secondary hover:text-primary hover:bg-surface-hover'} font-bold text-[13px] shrink-0 transition-colors`}>
-                        <ClipboardList size={16} strokeWidth={2.5} className={notificationFilter === 'Tasks' ? '' : 'text-[#F97316]'} /> Tasks
+                      <button onClick={() => setNotificationFilter('Tasks')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border ${notificationFilter === 'Tasks' ? 'border-[#F97316] bg-[#FFF7ED] dark:bg-orange-500/10 text-[#F97316]' : 'border-border bg-surface text-secondary hover:text-primary hover:bg-surface-hover'} font-bold text-[12px] shrink-0 transition-colors`}>
+                        <ClipboardList size={14} strokeWidth={2.5} className={notificationFilter === 'Tasks' ? '' : 'text-[#F97316]'} /> Tasks
                       </button>
-                      <button onClick={() => setNotificationFilter('System')} className={`flex items-center gap-2 px-4 py-2 rounded-full border ${notificationFilter === 'System' ? 'border-[#A855F7] bg-[#FAF5FF] dark:bg-purple-500/10 text-[#A855F7]' : 'border-border bg-surface text-secondary hover:text-primary hover:bg-surface-hover'} font-bold text-[13px] shrink-0 transition-colors`}>
-                        <Settings size={16} strokeWidth={2.5} className={notificationFilter === 'System' ? '' : 'text-[#A855F7]'} /> System
+                      <button onClick={() => setNotificationFilter('System')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border ${notificationFilter === 'System' ? 'border-[#A855F7] bg-[#FAF5FF] dark:bg-purple-500/10 text-[#A855F7]' : 'border-border bg-surface text-secondary hover:text-primary hover:bg-surface-hover'} font-bold text-[12px] shrink-0 transition-colors`}>
+                        <Settings size={14} strokeWidth={2.5} className={notificationFilter === 'System' ? '' : 'text-[#A855F7]'} /> System
                       </button>
                     </div>
 
-                    <div className="max-h-[440px] overflow-y-auto no-scrollbar pb-6">
+                    <div className="max-h-[360px] overflow-y-auto no-scrollbar pb-2">
                       {notifications.length > 0 ? (
                         <div className="divide-y divide-border/40">
                           {(() => {
@@ -715,7 +715,7 @@ export default function Layout({ children, user }: LayoutProps) {
                             return (
                                <div 
                                  key={notification.id} 
-                                 className={`px-6 py-4 transition-all hover:bg-surface-hover/50 cursor-pointer flex gap-4 ${!isRead ? 'bg-[#F8FAFC] dark:bg-slate-800/30' : 'bg-surface'}`}
+                                 className={`px-3 py-2.5 transition-all hover:bg-surface-hover/50 cursor-pointer flex gap-2.5 items-start border-l-2 ${!isRead ? 'bg-[#F8FAFC] dark:bg-slate-800/30 border-[#3B82F6]' : 'bg-surface border-transparent'}`}
                                  onClick={() => {
                                    if (!isRead && user?.uid) {
                                      markNotificationAsRead(notification.id, user.uid);
@@ -723,27 +723,25 @@ export default function Layout({ children, user }: LayoutProps) {
                                    setIsNotificationsOpen(false);
                                  }}
                                >
-                                  <div className="pt-3.5 shrink-0 flex items-center justify-center w-4">
-                                     {!isRead ? (
-                                       <div className="w-2.5 h-2.5 rounded-full border-2 border-[#1E293B] dark:border-white bg-transparent"></div>
-                                     ) : (
-                                       <div className="w-2.5 h-2.5 rounded-full border-2 border-slate-300 dark:border-slate-500 bg-transparent"></div>
-                                     )}
+                                  <div className={`w-[28px] h-[28px] rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${iconBg}`}>
+                                    <NotifIcon size={14} className={iconColor} strokeWidth={2.5} />
                                   </div>
-                                  <div className={`w-[48px] h-[48px] rounded-[16px] flex items-center justify-center shrink-0 ${iconBg}`}>
-                                    <NotifIcon size={22} className={iconColor} strokeWidth={2} />
-                                  </div>
-                                  <div className="flex-1 min-w-0 pr-2 pt-0.5">
-                                     <h4 className="text-[15px] font-bold text-primary mb-1">{notification.title}</h4>
-                                     <p className="text-[13px] text-secondary font-medium leading-relaxed mb-2.5 line-clamp-2">
+                                  <div className="flex-1 min-w-0 pr-1">
+                                     <h4 className={`text-[12px] font-bold ${!isRead ? 'text-primary' : 'text-secondary'} mb-0.5`}>{notification.title}</h4>
+                                     <p className="text-[11px] text-secondary/80 font-medium leading-snug mb-1 line-clamp-1">
                                        {notification.message}
                                      </p>
-                                     <div className="flex items-center gap-1.5 text-muted">
-                                       <Clock size={12} strokeWidth={2.5} />
-                                       <span className="text-[12px] font-semibold">
+                                     <div className="flex items-center gap-1 text-muted">
+                                       <Clock size={9} strokeWidth={2.5} />
+                                       <span className="text-[10px] font-semibold">
                                          {notification.createdAt ? formatDistanceToNow(new Date(notification.createdAt.seconds * 1000)) + ' ago' : 'now'}
                                        </span>
                                      </div>
+                                  </div>
+                                  <div className="pt-1.5 shrink-0 flex items-center justify-center w-2">
+                                     {!isRead && (
+                                       <div className="w-1.5 h-1.5 rounded-full bg-[#3B82F6]"></div>
+                                     )}
                                   </div>
                                 </div>
                              );
