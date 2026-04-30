@@ -36,6 +36,7 @@ import {
   getDoc, 
   getDocs, 
   where, 
+  limit,
   ref, 
   uploadBytes, 
   getDownloadURL 
@@ -267,6 +268,45 @@ export default function NewProduct() {
         batch.update(productRef, productData);
       } else {
         batch.set(productRef, productData);
+        if (form.stock && form.stock > 0) {
+          const wSnap = await getDocs(query(collection(db, 'warehouses'), limit(1)));
+          let warehouseId = '';
+          if (!wSnap.empty) {
+            warehouseId = wSnap.docs[0].id;
+          } else {
+             const newWRef = doc(collection(db, 'warehouses'));
+             warehouseId = newWRef.id;
+             batch.set(newWRef, {
+               name: 'Main Warehouse',
+               location: 'Main Location',
+               uid: auth.currentUser?.uid,
+               createdAt: serverTimestamp()
+             });
+          }
+          const invId = `${warehouseId}_${productRef.id}_none`;
+          batch.set(doc(db, 'inventory', invId), {
+            productId: productRef.id,
+            warehouseId: warehouseId,
+            variantId: 'none',
+            quantity: form.stock,
+            uid: auth.currentUser?.uid,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+
+          const logRef = doc(collection(db, 'inventoryLogs'));
+          batch.set(logRef, {
+            productId: productRef.id,
+            variantId: null,
+            warehouseId: warehouseId,
+            action: 'initial_stock',
+            quantityChange: form.stock,
+            newQuantity: form.stock,
+            reason: 'Initial stock on creation',
+            uid: auth.currentUser?.uid,
+            createdAt: serverTimestamp()
+          });
+        }
       }
 
       await batch.commit();

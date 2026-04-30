@@ -5,6 +5,7 @@ import {
   Plus, 
   Download, 
   Package, 
+  PackagePlus,
   AlertTriangle, 
   ArrowUpRight, 
   ArrowDownRight,
@@ -105,6 +106,7 @@ export default function Inventory() {
   const [isAttributeModalOpen, setIsAttributeModalOpen] = useState(false);
   const [isWastageModalOpen, setIsWastageModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [adjustingProduct, setAdjustingProduct] = useState<any | null>(null);
   
   const tabsRef = React.useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -320,12 +322,12 @@ export default function Inventory() {
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'products': return <ProductsTab inventory={inventory} products={products} variants={variants} categories={categories} brands={brands} onEdit={(p: any) => navigate(`/inventory/edit/${p.id}`)} onDelete={handleDeleteProduct} onAddCategory={() => setIsCategoryModalOpen(true)} onAddBrand={() => setIsBrandModalOpen(true)} />;
+      case 'products': return <ProductsTab inventory={inventory} products={products} variants={variants} categories={categories} brands={brands} onEdit={(p: any) => navigate(`/inventory/edit/${p.id}`)} onDelete={handleDeleteProduct} onAdjust={(p: any) => { setAdjustingProduct(p); setIsAdjustmentModalOpen(true); }} onAddCategory={() => setIsCategoryModalOpen(true)} onAddBrand={() => setIsBrandModalOpen(true)} />;
       case 'categories': return <CategoriesTab categories={categories} onEditCategory={(c: any) => { setEditingItem(c); setIsCategoryModalOpen(true); }} onDeleteCategory={handleDeleteCategory} onAddCategory={() => { setEditingItem(null); setIsCategoryModalOpen(true); }} />;
       case 'brands': return <BrandsTab brands={brands} onEditBrand={(b: any) => { setEditingItem(b); setIsBrandModalOpen(true); }} onDeleteBrand={handleDeleteBrand} onAddBrand={() => { setEditingItem(null); setIsBrandModalOpen(true); }} />;
       case 'attributes': return <AttributesTab categories={categories} brands={brands} attributes={attributes} onEditCategory={(c: any) => { setEditingItem(c); setIsCategoryModalOpen(true); }} onDeleteCategory={handleDeleteCategory} onAddCategory={() => { setEditingItem(null); setIsCategoryModalOpen(true); }} onEditBrand={(b: any) => { setEditingItem(b); setIsBrandModalOpen(true); }} onDeleteBrand={handleDeleteBrand} onAddBrand={() => { setEditingItem(null); setIsBrandModalOpen(true); }} onAddAttribute={() => { setEditingItem(null); setIsAttributeModalOpen(true); }} onEditAttribute={(a: any) => { setEditingItem(a); setIsAttributeModalOpen(true); }} onDeleteAttribute={handleDeleteAttribute} setConfirmConfig={setConfirmConfig} />;
       case 'warehouses': return <WarehousesTab warehouses={warehouses} onEdit={(w: any) => { setEditingItem(w); setIsWarehouseModalOpen(true); }} onDelete={handleDeleteWarehouse} />;
-      case 'stock': return <StockTab inventory={inventory} products={products} variants={variants} warehouses={warehouses} onAdjust={() => setIsAdjustmentModalOpen(true)} onTransfer={() => setIsTransferModalOpen(true)} />;
+      case 'stock': return <StockTab inventory={inventory} products={products} variants={variants} warehouses={warehouses} onAdjust={() => { setAdjustingProduct(null); setIsAdjustmentModalOpen(true); }} onTransfer={() => setIsTransferModalOpen(true)} />;
       case 'purchases': return <PurchasesTab pos={purchaseOrders} suppliers={suppliers} products={products} variants={variants} onAdd={() => setIsPOModalOpen(true)} setConfirmConfig={setConfirmConfig} />;
       case 'suppliers': return <SuppliersTab suppliers={suppliers} onEdit={(s: any) => { setEditingItem(s); setIsSupplierModalOpen(true); }} setConfirmConfig={setConfirmConfig} />;
       case 'returns': return <ReturnsTab products={products} variants={variants} warehouses={warehouses} setConfirmConfig={setConfirmConfig} />;
@@ -498,7 +500,7 @@ export default function Inventory() {
 
       {/* Modals Placeholder - Will implement detailed modals next */}
       {isWarehouseModalOpen && <WarehouseModal isOpen={isWarehouseModalOpen} onClose={() => { setIsWarehouseModalOpen(false); setEditingItem(null); }} editingItem={editingItem} />}
-      {isAdjustmentModalOpen && <AdjustmentModal isOpen={isAdjustmentModalOpen} onClose={() => setIsAdjustmentModalOpen(false)} products={products} variants={variants} warehouses={warehouses} />}
+      {isAdjustmentModalOpen && <AdjustmentModal isOpen={isAdjustmentModalOpen} onClose={() => { setIsAdjustmentModalOpen(false); setAdjustingProduct(null); }} products={products} variants={variants} warehouses={warehouses} adjustingProduct={adjustingProduct} />}
       {isTransferModalOpen && <TransferModal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} products={products} variants={variants} warehouses={warehouses} />}
       {isPOModalOpen && <POModal isOpen={isPOModalOpen} onClose={() => setIsPOModalOpen(false)} suppliers={suppliers} products={products} variants={variants} />}
       {isSupplierModalOpen && <SupplierModal isOpen={isSupplierModalOpen} onClose={() => { setIsSupplierModalOpen(false); setEditingItem(null); }} editingItem={editingItem} />}
@@ -861,7 +863,7 @@ function AttributesTab({ categories, brands, attributes, onEditCategory, onDelet
   );
 }
 
-function ProductsTab({ inventory, products, variants, categories, brands, onEdit, onDelete, onAddCategory, onAddBrand }: any) {
+function ProductsTab({ inventory, products, variants, categories, brands, onEdit, onDelete, onAdjust, onAddCategory, onAddBrand }: any) {
   const { currencySymbol } = useSettings();
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -1012,10 +1014,13 @@ function ProductsTab({ inventory, products, variants, categories, brands, onEdit
                   >
                     <Printer size={15} />
                   </button>
-                  <button onClick={() => onEdit(p)} className="w-8 h-8 flex items-center justify-center border border-border rounded-lg hover:bg-surface-hover transition-colors text-secondary">
+                  <button onClick={() => onEdit(p)} className="w-8 h-8 flex items-center justify-center border border-border rounded-lg hover:bg-surface-hover transition-colors text-secondary" title="Edit Product">
                     <Edit size={15} />
                   </button>
-                  <button onClick={() => onDelete(p.id)} className="w-8 h-8 flex items-center justify-center border border-red-100 rounded-lg hover:bg-red-50 hover:border-red-200 transition-colors text-red-500">
+                  <button onClick={() => onAdjust(p)} className="w-8 h-8 flex items-center justify-center border border-border rounded-lg hover:bg-blue-50 transition-colors text-blue-600" title="Adjust Stock">
+                    <PackagePlus size={15} />
+                  </button>
+                  <button onClick={() => onDelete(p.id)} className="w-8 h-8 flex items-center justify-center border border-red-100 rounded-lg hover:bg-red-50 hover:border-red-200 transition-colors text-red-500" title="Delete Product">
                     <Trash2 size={15} />
                   </button>
                 </div>
@@ -1655,8 +1660,8 @@ function WarehouseModal({ isOpen, onClose, editingItem }: any) {
   );
 }
 
-function AdjustmentModal({ isOpen, onClose, products, variants, warehouses }: any) {
-  const [form, setForm] = useState({ productId: '', variantId: '', warehouseId: '', quantity: 0, type: 'in', reason: '' });
+function AdjustmentModal({ isOpen, onClose, products, variants, warehouses, adjustingProduct }: any) {
+  const [form, setForm] = useState({ productId: adjustingProduct ? adjustingProduct.id : '', variantId: '', warehouseId: '', quantity: 0, type: 'in', reason: '' });
 
   const handleAdjust = async () => {
     if (!form.productId || !form.warehouseId || form.quantity <= 0) {
