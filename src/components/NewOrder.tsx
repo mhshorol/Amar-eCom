@@ -297,11 +297,17 @@ export default function NewOrder() {
   };
 
   const handlePhoneChange = async (phone: string) => {
-    setOrderForm(prev => ({ ...prev, customerPhone: phone }));
-    if (phone.length >= 11) {
+    const bengaliToEnglish: { [key: string]: string } = {
+      '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4',
+      '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9'
+    };
+    const engPhone = phone.replace(/[০-৯]/g, match => bengaliToEnglish[match]);
+
+    setOrderForm(prev => ({ ...prev, customerPhone: engPhone }));
+    if (engPhone.length >= 11) {
       // Fetch local customer data
       try {
-        const q = query(collection(db, 'customers'), where('phone', '==', phone));
+        const q = query(collection(db, 'customers'), where('phone', '==', engPhone));
         const querySnapshot = await getDocs(q);
         if (!querySnapshot.empty) {
           const customerData = querySnapshot.docs[0].data();
@@ -322,7 +328,7 @@ export default function NewOrder() {
       }
 
       // Fetch courier history
-      fetchCourierHistory(phone);
+      fetchCourierHistory(engPhone);
     } else {
       setCourierHistory(null);
     }
@@ -449,10 +455,13 @@ export default function NewOrder() {
         inventorySnaps.push({ item, snap: invSnap });
       }
 
-      await runTransaction(db, async (transaction) => {
+      const createdOrderNumber = await runTransaction(db, async (transaction) => {
         // 2. TRANSACTION READS
         const settingsRef = doc(db, 'settings', 'company');
         const settingsSnap = await transaction.get(settingsRef);
+        
+        const rewardPointsRate = settingsSnap.exists() ? (settingsSnap.data().rewardPointsRate || 0) : 0;
+        const pointsEarned = Math.floor(totalAmount / 100) * rewardPointsRate;
 
         // 3. ALL WRITES SECOND
         let customerId = '';
@@ -464,6 +473,7 @@ export default function NewOrder() {
             address: orderForm.customerAddress,
             orderCount: 1,
             totalSpent: totalAmount,
+            points: pointsEarned,
             lastOrderDate: serverTimestamp(),
             uid: auth.currentUser!.uid,
             createdAt: serverTimestamp()
@@ -475,6 +485,7 @@ export default function NewOrder() {
           transaction.update(customerDoc.ref, {
             orderCount: (customerDoc.data().orderCount || 0) + 1,
             totalSpent: (customerDoc.data().totalSpent || 0) + totalAmount,
+            points: (customerDoc.data().points || 0) + pointsEarned,
             lastOrderDate: serverTimestamp()
           });
         }
@@ -569,6 +580,8 @@ export default function NewOrder() {
             });
           }
         }
+        
+        return nextOrderNumber;
       });
 
       await logActivity(
@@ -585,8 +598,47 @@ export default function NewOrder() {
         forRole: 'admin'
       });
 
-      toast.success("Order created successfully!");
-      navigate('/orders');
+      toast.success(`Order #${createdOrderNumber} created successfully!`, {
+        duration: 5000,
+        position: 'top-center',
+      });
+      
+      // Reset form instead of navigating
+      setOrderForm({
+        customerName: '',
+        customerPhone: '',
+        customerAddress: '',
+        customerCity: 'Dhaka',
+        customerZone: 'Inside Dhaka',
+        division: '',
+        district: '',
+        area: '',
+        landmark: '',
+        subtotal: 0,
+        deliveryCharge: 80,
+        discount: 0,
+        totalAmount: 0,
+        paidAmount: 0,
+        dueAmount: 0,
+        advanceAmount: 0,
+        source: 'Facebook',
+        paymentMethod: 'COD',
+        status: 'pending',
+        items: [] as any[],
+        warehouseId: orderForm.warehouseId, // Keep same warehouse across prints
+        notes: '',
+        tags: '',
+        courierId: '',
+        courierName: '',
+        trackingNumber: '',
+        pathao_city_id: '',
+        pathao_zone_id: '',
+        pathao_area_id: '',
+        carrybee_city_id: '',
+        carrybee_zone_id: '',
+        carrybee_area_id: '',
+      });
+      setCourierHistory(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'orders');
     } finally {

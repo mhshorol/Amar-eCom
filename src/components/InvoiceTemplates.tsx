@@ -8,7 +8,7 @@ interface InvoiceProps {
 
 export const A5Invoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ order, company, currencySymbol = '৳' }, ref) => {
   return (
-    <div ref={ref} className="p-4 bg-[#ffffff] text-[#000000] font-sans relative overflow-hidden" style={{ width: '210mm', height: '148mm', margin: '0 auto', boxSizing: 'border-box' }}>
+    <div ref={ref} className="p-4 bg-[#ffffff] text-[#000000] relative overflow-hidden" style={{ width: '210mm', height: '148mm', margin: '0 auto', boxSizing: 'border-box', fontFamily: "'Poppins', 'Siyam Rupali', sans-serif" }}>
       {/* Decorative Background Elements - Subtle Grayscale */}
       <div className="absolute top-0 right-0 w-48 h-48 rounded-full -mr-24 -mt-24 z-0" style={{ backgroundColor: 'rgba(0, 0, 0, 0.02)' }}></div>
       <div className="absolute bottom-0 left-0 w-32 h-32 rounded-full -ml-16 -mb-16 z-0" style={{ backgroundColor: 'rgba(0, 0, 0, 0.02)' }}></div>
@@ -61,9 +61,9 @@ export const A5Invoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ order
         <div className="grid grid-cols-2 gap-4 mb-2">
           <div className="space-y-1">
             <div className="space-y-0.5">
-              <p className="text-base font-black text-[#000000] leading-tight">{order.customerName}</p>
-              <p className="text-xs font-bold text-[#000000]">{order.customerPhone}</p>
-              <p className="text-[10px] text-[#000000] leading-relaxed max-w-[350px]">
+              <p className="text-[14px] font-bold text-[#000000] leading-tight">{order.customerName}</p>
+              <p className="text-[14px] font-bold text-[#000000]">{order.customerPhone}</p>
+              <p className="text-[12px] font-medium text-[#000000] leading-relaxed max-w-[350px]">
                 {order.customerAddress}
               </p>
             </div>
