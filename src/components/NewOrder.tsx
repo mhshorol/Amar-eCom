@@ -441,9 +441,9 @@ export default function NewOrder() {
       for (const item of validItems) {
         const invQuery = query(
           collection(db, 'inventory'),
-          where('productId', '==', item.productId),
+          where('productId', '==', item.productId || ''),
           where('variantId', '==', item.variantId || ''),
-          where('warehouseId', '==', orderForm.warehouseId)
+          where('warehouseId', '==', orderForm.warehouseId || '')
         );
         const invSnap = await getDocs(invQuery);
         inventorySnaps.push({ item, snap: invSnap });
