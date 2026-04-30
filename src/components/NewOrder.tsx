@@ -934,7 +934,7 @@ export default function NewOrder() {
                         >
                           <option value="">DEFAULT VARIANT</option>
                           {newItem.productId && variants.filter(v => v.productId === newItem.productId).map(v => (
-                            <option key={v.id} value={v.id}>{v.size} / {v.color} - {currencySymbol}{v.price}</option>
+                            <option key={v.id} value={v.id}>{Object.entries(v).filter(([key]) => !['id', 'productId', 'uid', 'createdAt', 'updatedAt', 'sku', 'barcode', 'price', 'costPrice', 'bundleItems'].includes(key)).map(([, val]) => val).filter(Boolean).join('/')} - {currencySymbol}{v.price}</option>
                           ))}
                         </select>
                         <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted">
@@ -987,7 +987,7 @@ export default function NewOrder() {
                           const itemWithInfo = {
                             ...newItem,
                             name: p?.name || 'Unknown Product',
-                            variant: v ? `${v.size} / ${v.color}` : (p?.size || p?.color ? `${p.size || ''} ${p.size && p.color ? '/' : ''} ${p.color || ''}`.trim() : ''),
+                            variant: v ? Object.entries(v).filter(([key]) => !['id', 'productId', 'uid', 'createdAt', 'updatedAt', 'sku', 'barcode', 'price', 'costPrice', 'bundleItems'].includes(key)).map(([, val]) => val).filter(Boolean).join('/') : '',
                             image: p?.image || ''
                           };
                           setOrderForm({...orderForm, items: [...orderForm.items, itemWithInfo]});

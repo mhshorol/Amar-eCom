@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   BarChart, 
@@ -34,7 +34,11 @@ import {
   RefreshCw,
   Plus,
   ChevronDown,
-  Trophy
+  Trophy,
+  ChevronLeft,
+  ChevronRight,
+  Brain,
+  PackagePlus
 } from 'lucide-react';
 import { 
   collection, 
@@ -112,6 +116,42 @@ const ReportStatCard = ({ title, value, icon: Icon, trend, trendValue, delay = 0
 
 export default function Reports() {
   const [activeTab, setActiveTab] = useState<'sales' | 'inventory' | 'performance'>('sales');
+  
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    if (tabsRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = tabsRef.current;
+      setShowLeftArrow(scrollLeft > 5);
+      setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 5);
+    }
+  }, []);
+
+  useEffect(() => {
+    const tabsEl = tabsRef.current;
+    if (tabsEl) {
+      checkScroll();
+      tabsEl.addEventListener("scroll", checkScroll);
+      window.addEventListener("resize", checkScroll);
+      return () => {
+        tabsEl.removeEventListener("scroll", checkScroll);
+        window.removeEventListener("resize", checkScroll);
+      };
+    }
+  }, [checkScroll]);
+
+  const scrollTabs = (direction: "left" | "right") => {
+    if (tabsRef.current) {
+      const scrollAmount = 200;
+      tabsRef.current.scrollBy({
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  };
+
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState('30');
   const [valuationMethod, setValuationMethod] = useState<ValuationMethod>('WAC');
@@ -497,27 +537,73 @@ export default function Reports() {
       </div>
 
       {/* Dynamic Tab Switcher */}
-      <div className="flex items-center gap-6 border-b border-border mb-8">
+      <div className="relative mb-8 group/tabs">
+        <AnimatePresence>
+          {showLeftArrow && (
+            <>
+              <div className="absolute left-0 top-0 bottom-0 w-12 z-10 bg-gradient-to-r from-gray-50/80 to-transparent pointer-events-none rounded-l-[20px]" />
+              <motion.button
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                onClick={() => scrollTabs("left")}
+                className="absolute -left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 flex items-center justify-center bg-surface border border-border rounded-full shadow-lg text-secondary hover:text-brand hover:border-brand transition-all"
+              >
+                <ChevronLeft size={16} strokeWidth={3} />
+              </motion.button>
+            </>
+          )}
+          {showRightArrow && (
+            <>
+              <div className="absolute right-0 top-0 bottom-0 w-12 z-10 bg-gradient-to-l from-gray-50/80 to-transparent pointer-events-none rounded-r-[20px]" />
+              <motion.button
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                onClick={() => scrollTabs("right")}
+                className="absolute -right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 flex items-center justify-center bg-surface border border-border rounded-full shadow-lg text-secondary hover:text-brand hover:border-brand transition-all"
+              >
+                <ChevronRight size={16} strokeWidth={3} />
+              </motion.button>
+            </>
+          )}
+        </AnimatePresence>
+
+        <div 
+          ref={tabsRef}
+          className="flex overflow-x-auto items-center p-1 bg-surface border border-border rounded-[20px] shadow-subtle gap-x-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] scroll-smooth"
+        >
           {[
-            { id: 'sales', label: 'Intelligence & Assets' },
-            { id: 'inventory', label: 'Asset Entry' },
-            { id: 'performance', label: 'Human Capital' }
-          ].map((tab) => (
-            <button 
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`relative pb-3 flex items-center gap-2 text-sm font-medium transition-all ${activeTab === tab.id ? 'text-brand font-semibold' : 'text-secondary hover:text-primary'}`}
-            >
-              <span className="relative z-10">{tab.label}</span>
-              {activeTab === tab.id && (
-                <motion.div 
-                  layoutId="activeTabReport"
-                  className="absolute bottom-[0px] left-0 right-0 h-0.5 bg-brand"
-                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                />
-              )}
-            </button>
-          ))}
+            { id: 'sales', label: 'Intelligence & Assets', icon: Brain },
+            { id: 'inventory', label: 'Asset Entry', icon: PackagePlus },
+            { id: 'performance', label: 'Human Capital', icon: Users }
+          ].map((tab) => {
+            const isActive = activeTab === tab.id;
+            const iconColorClass = isActive ? "text-brand" : "text-muted";
+            const Icon = tab.icon;
+            
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-bold whitespace-nowrap transition-all group/tab relative ${
+                  isActive
+                    ? "bg-brand/10 dark:bg-brand/20 text-brand shadow-subtle shadow-blue-100/50"
+                    : "text-secondary hover:text-primary hover:bg-surface-hover"
+                }`}
+              >
+                <Icon size={14} strokeWidth={isActive ? 2.5 : 2} className={`${iconColorClass} group-hover/tab:scale-110 transition-transform`} />
+                <span className="capitalize tracking-tight">{tab.label}</span>
+                {isActive && (
+                  <motion.div 
+                    layoutId="activeTabReport"
+                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-brand rounded-full"
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div id="report-content" className="space-y-6">

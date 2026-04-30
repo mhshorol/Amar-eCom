@@ -1,4 +1,5 @@
 import express from 'express';
+import compression from 'compression';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -274,6 +275,7 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  app.use(compression());
   app.use(cors());
   app.use(express.json());
 

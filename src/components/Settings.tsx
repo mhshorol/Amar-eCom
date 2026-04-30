@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { 
   Settings as SettingsIcon, 
@@ -476,14 +477,20 @@ export default function Settings() {
               <button
                 key={item.name}
                 onClick={() => setActiveTab(item.name)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all ${
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-full text-[13px] font-bold transition-all group/tab relative ${
                   activeTab === item.name 
-                    ? 'bg-brand/10 dark:bg-brand/20 text-[#0866FF]' 
+                    ? 'bg-brand/10 dark:bg-brand/20 text-[#0866FF] shadow-subtle shadow-blue-100/50' 
                     : 'text-secondary hover:bg-surface-hover hover:text-primary'
                 }`}
               >
-                <item.icon size={18} className={activeTab === item.name ? 'text-[#0866FF]' : 'text-muted'} />
-                {item.name}
+                <item.icon size={18} className={`${activeTab === item.name ? 'text-[#0866FF]' : 'text-muted'} group-hover/tab:scale-110 transition-transform`} />
+                <span>{item.name}</span>
+                {activeTab === item.name && (
+                  <motion.div 
+                    layoutId="activeTabSettings1"
+                    className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-brand rounded-full"
+                  />
+                )}
               </button>
             ))}
           </div>
@@ -498,14 +505,20 @@ export default function Settings() {
               <button
                 key={item.name}
                 onClick={() => setActiveTab(item.name)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all ${
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-full text-[13px] font-bold transition-all group/tab relative ${
                   activeTab === item.name 
-                    ? 'bg-brand/10 dark:bg-brand/20 text-[#0866FF]' 
+                    ? 'bg-brand/10 dark:bg-brand/20 text-[#0866FF] shadow-subtle shadow-blue-100/50' 
                     : 'text-secondary hover:bg-surface-hover hover:text-primary'
                 }`}
               >
-                <item.icon size={18} className={activeTab === item.name ? 'text-[#0866FF]' : 'text-muted'} />
-                {item.name}
+                <item.icon size={18} className={`${activeTab === item.name ? 'text-[#0866FF]' : 'text-muted'} group-hover/tab:scale-110 transition-transform`} />
+                <span>{item.name}</span>
+                {activeTab === item.name && (
+                  <motion.div 
+                    layoutId="activeTabSettings2"
+                    className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-brand rounded-full"
+                  />
+                )}
               </button>
             ))}
           </div>
@@ -522,14 +535,20 @@ export default function Settings() {
               <button
                 key={item.name}
                 onClick={() => setActiveTab(item.name)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all ${
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-full text-[13px] font-bold transition-all group/tab relative ${
                   activeTab === item.name 
-                    ? 'bg-brand/10 dark:bg-brand/20 text-[#0866FF]' 
+                    ? 'bg-brand/10 dark:bg-brand/20 text-[#0866FF] shadow-subtle shadow-blue-100/50' 
                     : 'text-secondary hover:bg-surface-hover hover:text-primary'
                 }`}
               >
-                <item.icon size={18} className={activeTab === item.name ? 'text-[#0866FF]' : 'text-muted'} />
-                {item.name}
+                <item.icon size={18} className={`${activeTab === item.name ? 'text-[#0866FF]' : 'text-muted'} group-hover/tab:scale-110 transition-transform`} />
+                <span>{item.name}</span>
+                {activeTab === item.name && (
+                  <motion.div 
+                    layoutId="activeTabSettings3"
+                    className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-brand rounded-full"
+                  />
+                )}
               </button>
             ))}
           </div>

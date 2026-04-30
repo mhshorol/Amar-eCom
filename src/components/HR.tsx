@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { 
   Users, 
@@ -389,7 +390,7 @@ const HR: React.FC = () => {
                 });
                 setIsEmployeeModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-bold hover:bg-black dark:hover:bg-gray-200 transition-all"
+              className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-lg text-sm font-bold hover:bg-brand-hover transition-all shadow-subtle"
             >
               <UserPlus size={18} />
               Add Employee
@@ -402,7 +403,7 @@ const HR: React.FC = () => {
                 setDesignationForm({ name: '', description: '' });
                 setIsDesignationModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-bold hover:bg-black dark:hover:bg-gray-200 transition-all"
+              className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-lg text-sm font-bold hover:bg-brand-hover transition-all shadow-subtle"
             >
               <Plus size={18} />
               Add Designation
@@ -417,7 +418,7 @@ const HR: React.FC = () => {
                 setAttendanceMarks(marks);
                 setIsAttendanceModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-bold hover:bg-black dark:hover:bg-gray-200 transition-all"
+              className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-lg text-sm font-bold hover:bg-brand-hover transition-all shadow-subtle"
             >
               <Clock size={18} />
               Mark Attendance
@@ -434,7 +435,7 @@ const HR: React.FC = () => {
               </button>
               <button 
                 onClick={() => setIsSalaryModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-bold hover:bg-black dark:hover:bg-gray-200 transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-lg text-sm font-bold hover:bg-brand-hover transition-all shadow-subtle"
               >
                 <FileText size={18} />
                 Generate Salary
@@ -445,26 +446,38 @@ const HR: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 p-1 bg-surface-hover rounded-xl w-fit">
+      <div className="flex overflow-x-auto items-center p-1 bg-surface border border-border rounded-[20px] shadow-subtle gap-x-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] scroll-smooth w-min mb-6">
         {[
           { id: 'employees', label: 'Employees', icon: Users },
           { id: 'designations', label: 'Designations', icon: Briefcase },
           { id: 'attendance', label: 'Attendance', icon: Calendar },
           { id: 'salary', label: 'Payroll', icon: DollarSign },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as HRTab)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-              activeTab === tab.id 
-                ? 'bg-surface text-primary shadow-subtle' 
-                : 'text-secondary hover:text-secondary'
-            }`}
-          >
-            <tab.icon size={16} />
-            {tab.label}
-          </button>
-        ))}
+        ].map((tab) => {
+          const isActive = activeTab === tab.id;
+          const iconColorClass = isActive ? "text-brand" : "text-muted";
+          const Icon = tab.icon;
+          
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as HRTab)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-bold whitespace-nowrap transition-all group/tab relative ${
+                isActive
+                  ? "bg-brand/10 dark:bg-brand/20 text-brand shadow-subtle shadow-blue-100/50"
+                  : "text-secondary hover:text-primary hover:bg-surface-hover"
+              }`}
+            >
+              <Icon size={14} strokeWidth={isActive ? 2.5 : 2} className={`${iconColorClass} group-hover/tab:scale-110 transition-transform`} />
+              <span className="capitalize tracking-tight">{tab.label}</span>
+              {isActive && (
+                <motion.div 
+                  layoutId="activeTabHR"
+                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-brand rounded-full"
+                />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Search & Filters */}

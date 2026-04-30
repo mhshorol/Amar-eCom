@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, 
   Plus, 
@@ -30,6 +31,7 @@ import {
   Calculator,
   History,
   ChevronRight,
+  ChevronLeft,
   ChevronDown,
   Landmark
 } from 'lucide-react';
@@ -139,6 +141,41 @@ function Finance() {
     message: '',
     onConfirm: () => {},
   });
+
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    if (tabsRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = tabsRef.current;
+      setShowLeftArrow(scrollLeft > 5);
+      setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 5);
+    }
+  }, []);
+
+  useEffect(() => {
+    const tabsEl = tabsRef.current;
+    if (tabsEl) {
+      checkScroll();
+      tabsEl.addEventListener("scroll", checkScroll);
+      window.addEventListener("resize", checkScroll);
+      return () => {
+        tabsEl.removeEventListener("scroll", checkScroll);
+        window.removeEventListener("resize", checkScroll);
+      };
+    }
+  }, [checkScroll]);
+
+  const scrollTabs = (direction: "left" | "right") => {
+    if (tabsRef.current) {
+      const scrollAmount = 200;
+      tabsRef.current.scrollBy({
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  };
   const [transactionForm, setTransactionForm] = useState({
     orderId: '-',
     type: 'income' as 'income' | 'expense' | 'transfer',
@@ -173,10 +210,10 @@ function Finance() {
 
   useEffect(() => {
     if (!auth.currentUser) return;
-    const qTxns = query(collection(db, 'transactions'), orderBy('createdAt', 'desc'));
+    const qTxns = query(collection(db, 'transactions'), orderBy('createdAt', 'desc'), limit(1500));
     const qAccounts = query(collection(db, 'accounts'), orderBy('name', 'asc'));
     const qSuppliers = query(collection(db, 'suppliers'), orderBy('name', 'asc'));
-    const qSupplierPayments = query(collection(db, 'supplierPayments'), orderBy('createdAt', 'desc'));
+    const qSupplierPayments = query(collection(db, 'supplierPayments'), orderBy('createdAt', 'desc'), limit(500));
     
     const unsubTxns = onSnapshot(qTxns, (snapshot) => {
       setTransactions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Transaction[]);
@@ -803,7 +840,42 @@ function Finance() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-surface rounded-xl border border-border/60 shadow-subtle flex overflow-x-auto">
+      <div className="relative mb-6 group/tabs">
+        <AnimatePresence>
+          {showLeftArrow && (
+            <>
+              <div className="absolute left-0 top-0 bottom-6 w-12 z-10 bg-gradient-to-r from-gray-50/80 to-transparent pointer-events-none rounded-l-[20px]" />
+              <motion.button
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                onClick={() => scrollTabs("left")}
+                className="absolute -left-3 top-[22px] -translate-y-1/2 z-20 w-8 h-8 flex items-center justify-center bg-surface border border-border rounded-full shadow-lg text-secondary hover:text-brand hover:border-brand transition-all"
+              >
+                <ChevronLeft size={16} strokeWidth={3} />
+              </motion.button>
+            </>
+          )}
+          {showRightArrow && (
+            <>
+              <div className="absolute right-0 top-0 bottom-6 w-12 z-10 bg-gradient-to-l from-gray-50/80 to-transparent pointer-events-none rounded-r-[20px]" />
+              <motion.button
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                onClick={() => scrollTabs("right")}
+                className="absolute -right-3 top-[22px] -translate-y-1/2 z-20 w-8 h-8 flex items-center justify-center bg-surface border border-border rounded-full shadow-lg text-secondary hover:text-brand hover:border-brand transition-all"
+              >
+                <ChevronRight size={16} strokeWidth={3} />
+              </motion.button>
+            </>
+          )}
+        </AnimatePresence>
+
+        <div 
+          ref={tabsRef}
+          className="flex overflow-x-auto items-center p-1 bg-surface border border-border rounded-[20px] shadow-subtle gap-x-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] scroll-smooth"
+        >
         {([
           { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
           { id: 'transactions', label: 'Transactions', icon: History },
@@ -812,21 +884,33 @@ function Finance() {
           { id: 'ar_ap', label: 'A/R & A/P', icon: ArrowRightLeft },
           { id: 'supplier_payments', label: 'Supplier Payments', icon: Users },
           { id: 'petty_cash', label: 'Petty Cash', icon: Wallet }
-        ] as Array<{ id: 'dashboard' | 'transactions' | 'coa' | 'reports' | 'ar_ap' | 'supplier_payments' | 'petty_cash', label: string, icon: any }>).map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as 'dashboard' | 'transactions' | 'coa' | 'reports' | 'ar_ap' | 'supplier_payments' | 'petty_cash')}
-            className={`whitespace-nowrap px-6 py-4 text-[13px] font-bold transition-all relative flex items-center gap-2 ${
-              activeTab === tab.id ? 'text-brand' : 'text-secondary hover:text-secondary hover:bg-surface-hover'
-            }`}
-          >
-            <tab.icon size={16} />
-            {tab.label}
-            {activeTab === tab.id && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand"></div>
-            )}
-          </button>
-        ))}
+        ] as Array<{ id: 'dashboard' | 'transactions' | 'coa' | 'reports' | 'ar_ap' | 'supplier_payments' | 'petty_cash', label: string, icon: any }>).map((tab) => {
+          const isActive = activeTab === tab.id;
+          const iconColorClass = isActive ? "text-brand" : "text-muted";
+          const Icon = tab.icon;
+          
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as 'dashboard' | 'transactions' | 'coa' | 'reports' | 'ar_ap' | 'supplier_payments' | 'petty_cash')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-bold whitespace-nowrap transition-all group/tab relative ${
+                isActive
+                  ? "bg-brand/10 dark:bg-brand/20 text-brand shadow-subtle shadow-blue-100/50"
+                  : "text-secondary hover:text-primary hover:bg-surface-hover"
+              }`}
+            >
+              <Icon size={14} strokeWidth={isActive ? 2.5 : 2} className={`${iconColorClass} group-hover/tab:scale-110 transition-transform`} />
+              <span className="capitalize tracking-tight">{tab.label}</span>
+              {isActive && (
+                <motion.div 
+                  layoutId="activeTabFinance"
+                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-brand rounded-full"
+                />
+              )}
+            </button>
+          );
+        })}
+        </div>
       </div>
 
       {activeTab === 'dashboard' && (

@@ -607,7 +607,7 @@ export default function Orders() {
 
   useEffect(() => {
     if (!user) return;
-    const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+    const q = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(1500));
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
@@ -3725,7 +3725,7 @@ export default function Orders() {
                               >
                                 <option value="">Select Variant</option>
                                 {variants.filter(v => v.productId === newItem.productId).map(v => (
-                                  <option key={v.id} value={v.id}>{v.size} / {v.color}</option>
+                                  <option key={v.id} value={v.id}>{Object.entries(v).filter(([key]) => !['id', 'productId', 'uid', 'createdAt', 'updatedAt', 'sku', 'barcode', 'price', 'costPrice', 'bundleItems'].includes(key)).map(([, val]) => val).filter(Boolean).join('/')}</option>
                                 ))}
                               </select>
                               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" size={14} />

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { 
   Plus, 
@@ -22,7 +23,9 @@ import {
   Building2,
   BadgeCheck,
   ShoppingBag,
-  ChevronDown
+  ChevronDown,
+  Truck,
+  FileText,
 } from 'lucide-react';
 import { db, auth, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy, where, runTransaction } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -291,23 +294,36 @@ export default function Suppliers() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 p-1.5 rounded-xl bg-surface border border-border shadow-subtle w-fit">
-        <button
-          onClick={() => setActiveTab('suppliers')}
-          className={`px-5 py-2 rounded-lg text-[14px] font-medium transition-all ${
-            activeTab === 'suppliers' ? 'text-brand bg-brand/10/50' : 'text-secondary hover:text-slate-800'
-          }`}
-        >
-          Suppliers
-        </button>
-        <button
-          onClick={() => setActiveTab('pos')}
-          className={`px-5 py-2 rounded-lg text-[14px] font-medium transition-all ${
-            activeTab === 'pos' ? 'text-brand bg-brand/10/50' : 'text-secondary hover:text-slate-800'
-          }`}
-        >
-          Purchase Orders
-        </button>
+      <div className="flex overflow-x-auto items-center p-1 bg-surface border border-border rounded-[20px] shadow-subtle gap-x-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] scroll-smooth w-min">
+        {[
+          { id: 'suppliers', label: 'Suppliers', icon: Truck },
+          { id: 'pos', label: 'Purchase Orders', icon: FileText }
+        ].map((tab) => {
+          const isActive = activeTab === tab.id;
+          const iconColorClass = isActive ? "text-brand" : "text-muted";
+          const Icon = tab.icon;
+          
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as 'suppliers' | 'pos')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-bold whitespace-nowrap transition-all group/tab relative ${
+                isActive
+                  ? "bg-brand/10 dark:bg-brand/20 text-brand shadow-subtle shadow-blue-100/50"
+                  : "text-secondary hover:text-primary hover:bg-surface-hover"
+              }`}
+            >
+              <Icon size={14} strokeWidth={isActive ? 2.5 : 2} className={`${iconColorClass} group-hover/tab:scale-110 transition-transform`} />
+              <span className="capitalize tracking-tight">{tab.label}</span>
+              {isActive && (
+                <motion.div 
+                  layoutId="activeTabSupplier"
+                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-brand rounded-full"
+                />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {activeTab === 'suppliers' ? (

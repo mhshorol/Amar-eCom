@@ -167,6 +167,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [inventory, setInventory] = useState<any[]>([]);
   const [customersCount, setCustomersCount] = useState<number>(0);
   
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -193,7 +194,7 @@ export default function Dashboard() {
 
     setLoading(true);
 
-    const unsubOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
+    const unsubOrders = onSnapshot(query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(1500)), (snapshot) => {
       setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
     }, (error) => {
@@ -219,10 +220,19 @@ export default function Dashboard() {
       }
     });
 
+    const unsubInventory = onSnapshot(collection(db, 'inventory'), (snapshot) => {
+      setInventory(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (error) => {
+      if (error.code !== 'permission-denied') {
+        handleFirestoreError(error, OperationType.LIST, 'inventory');
+      }
+    });
+
     return () => {
       unsubOrders();
       unsubCustomers();
       unsubProducts();
+      unsubInventory();
     };
   }, [authUser]);
 
@@ -348,8 +358,11 @@ export default function Dashboard() {
   }, [orders, selectedYear]);
 
   const lowStockProducts = useMemo(() => {
-    return products.filter((p: any) => (p.stock || 0) <= (p.minStock || 5)).slice(0, 5);
-  }, [products]);
+    return products.map(p => {
+      const stock = inventory.filter((i: any) => i.productId === p.id).reduce((sum, inv) => sum + (inv.quantity || 0), 0);
+      return { ...p, stock };
+    }).filter((p: any) => p.stock <= (p.minStock || 5)).slice(0, 5);
+  }, [products, inventory]);
 
   const formatCurrency = (amount: number) => {
     return `${currencySymbol}${amount.toLocaleString()}`;

@@ -21,6 +21,9 @@ export default defineConfig(({mode}) => {
       hmr: process.env.DISABLE_HMR !== 'true',
     },
     build: {
+      target: 'esnext',
+      minify: 'esbuild',
+      cssMinify: true,
       rollupOptions: {
         output: {
           manualChunks: {
@@ -30,6 +33,9 @@ export default defineConfig(({mode}) => {
           }
         }
       }
+    },
+    esbuild: {
+      drop: mode === 'production' ? ['console', 'debugger'] : [],
     }
   };
 });

@@ -338,21 +338,36 @@ export default function Team() {
           <p className="text-xs sm:text-sm text-secondary">Manage your team members, roles, and track their activities.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="bg-surface p-1.5 rounded-xl border border-border shadow-subtle flex items-center">
-            <button 
-              onClick={() => setActiveTab('members')}
-              className={`px-4 flex items-center justify-center gap-2 py-2 rounded-lg text-[13px] font-semibold transition-all ${activeTab === 'members' ? 'bg-brand/10 dark:bg-brand/20 text-[#0866FF]' : 'text-secondary hover:text-primary'}`}
-            >
-              <Users size={16} />
-              Members
-            </button>
-            <button 
-              onClick={() => setActiveTab('activity')}
-              className={`px-4 flex items-center justify-center gap-2 py-2 rounded-lg text-[13px] font-semibold transition-all ${activeTab === 'activity' ? 'bg-brand/10 dark:bg-brand/20 text-[#0866FF]' : 'text-secondary hover:text-primary'}`}
-            >
-              <Activity size={16} />
-              Activity Logs
-            </button>
+          <div className="flex overflow-x-auto items-center p-1 bg-surface border border-border rounded-[20px] shadow-subtle gap-x-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] scroll-smooth w-min">
+            {[
+              { id: 'members', label: 'Members', icon: Users },
+              { id: 'activity', label: 'Activity Logs', icon: Activity }
+            ].map((tab) => {
+              const isActive = activeTab === tab.id;
+              const iconColorClass = isActive ? "text-brand" : "text-muted";
+              const Icon = tab.icon;
+              
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as 'members' | 'activity')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-bold whitespace-nowrap transition-all group/tab relative ${
+                    isActive
+                      ? "bg-brand/10 dark:bg-brand/20 text-brand shadow-subtle shadow-blue-100/50"
+                      : "text-secondary hover:text-primary hover:bg-surface-hover"
+                  }`}
+                >
+                  <Icon size={14} strokeWidth={isActive ? 2.5 : 2} className={`${iconColorClass} group-hover/tab:scale-110 transition-transform`} />
+                  <span className="capitalize tracking-tight">{tab.label}</span>
+                  {isActive && (
+                    <motion.div 
+                      layoutId="activeTabTeam"
+                      className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-brand rounded-full"
+                    />
+                  )}
+                </button>
+              );
+            })}
           </div>
           {currentUserRole === 'admin' && (
             <button 

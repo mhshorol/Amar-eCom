@@ -17,7 +17,8 @@ import {
   Italic,
   List,
   Link as LinkIcon,
-  ScanBarcode
+  ScanBarcode,
+  ChevronDown
 } from 'lucide-react';
 import { 
   db, 
@@ -55,9 +56,10 @@ export default function NewProduct() {
   const [uploading, setUploading] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
+  const [attributes, setAttributes] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [productVariants, setProductVariants] = useState<any[]>([]);
-  const [newVariant, setNewVariant] = useState({ size: '', color: '', fabric: '', sku: '', barcode: '', price: 0, costPrice: 0 });
+  const [newVariant, setNewVariant] = useState<any>({ sku: '', barcode: '', price: 0, costPrice: 0 });
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -97,6 +99,9 @@ export default function NewProduct() {
         
         const brandSnap = await getDocs(collection(db, 'brands'));
         setBrands(brandSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
+        const attrSnap = await getDocs(collection(db, 'attributes'));
+        setAttributes(attrSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
         const prodSnap = await getDocs(collection(db, 'products'));
         setProducts(prodSnap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -289,7 +294,7 @@ export default function NewProduct() {
         uid: auth.currentUser?.uid,
         createdAt: serverTimestamp()
       });
-      setNewVariant({ size: '', color: '', fabric: '', sku: '', barcode: '', price: 0, costPrice: 0 });
+      setNewVariant({ sku: '', barcode: '', price: 0, costPrice: 0 });
       
       // Refresh variants
       const q = query(collection(db, 'variants'), where('productId', '==', id));
@@ -508,10 +513,22 @@ export default function NewProduct() {
             <div className="bg-surface p-8 rounded-2xl border border-border shadow-subtle space-y-6">
               <h3 className="text-sm font-bold uppercase tracking-widest text-muted border-b pb-2">Variants Management</h3>
               <div className="bg-surface-hover p-6 rounded-2xl space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <input placeholder="Size" className="p-3 rounded-xl text-xs border border-transparent focus:border-brand/20 outline-none" value={newVariant.size} onChange={e => setNewVariant({...newVariant, size: e.target.value})} />
-                  <input placeholder="Color" className="p-3 rounded-xl text-xs border border-transparent focus:border-brand/20 outline-none" value={newVariant.color} onChange={e => setNewVariant({...newVariant, color: e.target.value})} />
-                  <input placeholder="Fabric" className="p-3 rounded-xl text-xs border border-transparent focus:border-brand/20 outline-none" value={newVariant.fabric} onChange={e => setNewVariant({...newVariant, fabric: e.target.value})} />
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  {attributes.filter(a => a.variantImpact && (!a.categoryIds?.length || a.categoryIds?.includes(form.category)) && (!a.brandIds?.length || a.brandIds?.includes(form.brand))).map((attr: any) => (
+                    <div key={attr.id} className="relative">
+                      <select
+                        className="w-full p-3 rounded-xl text-xs border border-transparent focus:border-brand/20 outline-none appearance-none"
+                        value={newVariant[attr.id] || ''}
+                        onChange={e => setNewVariant({...newVariant, [attr.id]: e.target.value})}
+                      >
+                        <option value="">{attr.name}</option>
+                        {attr.values?.map((v: any, i: number) => (
+                          <option key={i} value={v.name}>{v.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    </div>
+                  ))}
                   <input placeholder="SKU" className="p-3 rounded-xl text-xs border border-transparent focus:border-brand/20 outline-none" value={newVariant.sku} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} />
                   <input placeholder="Barcode" className="p-3 rounded-xl text-xs border border-transparent focus:border-brand/20 outline-none" value={newVariant.barcode} onChange={e => setNewVariant({...newVariant, barcode: e.target.value})} />
                   <input type="number" placeholder="Price" className="p-3 rounded-xl text-xs border border-transparent focus:border-brand/20 outline-none" value={newVariant.price || 0} onChange={e => setNewVariant({...newVariant, price: parseFloat(e.target.value) || 0})} />
@@ -533,7 +550,11 @@ export default function NewProduct() {
                           <span className="text-[10px] text-muted">{v.barcode || 'No Barcode'}</span>
                         </div>
                         <div className="flex flex-col items-center">
-                          <span className="text-secondary font-medium">{v.size} / {v.color} / {v.fabric}</span>
+                          <span className="text-secondary font-medium">
+                            {Object.entries(v)
+                                .filter(([key]) => !['id', 'productId', 'uid', 'createdAt', 'updatedAt', 'sku', 'barcode', 'price', 'costPrice'].includes(key))
+                                .map(([, val]) => val).filter(Boolean).join(' • ')}
+                          </span>
                         </div>
                         <div className="flex items-center gap-4">
                           <span className="font-bold text-primary">{currencySymbol}{v.price}</span>
@@ -580,7 +601,7 @@ export default function NewProduct() {
                     onClick={() => {
                       if (!newVariant.sku) return;
                       setForm((prev: any) => ({...prev, bundleItems: [...(prev.bundleItems || []), { productId: newVariant.sku, quantity: newVariant.price || 1 }]}));
-                      setNewVariant({ size: '', color: '', fabric: '', sku: '', barcode: '', price: 0, costPrice: 0 });
+                      setNewVariant({ sku: '', barcode: '', price: 0, costPrice: 0 });
                     }}
                     className="bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 transition-all"
                   >

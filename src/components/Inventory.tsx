@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Search, 
@@ -10,6 +10,7 @@ import {
   ArrowDownRight,
   MoreVertical,
   Edit,
+  Edit2,
   Trash2,
   Warehouse,
   Tag,
@@ -31,6 +32,9 @@ import {
   ChevronLeft,
   ChevronRight,
   MoreHorizontal
+} from 'lucide-react';
+import { 
+  FileDown, HelpCircle, Palette, Ruler, Layers, LayoutGrid, Sparkles, GripVertical, CheckCircle2, Info, Box as BoxIcon, Folder, ArrowRight
 } from 'lucide-react';
 import { db, auth, storage, collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, writeBatch, getDoc, getDocs, where, ref, uploadBytes, getDownloadURL } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -72,7 +76,7 @@ export default function Inventory() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { currencySymbol } = useSettings();
-  const [activeTab, setActiveTab] = useState<'products' | 'warehouses' | 'stock' | 'purchases' | 'suppliers' | 'returns' | 'logs' | 'reports' | 'transfers' | 'wastage'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'brands' | 'attributes' | 'warehouses' | 'stock' | 'purchases' | 'suppliers' | 'returns' | 'logs' | 'reports' | 'transfers' | 'wastage'>('products');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   
@@ -83,6 +87,7 @@ export default function Inventory() {
   const [categories, setCategories] = useState<any[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
+  const [attributes, setAttributes] = useState<any[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
@@ -97,8 +102,45 @@ export default function Inventory() {
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isBrandModalOpen, setIsBrandModalOpen] = useState(false);
+  const [isAttributeModalOpen, setIsAttributeModalOpen] = useState(false);
   const [isWastageModalOpen, setIsWastageModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any | null>(null);
+  
+  const tabsRef = React.useRef<HTMLDivElement>(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    if (tabsRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = tabsRef.current;
+      setShowLeftArrow(scrollLeft > 5);
+      setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 5);
+    }
+  }, []);
+
+  useEffect(() => {
+    const tabsEl = tabsRef.current;
+    if (tabsEl) {
+      checkScroll();
+      tabsEl.addEventListener("scroll", checkScroll);
+      window.addEventListener("resize", checkScroll);
+      return () => {
+        tabsEl.removeEventListener("scroll", checkScroll);
+        window.removeEventListener("resize", checkScroll);
+      };
+    }
+  }, [checkScroll]);
+
+  const scrollTabs = (direction: "left" | "right") => {
+    if (tabsRef.current) {
+      const scrollAmount = 200;
+      tabsRef.current.scrollBy({
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  };
+
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -123,6 +165,7 @@ export default function Inventory() {
       { name: 'warehouses', setter: setWarehouses },
       { name: 'categories', setter: setCategories },
       { name: 'brands', setter: setBrands },
+      { name: 'attributes', setter: setAttributes },
       { name: 'inventory', setter: setInventory },
       { name: 'purchaseOrders', setter: setPurchaseOrders },
       { name: 'suppliers', setter: setSuppliers },
@@ -183,6 +226,60 @@ export default function Inventory() {
     });
   };
 
+  const handleDeleteCategory = async (id: string) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Category',
+      message: 'Are you sure you want to delete this category?',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'categories', id));
+          await logActivity('Deleted Category', 'Inventory', `Category ID: ${id} deleted`);
+          toast.success('Category deleted successfully');
+        } catch (e) {
+          handleFirestoreError(e, OperationType.DELETE, `categories/${id}`);
+        }
+      }
+    });
+  };
+
+  const handleDeleteBrand = async (id: string) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Brand',
+      message: 'Are you sure you want to delete this brand?',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'brands', id));
+          await logActivity('Deleted Brand', 'Inventory', `Brand ID: ${id} deleted`);
+          toast.success('Brand deleted successfully');
+        } catch (e) {
+          handleFirestoreError(e, OperationType.DELETE, `brands/${id}`);
+        }
+      }
+    });
+  };
+
+  const handleDeleteAttribute = async (id: string) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Attribute',
+      message: 'Are you sure you want to delete this attribute and all its values?',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'attributes', id));
+          await logActivity('Deleted Attribute', 'Inventory', `Attribute ID: ${id} deleted`);
+          toast.success('Attribute deleted successfully');
+        } catch (e) {
+          handleFirestoreError(e, OperationType.DELETE, `attributes/${id}`);
+        }
+      }
+    });
+  };
+
   const handleExportCSV = () => {
     if (products.length === 0) {
       toast.error('No products to export');
@@ -223,7 +320,10 @@ export default function Inventory() {
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'products': return <ProductsTab products={products} variants={variants} categories={categories} brands={brands} onEdit={(p: any) => navigate(`/inventory/edit/${p.id}`)} onDelete={handleDeleteProduct} onAddCategory={() => setIsCategoryModalOpen(true)} onAddBrand={() => setIsBrandModalOpen(true)} />;
+      case 'products': return <ProductsTab inventory={inventory} products={products} variants={variants} categories={categories} brands={brands} onEdit={(p: any) => navigate(`/inventory/edit/${p.id}`)} onDelete={handleDeleteProduct} onAddCategory={() => setIsCategoryModalOpen(true)} onAddBrand={() => setIsBrandModalOpen(true)} />;
+      case 'categories': return <CategoriesTab categories={categories} onEditCategory={(c: any) => { setEditingItem(c); setIsCategoryModalOpen(true); }} onDeleteCategory={handleDeleteCategory} onAddCategory={() => { setEditingItem(null); setIsCategoryModalOpen(true); }} />;
+      case 'brands': return <BrandsTab brands={brands} onEditBrand={(b: any) => { setEditingItem(b); setIsBrandModalOpen(true); }} onDeleteBrand={handleDeleteBrand} onAddBrand={() => { setEditingItem(null); setIsBrandModalOpen(true); }} />;
+      case 'attributes': return <AttributesTab categories={categories} brands={brands} attributes={attributes} onEditCategory={(c: any) => { setEditingItem(c); setIsCategoryModalOpen(true); }} onDeleteCategory={handleDeleteCategory} onAddCategory={() => { setEditingItem(null); setIsCategoryModalOpen(true); }} onEditBrand={(b: any) => { setEditingItem(b); setIsBrandModalOpen(true); }} onDeleteBrand={handleDeleteBrand} onAddBrand={() => { setEditingItem(null); setIsBrandModalOpen(true); }} onAddAttribute={() => { setEditingItem(null); setIsAttributeModalOpen(true); }} onEditAttribute={(a: any) => { setEditingItem(a); setIsAttributeModalOpen(true); }} onDeleteAttribute={handleDeleteAttribute} setConfirmConfig={setConfirmConfig} />;
       case 'warehouses': return <WarehousesTab warehouses={warehouses} onEdit={(w: any) => { setEditingItem(w); setIsWarehouseModalOpen(true); }} onDelete={handleDeleteWarehouse} />;
       case 'stock': return <StockTab inventory={inventory} products={products} variants={variants} warehouses={warehouses} onAdjust={() => setIsAdjustmentModalOpen(true)} onTransfer={() => setIsTransferModalOpen(true)} />;
       case 'purchases': return <PurchasesTab pos={purchaseOrders} suppliers={suppliers} products={products} variants={variants} onAdd={() => setIsPOModalOpen(true)} setConfirmConfig={setConfirmConfig} />;
@@ -289,10 +389,47 @@ export default function Inventory() {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="bg-surface rounded-[14px] border border-border shadow-subtle overflow-x-auto">
-        <div className="flex items-center min-w-max px-2">
+      <div className="relative mb-6 group/tabs">
+        <AnimatePresence>
+          {showLeftArrow && (
+            <>
+              <div className="absolute left-0 top-0 bottom-6 w-12 z-10 bg-gradient-to-r from-gray-50/80 to-transparent pointer-events-none rounded-l-[20px]" />
+              <motion.button
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                onClick={() => scrollTabs("left")}
+                className="absolute -left-3 top-[22px] -translate-y-1/2 z-20 w-8 h-8 flex items-center justify-center bg-surface border border-border rounded-full shadow-lg text-secondary hover:text-brand hover:border-brand transition-all"
+              >
+                <ChevronLeft size={16} strokeWidth={3} />
+              </motion.button>
+            </>
+          )}
+          {showRightArrow && (
+            <>
+              <div className="absolute right-0 top-0 bottom-6 w-12 z-10 bg-gradient-to-l from-gray-50/80 to-transparent pointer-events-none rounded-r-[20px]" />
+              <motion.button
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                onClick={() => scrollTabs("right")}
+                className="absolute -right-3 top-[22px] -translate-y-1/2 z-20 w-8 h-8 flex items-center justify-center bg-surface border border-border rounded-full shadow-lg text-secondary hover:text-brand hover:border-brand transition-all"
+              >
+                <ChevronRight size={16} strokeWidth={3} />
+              </motion.button>
+            </>
+          )}
+        </AnimatePresence>
+
+        <div 
+          ref={tabsRef}
+          className="flex overflow-x-auto items-center p-1 bg-surface border border-border rounded-[20px] shadow-subtle gap-x-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] scroll-smooth"
+        >
           {[
             { id: 'products', label: 'Products', icon: Package },
+            { id: 'categories', label: 'Categories', icon: Layers },
+            { id: 'brands', label: 'Brands', icon: Tag },
+            { id: 'attributes', label: 'Attributes', icon: Tag },
             { id: 'warehouses', label: 'Warehouses', icon: Warehouse },
             { id: 'stock', label: 'Stock', icon: Tag },
             { id: 'transfers', label: 'Transfers', icon: ArrowRightLeft },
@@ -305,23 +442,24 @@ export default function Inventory() {
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
+            const iconColorClass = isActive ? "text-brand" : "text-muted";
+            
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-5 py-4 text-sm font-medium transition-all relative whitespace-nowrap ${
-                  isActive 
-                    ? 'text-brand' 
-                    : 'text-secondary hover:text-primary hover:bg-surface-hover/50'
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-bold whitespace-nowrap transition-all group/tab relative ${
+                  isActive
+                    ? "bg-brand/10 dark:bg-brand/20 text-brand shadow-subtle shadow-blue-100/50"
+                    : "text-secondary hover:text-primary hover:bg-surface-hover"
                 }`}
               >
-                <Icon size={16} strokeWidth={isActive ? 2.5 : 2} />
-                {tab.label}
+                <Icon size={14} strokeWidth={isActive ? 2.5 : 2} className={`${iconColorClass} group-hover/tab:scale-110 transition-transform`} />
+                <span className="capitalize tracking-tight">{tab.label}</span>
                 {isActive && (
                   <motion.div 
                     layoutId="active-inventory-tab"
-                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand"
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-brand rounded-full"
                   />
                 )}
               </button>
@@ -366,6 +504,7 @@ export default function Inventory() {
       {isSupplierModalOpen && <SupplierModal isOpen={isSupplierModalOpen} onClose={() => { setIsSupplierModalOpen(false); setEditingItem(null); }} editingItem={editingItem} />}
       {isCategoryModalOpen && <CategoryModal isOpen={isCategoryModalOpen} onClose={() => { setIsCategoryModalOpen(false); setEditingItem(null); }} editingItem={editingItem} />}
       {isBrandModalOpen && <BrandModal isOpen={isBrandModalOpen} onClose={() => { setIsBrandModalOpen(false); setEditingItem(null); }} editingItem={editingItem} />}
+      {isAttributeModalOpen && <AttributeModal isOpen={isAttributeModalOpen} onClose={() => { setIsAttributeModalOpen(false); setEditingItem(null); }} editingItem={editingItem} categories={categories} brands={brands} />}
       {isWastageModalOpen && <WastageModal isOpen={isWastageModalOpen} onClose={() => setIsWastageModalOpen(false)} products={products} variants={variants} warehouses={warehouses} />}
 
       <ConfirmModal 
@@ -382,7 +521,347 @@ export default function Inventory() {
 
 // --- Sub-components for Tabs ---
 
-function ProductsTab({ products, variants, categories, brands, onEdit, onDelete, onAddCategory, onAddBrand }: any) {
+function CategoriesTab({ categories, onEditCategory, onDeleteCategory, onAddCategory }: any) {
+  return (
+    <div className="bg-surface rounded-2xl border border-border shadow-sm p-6 overflow-hidden min-h-[calc(100vh-200px)]">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+          <h3 className="text-lg font-bold text-primary">Manage Categories</h3>
+          <p className="text-sm text-muted">Organize your products by grouping them into categories.</p>
+        </div>
+        <button onClick={onAddCategory} className="px-5 py-2.5 bg-brand text-white rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-brand-hover shadow-subtle transition-colors shrink-0">
+          <Plus size={16} /> Add Category
+        </button>
+      </div>
+      {categories.length === 0 ? (
+        <div className="py-12 border-2 border-dashed border-border rounded-xl text-center">
+          <div className="w-16 h-16 bg-surface-hover rounded-full flex items-center justify-center mx-auto mb-4 text-muted">
+            <Layers size={32} />
+          </div>
+          <h3 className="text-[15px] font-bold text-primary mb-1">No Categories Found</h3>
+          <p className="text-[13px] text-muted">Add your first category to start organizing products.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {categories.map((c: any) => (
+             <div key={c.id} className="p-5 bg-surface border border-border rounded-[16px] hover:border-brand/30 hover:shadow-subtle transition-all group flex flex-col justify-between">
+              <div>
+                <h4 className="font-bold text-primary text-[15px] mb-1">{c.name}</h4>
+                <p className="text-[13px] text-secondary line-clamp-2">{c.description || 'No description provided'}</p>
+              </div>
+              <div className="flex gap-2 justify-end mt-4 pt-4 border-t border-border/50">
+                <button onClick={() => onEditCategory(c)} className="p-2 text-secondary hover:text-brand bg-surface-hover rounded-lg transition-colors" title="Edit">
+                  <Edit2 size={16} />
+                </button>
+                <button onClick={() => onDeleteCategory(c.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BrandsTab({ brands, onEditBrand, onDeleteBrand, onAddBrand }: any) {
+  return (
+    <div className="bg-surface rounded-2xl border border-border shadow-sm p-6 overflow-hidden min-h-[calc(100vh-200px)]">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+          <h3 className="text-lg font-bold text-primary">Manage Brands</h3>
+          <p className="text-sm text-muted">Organize your products by grouping them into brands.</p>
+        </div>
+        <button onClick={onAddBrand} className="px-5 py-2.5 bg-brand text-white rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-brand-hover shadow-subtle transition-colors shrink-0">
+          <Plus size={16} /> Add Brand
+        </button>
+      </div>
+      {brands.length === 0 ? (
+        <div className="py-12 border-2 border-dashed border-border rounded-xl text-center">
+          <div className="w-16 h-16 bg-surface-hover rounded-full flex items-center justify-center mx-auto mb-4 text-muted">
+            <Tag size={32} />
+          </div>
+          <h3 className="text-[15px] font-bold text-primary mb-1">No Brands Found</h3>
+          <p className="text-[13px] text-muted">Add your first brand to start organizing products.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {brands.map((b: any) => (
+             <div key={b.id} className="p-5 bg-surface border border-border rounded-[16px] hover:border-brand/30 hover:shadow-subtle transition-all group flex flex-col justify-between">
+              <div>
+                <h4 className="font-bold text-primary text-[15px] mb-1">{b.name}</h4>
+                <p className="text-[13px] text-secondary line-clamp-2">{b.description || 'No description provided'}</p>
+              </div>
+              <div className="flex gap-2 justify-end mt-4 pt-4 border-t border-border/50">
+                <button onClick={() => onEditBrand(b)} className="p-2 text-secondary hover:text-brand bg-surface-hover rounded-lg transition-colors" title="Edit">
+                  <Edit2 size={16} />
+                </button>
+                <button onClick={() => onDeleteBrand(b.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AttributesTab({ categories, brands, attributes, onEditCategory, onDeleteCategory, onAddCategory, onEditBrand, onDeleteBrand, onAddBrand, onAddAttribute, onEditAttribute, onDeleteAttribute, setConfirmConfig }: any) {
+  const [activeAttrId, setActiveAttrId] = useState<string | null>(attributes.length > 0 ? attributes[0].id : null);
+  const [activeSubTab, setActiveSubTab] = useState<'values'|'settings'|'products'>('values');
+
+  // If attributes change and activeAttrId is null or not found, pick first
+  useEffect(() => {
+    if (attributes.length > 0 && (!activeAttrId || !attributes.find(a => a.id === activeAttrId))) {
+      setActiveAttrId(attributes[0].id);
+    }
+  }, [attributes, activeAttrId]);
+
+  const activeAttr = attributes.find((a: any) => a.id === activeAttrId);
+
+  return (
+    <div className="flex flex-col bg-[#F8F9FA] -m-6 p-6 min-h-[calc(100vh-80px)] font-sans">
+      {/* 3 Columns Layout */}
+      <div className="flex items-stretch gap-6 flex-1 min-h-0">
+        {/* Left Sidebar */}
+        <div className="w-[300px] shrink-0 bg-white border border-[#E5E7EB] rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.05)] flex flex-col p-5">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="font-semibold text-[#111827] text-[15px]">Attributes</h3>
+            <HelpCircle size={15} className="text-[#9CA3AF]" />
+          </div>
+          <div className="relative mb-5">
+            <input 
+              type="text" 
+              placeholder="Search attributes..." 
+              className="w-full pl-3 pr-9 py-2.5 bg-white border border-[#E5E7EB] rounded-lg text-[13px] focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 placeholder:text-[#9CA3AF]"
+            />
+            <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+          </div>
+          <button onClick={onAddAttribute} className="w-full flex items-center justify-center gap-2 py-2.5 mb-5 bg-[#EFF6FF] text-[#2563EB] font-medium rounded-lg text-[14px] hover:bg-blue-100 transition-colors">
+            <Plus size={16} strokeWidth={2.5} /> Create Attribute
+          </button>
+          
+          <div className="flex-1 overflow-y-auto space-y-2 pr-1 -mr-1">
+            {attributes.length === 0 ? (
+                <div className="p-4 text-center text-sm text-gray-500">No attributes found.</div>
+            ) : attributes.map((attr: any) => {
+              const isActive = attr.id === activeAttrId;
+              // we can assign a random color/icon or default one based on name simply, or store it.
+              return (
+              <div 
+                key={attr.id} 
+                onClick={() => setActiveAttrId(attr.id)}
+                className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors ${isActive ? 'bg-[#EFF6FF] border border-[#BFDBFE]' : 'bg-transparent border border-transparent hover:bg-gray-50'}`}
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className={`w-[42px] h-[42px] rounded-xl flex items-center justify-center text-white bg-brand`}>
+                    <Tag size={20} strokeWidth={2} />
+                  </div>
+                  <div>
+                    <div className="font-medium text-[#111827] text-[14px] mb-0.5">{attr.name}</div>
+                    <div className="text-[12px] text-[#6B7280]">{attr.values?.length || 0} values</div>
+                  </div>
+                </div>
+                {isActive && <ChevronRight size={18} className="text-[#2563EB]" />}
+              </div>
+            )})}
+          </div>
+          
+          <div className="pt-4 mt-2 text-[12px] text-[#9CA3AF]">
+            {attributes.length} Attributes
+          </div>
+        </div>
+
+        {/* Middle Column */}
+        {activeAttr ? (
+        <div className="flex-1 min-w-0 bg-white border border-[#E5E7EB] rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.05)] flex flex-col">
+          <div className="px-8 pt-8 pb-0">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-5">
+                <div className="w-[68px] h-[68px] rounded-[18px] bg-brand flex items-center justify-center text-white shrink-0">
+                  <Tag size={32} strokeWidth={1.5} />
+                </div>
+                <div className="pt-1">
+                  <div className="flex items-center gap-3 mb-1">
+                    <h2 className="text-[22px] font-semibold text-[#111827]">{activeAttr.name}</h2>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#ECFDF5] text-[#059669]">{activeAttr.status || 'Active'}</span>
+                  </div>
+                  <p className="text-[14px] text-[#6B7280] mt-1 mb-2">{activeAttr.description || `Used to define product ${activeAttr.name.toLowerCase()} variations`}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 mt-1">
+                <button onClick={() => onEditAttribute(activeAttr)} className="flex items-center gap-2 px-4 py-2.5 border border-[#E5E7EB] rounded-lg text-[13px] font-medium text-[#374151] hover:bg-gray-50 transition-colors">
+                  <Edit2 size={14} /> Edit Attribute
+                </button>
+                <button onClick={() => onDeleteAttribute(activeAttr.id)} className="flex items-center gap-2 px-4 py-2.5 border border-red-200 rounded-lg text-[13px] font-medium text-[#DC2626] hover:bg-[#FEF2F2] transition-colors">
+                  <Trash2 size={14} /> Delete Attribute
+                </button>
+              </div>
+            </div>
+
+            <div className="flex overflow-x-auto items-center p-1 bg-surface border border-border rounded-[20px] shadow-subtle gap-x-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] scroll-smooth w-min mt-8">
+              {[
+                { id: 'values', label: 'Values' },
+                { id: 'settings', label: 'Settings' }
+              ].map((tab) => {
+                const isActive = activeSubTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveSubTab(tab.id as 'values' | 'settings')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-bold whitespace-nowrap transition-all group/tab relative ${
+                      isActive
+                        ? "bg-brand/10 dark:bg-brand/20 text-brand shadow-subtle shadow-blue-100/50"
+                        : "text-secondary hover:text-primary hover:bg-surface-hover"
+                    }`}
+                  >
+                    <span className="capitalize tracking-tight">{tab.label}</span>
+                    {isActive && (
+                      <motion.div 
+                        layoutId="activeSubTabInventoryAttr"
+                        className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-brand rounded-full"
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="p-8 flex-1 flex flex-col pt-6">
+            {activeSubTab === 'values' && (
+                <>
+                <div className="flex items-center justify-between mb-5">
+                <div>
+                    <h3 className="font-semibold text-[#111827] text-[16px]">Attribute Values ({activeAttr.values?.length || 0})</h3>
+                    <p className="text-[13px] text-[#6B7280] mt-0.5">Manage values for this attribute</p>
+                </div>
+                <button onClick={() => {
+                    // Logic to add a new value
+                    // Need to edit attribute
+                    onEditAttribute(activeAttr)
+                }} className="flex items-center gap-2 px-4 py-2.5 bg-[#2563EB] text-white rounded-lg text-[13px] font-medium hover:bg-blue-700 transition-colors">
+                    <Plus size={16} strokeWidth={2.5} /> Add Value
+                </button>
+                </div>
+
+                <div className="border border-[#E5E7EB] rounded-xl overflow-hidden flex-1 flex flex-col">
+                <div className="overflow-x-auto flex-1">
+                    <table className="w-full text-left whitespace-nowrap">
+                    <thead className="bg-[#F9FAFB] text-[#6B7280] border-b border-[#E5E7EB] text-[13px]">
+                        <tr>
+                        <th className="px-5 py-4 font-medium w-12"></th>
+                        <th className="px-5 py-4 font-medium">Value Name</th>
+                        <th className="px-5 py-4 font-medium">SKU Impact</th>
+                        <th className="px-5 py-4 font-medium">Sort Order</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#F3F4F6]">
+                        {activeAttr.values?.map((val: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-[#F9FAFB] group text-[14px]">
+                            <td className="px-5 py-4">
+                            <GripVertical size={16} className="text-[#D1D5DB]" />
+                            </td>
+                            <td className="px-5 py-4 text-[#111827]">{val.name}</td>
+                            <td className="px-5 py-4">
+                            <span className="px-2.5 py-1 rounded bg-[#ECFDF5] text-[#059669] text-[12px] font-medium">Yes</span>
+                            </td>
+                            <td className="px-5 py-4 text-[#6B7280]">{idx + 1}</td>
+                        </tr>
+                        ))}
+                        {!activeAttr.values?.length && (
+                            <tr>
+                                <td colSpan={6} className="px-5 py-8 text-center text-gray-500 text-sm">No values defined.</td>
+                            </tr>
+                        )}
+                    </tbody>
+                    </table>
+                </div>
+                </div>
+                </>
+            )}
+            {activeSubTab === 'settings' && (
+                <div className="text-gray-500 text-sm">Settings panel (e.g. Attribute mapping rules).</div>
+            )}
+          </div>
+        </div>
+        ) : (
+            <div className="flex-1 min-w-0 bg-white border border-[#E5E7EB] rounded-2xl shadow-[0_1px_3px_0_rgba(0,0,0,0.05)] flex items-center justify-center text-gray-500 text-sm">
+                Select or create an attribute to view details.
+            </div>
+        )}
+
+        {/* Right Sidebar - Usage & Mapping */}
+        {activeAttr && (
+        <div className="w-[340px] shrink-0 flex flex-col">
+          <h3 className="text-[16px] font-semibold text-[#111827] mb-5 px-1">Usage & Mapping</h3>
+          
+          <div className="space-y-4 flex-1 overflow-y-auto pb-4 pr-1">
+            {/* Categories Card */}
+            <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5 text-[#111827] font-medium text-[14px]">
+                  <Folder size={18} className="text-[#F59E0B]" strokeWidth={1.5} /> Used in Categories
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {activeAttr.categoryIds?.map((catId: string) => {
+                    const cat = categories.find((c: any) => c.id === catId);
+                    if (!cat) return null;
+                  return <span key={cat.id} className="flex items-center gap-1.5 px-2.5 py-1 bg-[#EFF6FF] text-[#2563EB] text-[12px] font-medium rounded-lg">
+                    {cat.name} 
+                  </span>
+                })}
+              </div>
+            </div>
+
+            {/* Brands Card */}
+            <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5 text-[#111827] font-medium text-[14px]">
+                  <Tag size={18} className="text-[#9333EA]" strokeWidth={1.5} /> Used in Brands
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {activeAttr.brandIds?.map((brandId: string) => {
+                  const brand = brands.find((b: any) => b.id === brandId);
+                  if (!brand) return null;
+                  return <span key={brand.id} className="flex items-center gap-1.5 px-2.5 py-1 bg-[#FAF5FF] text-[#9333EA] text-[12px] font-medium rounded-lg">
+                    {brand.name} 
+                  </span>
+                })}
+              </div>
+            </div>
+
+            {/* Variant Impact Card */}
+            <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 shadow-[0_1px_2px_0_rgba(0,0,0,0.02)]">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2.5 text-[#111827] font-medium text-[14px]">
+                  <div className="w-[20px] h-[20px] flex items-center justify-center">
+                    <CheckCircle2 size={20} className="text-[#10B981]" strokeWidth={2} />
+                  </div>
+                  Variant Impact
+                </div>
+                {/* Toggle switch (Active) */}
+                <div className="w-[36px] h-[20px] bg-[#2563EB] rounded-full flex items-center px-0.5 cursor-pointer">
+                  <div className="w-[16px] h-[16px] bg-white rounded-full translate-x-[16px] shadow-sm"></div>
+                </div>
+              </div>
+              <p className="text-[13px] text-[#4B5563] mb-1">This attribute is used for product variants</p>
+              <p className="text-[13px] text-[#9CA3AF] leading-relaxed">Values of this attribute will create product variants (SKU).</p>
+            </div>
+          </div>
+        </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProductsTab({ inventory, products, variants, categories, brands, onEdit, onDelete, onAddCategory, onAddBrand }: any) {
   const { currencySymbol } = useSettings();
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -454,14 +933,6 @@ function ProductsTab({ products, variants, categories, brands, onEdit, onDelete,
           <p className="text-sm font-medium text-secondary mt-0.5">Manage global product registry</p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={onAddCategory} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-secondary bg-surface border border-border rounded-lg hover:bg-surface-hover transition-colors">
-            Categories
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
-          <button onClick={onAddBrand} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-secondary bg-surface border border-border rounded-lg hover:bg-surface-hover transition-colors">
-            Brands
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
           <div className="relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input 
@@ -486,11 +957,14 @@ function ProductsTab({ products, variants, categories, brands, onEdit, onDelete,
               <th className="px-6 py-4">SKU Identifier</th>
               <th className="px-6 py-4">Classification</th>
               <th className="px-6 py-4">Market Value</th>
+              <th className="px-6 py-4">Stock</th>
               <th className="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
         <tbody className="divide-y divide-border bg-surface">
-          {currentProducts.map((p: any) => (
+          {currentProducts.map((p: any) => {
+            const productStock = inventory?.filter((i: any) => i.productId === p.id).reduce((sum: number, i: any) => sum + (i.quantity || 0), 0) || 0;
+            return (
             <tr key={p.id} className="hover:bg-surface-hover transition-colors group">
               <td className="px-6 py-4">
                 <div className="flex items-center gap-4">
@@ -526,6 +1000,9 @@ function ProductsTab({ products, variants, categories, brands, onEdit, onDelete,
                 </div>
               </td>
               <td className="px-6 py-4 font-bold text-[15px] text-primary">{currencySymbol}{(p.price || 0).toLocaleString()}</td>
+              <td className="px-6 py-4">
+                <StockBadge stock={productStock} />
+              </td>
               <td className="px-6 py-4 text-right">
                 <div className="flex items-center justify-end gap-2">
                   <button 
@@ -544,7 +1021,8 @@ function ProductsTab({ products, variants, categories, brands, onEdit, onDelete,
                 </div>
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
       </div>
@@ -1305,7 +1783,7 @@ function AdjustmentModal({ isOpen, onClose, products, variants, warehouses }: an
               <label className="text-[10px] font-bold text-muted uppercase">Variant</label>
               <select className="w-full p-3 bg-surface-hover rounded-xl outline-none border border-transparent focus:border-border" value={form.variantId} onChange={e => setForm({...form, variantId: e.target.value})}>
                 <option value="">Select Variant</option>
-                {filteredVariants.map((v: any) => <option key={v.id} value={v.id}>{v.sku} ({v.size}/{v.color})</option>)}
+                {filteredVariants.map((v: any) => <option key={v.id} value={v.id}>{v.sku} ({Object.entries(v).filter(([key]) => !['id', 'productId', 'uid', 'createdAt', 'updatedAt', 'sku', 'barcode', 'price', 'costPrice', 'bundleItems'].includes(key)).map(([, val]) => val).filter(Boolean).join('/')})</option>)}
               </select>
             </div>
           )}
@@ -1422,6 +1900,137 @@ function POModal({ isOpen, onClose, suppliers, products, variants }: any) {
         <div className="flex gap-4 pt-4">
           <button onClick={onClose} className="flex-1 py-3 bg-surface-hover text-secondary rounded-xl font-bold">Cancel</button>
           <button onClick={handleAddPO} className="flex-[2] py-3 bg-slate-900 dark:bg-white text-white dark:text-black rounded-xl font-bold shadow-lg">Create PO</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AttributeModal({ isOpen, onClose, editingItem, categories, brands }: any) {
+  const [form, setForm] = useState<any>(editingItem || { 
+    name: '', 
+    description: '', 
+    values: [], 
+    categoryIds: [], 
+    brandIds: [], 
+    variantImpact: true,
+    status: 'Active'
+  });
+  
+  const [newValue, setNewValue] = useState('');
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return toast.error('Name is required');
+    try {
+      if (editingItem?.id) {
+        await updateDoc(doc(db, 'attributes', editingItem.id), {
+          ...form,
+          updatedAt: serverTimestamp()
+        });
+        await logActivity('Updated Attribute', 'Inventory', `Attribute ${form.name} updated`);
+        toast.success('Attribute updated');
+      } else {
+        await addDoc(collection(db, 'attributes'), {
+          ...form,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        await logActivity('Added Attribute', 'Inventory', `Attribute ${form.name} added`);
+        toast.success('Attribute added');
+      }
+      onClose();
+    } catch (e) {
+      handleFirestoreError(e, editingItem ? OperationType.UPDATE : OperationType.CREATE, 'attributes');
+    }
+  };
+
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-surface w-full max-w-lg rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="p-6 border-b border-border flex justify-between items-center">
+          <h2 className="text-xl font-bold text-primary">{editingItem ? 'Edit Attribute' : 'Add Attribute'}</h2>
+          <button onClick={onClose} className="p-2 hover:bg-surface-hover rounded-full transition-colors"><X size={20} /></button>
+        </div>
+        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-secondary mb-1">Name</label>
+            <input type="text" className="w-full p-2 border border-border rounded-lg" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="e.g. Color, Size" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-secondary mb-1">Description</label>
+            <textarea className="w-full p-2 border border-border rounded-lg" rows={2} value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="Optional description..." />
+          </div>
+          <div className="flex gap-4">
+             <div className="flex-1">
+                <label className="block text-sm font-medium text-secondary mb-1">Used in Categories</label>
+                <div className="border border-border rounded-lg p-2 max-h-32 overflow-y-auto space-y-1 bg-surface-hover">
+                   {categories.map((c: any) => (
+                      <label key={c.id} className="flex items-center gap-2 cursor-pointer p-1 hover:bg-white rounded">
+                         <input type="checkbox" checked={form.categoryIds.includes(c.id)} onChange={e => {
+                            const newIds = e.target.checked ? [...form.categoryIds, c.id] : form.categoryIds.filter((id: string) => id !== c.id);
+                            setForm({...form, categoryIds: newIds});
+                         }} />
+                         <span className="text-sm">{c.name}</span>
+                      </label>
+                   ))}
+                </div>
+             </div>
+             <div className="flex-1">
+                <label className="block text-sm font-medium text-secondary mb-1">Used in Brands</label>
+                <div className="border border-border rounded-lg p-2 max-h-32 overflow-y-auto space-y-1 bg-surface-hover">
+                   {brands.map((b: any) => (
+                      <label key={b.id} className="flex items-center gap-2 cursor-pointer p-1 hover:bg-white rounded">
+                         <input type="checkbox" checked={form.brandIds.includes(b.id)} onChange={e => {
+                            const newIds = e.target.checked ? [...form.brandIds, b.id] : form.brandIds.filter((id: string) => id !== b.id);
+                            setForm({...form, brandIds: newIds});
+                         }} />
+                         <span className="text-sm">{b.name}</span>
+                      </label>
+                   ))}
+                </div>
+             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-secondary mb-1">Attribute Values</label>
+            <div className="flex gap-2 mb-2">
+                <input type="text" className="flex-1 p-2 border border-border rounded-lg" value={newValue} onChange={e => setNewValue(e.target.value)} onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (newValue.trim()) {
+                            setForm({...form, values: [...(form.values || []), { id: Date.now().toString(), name: newValue.trim() }]});
+                            setNewValue('');
+                        }
+                    }
+                }} placeholder="Type and enter to add..." />
+                <button type="button" onClick={() => {
+                    if (newValue.trim()) {
+                        setForm({...form, values: [...(form.values || []), { id: Date.now().toString(), name: newValue.trim() }]});
+                        setNewValue('');
+                    }
+                }} className="px-3 bg-brand text-white rounded-lg hover:bg-brand-hover">Add</button>
+            </div>
+            {form.values?.length > 0 && (
+                <div className="border border-border rounded-lg max-h-40 overflow-y-auto divide-y divide-border">
+                    {form.values.map((v: any, idx: number) => (
+                        <div key={idx} className="p-2 flex justify-between items-center text-sm bg-surface-hover">
+                            <span>{v.name}</span>
+                            <button className="text-red-500 hover:text-red-700 p-1" onClick={() => setForm({...form, values: form.values.filter((_: any, i: number) => i !== idx)})}>
+                                <Trash2 size={14} />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <input type="checkbox" id="variantImpact" checked={form.variantImpact} onChange={e => setForm({...form, variantImpact: e.target.checked})} className="w-4 h-4 text-brand" />
+            <label htmlFor="variantImpact" className="text-sm text-secondary cursor-pointer">Creates Variant Combos (SKUs)</label>
+          </div>
+        </div>
+        <div className="p-6 border-t border-border flex justify-end gap-3 bg-surface-hover/50">
+          <button onClick={onClose} className="px-5 py-2 text-secondary hover:bg-white rounded-lg font-medium transition-colors">Cancel</button>
+          <button onClick={handleSave} className="px-5 py-2 bg-brand text-white rounded-lg font-bold hover:bg-brand-hover transition-all">Save Attribute</button>
         </div>
       </div>
     </div>
@@ -1593,7 +2202,7 @@ function TransferModal({ isOpen, onClose, products, variants, warehouses }: any)
               <label className="text-[10px] font-bold text-muted uppercase">Variant</label>
               <select className="w-full p-3 bg-surface-hover rounded-xl outline-none border border-transparent focus:border-border" value={form.variantId} onChange={e => setForm({...form, variantId: e.target.value})}>
                 <option value="">Select Variant</option>
-                {filteredVariants.map((v: any) => <option key={v.id} value={v.id}>{v.sku} ({v.size}/{v.color})</option>)}
+                {filteredVariants.map((v: any) => <option key={v.id} value={v.id}>{v.sku} ({Object.entries(v).filter(([key]) => !['id', 'productId', 'uid', 'createdAt', 'updatedAt', 'sku', 'barcode', 'price', 'costPrice', 'bundleItems'].includes(key)).map(([, val]) => val).filter(Boolean).join('/')})</option>)}
               </select>
             </div>
           )}
@@ -1901,7 +2510,7 @@ function WastageModal({ isOpen, onClose, products, variants, warehouses }: any) 
               <label className="text-[10px] font-black text-muted uppercase tracking-widest ml-1">Variant Selection</label>
               <select className="w-full p-4 bg-surface-hover border border-transparent rounded-[1.5rem] text-xs font-black uppercase tracking-widest outline-none focus:bg-surface focus:border-rose-200 transition-all" value={form.variantId} onChange={e => setForm({...form, variantId: e.target.value})}>
                 <option value="">Default Variant</option>
-                {variants.filter((v: any) => v.productId === form.productId).map((v: any) => <option key={v.id} value={v.id}>{v.size} / {v.color}</option>)}
+                {variants.filter((v: any) => v.productId === form.productId).map((v: any) => <option key={v.id} value={v.id}>{Object.entries(v).filter(([key]) => !['id', 'productId', 'uid', 'createdAt', 'updatedAt', 'sku', 'barcode', 'price', 'costPrice', 'bundleItems'].includes(key)).map(([, val]) => val).filter(Boolean).join('/')}</option>)}
               </select>
             </div>
           )}

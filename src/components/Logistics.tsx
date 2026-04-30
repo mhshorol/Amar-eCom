@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, 
   Plus, 
@@ -27,6 +28,7 @@ import {
   Calendar,
   Settings,
   FileText,
+  Package,
   Info,
   Link
 } from 'lucide-react';
@@ -937,40 +939,46 @@ export default function Logistics() {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 hide-scrollbar w-full border-b border-transparent">
-          <button 
-            onClick={() => setActiveSubTab('shipments')}
-            className={`px-5 py-2.5 rounded-lg text-[13px] font-semibold transition-all shrink-0 border ${activeSubTab === 'shipments' ? 'bg-surface text-brand border-border border-b-[#0066FF] border-b-[3px]' : 'bg-surface text-secondary border-border hover:bg-surface-hover'}`}
-          >
-            Shipments
-          </button>
-          <button 
-            onClick={() => setActiveSubTab('pending')}
-            className={`px-5 py-2.5 rounded-lg text-[13px] font-semibold transition-all shrink-0 flex items-center gap-2 border ${activeSubTab === 'pending' ? 'bg-surface text-brand border-border border-b-[#0066FF] border-b-[3px]' : 'bg-surface text-secondary border-border hover:bg-surface-hover'}`}
-          >
-            Pending Ready-to-Ship
-            <span className={`px-2 py-0.5 text-[11px] rounded-full font-bold ${activeSubTab === 'pending' ? 'bg-brand/20 text-brand' : 'bg-brand/10 text-brand'}`}>
-              {pendingOrders.length}
-            </span>
-          </button>
-          <button 
-            onClick={() => setActiveSubTab('couriers')}
-            className={`px-5 py-2.5 rounded-lg text-[13px] font-semibold transition-all shrink-0 border ${activeSubTab === 'couriers' ? 'bg-surface text-brand border-border border-b-[#0066FF] border-b-[3px]' : 'bg-surface text-secondary border-border hover:bg-surface-hover'}`}
-          >
-            Courier Partners
-          </button>
-          <button 
-            onClick={() => setActiveSubTab('reconciliation')}
-            className={`px-5 py-2.5 rounded-lg text-[13px] font-semibold transition-all shrink-0 border ${activeSubTab === 'reconciliation' ? 'bg-surface text-brand border-border border-b-[#0066FF] border-b-[3px]' : 'bg-surface text-secondary border-border hover:bg-surface-hover'}`}
-          >
-            Charge Reconciliation
-          </button>
-          <button 
-            onClick={() => setActiveSubTab('logs')}
-            className={`px-5 py-2.5 rounded-lg text-[13px] font-semibold transition-all shrink-0 border ${activeSubTab === 'logs' ? 'bg-surface text-brand border-border border-b-[#0066FF] border-b-[3px]' : 'bg-surface text-secondary border-border hover:bg-surface-hover'}`}
-          >
-            API Logs
-          </button>
+        <div className="flex overflow-x-auto items-center p-1 bg-surface border border-border rounded-[20px] shadow-subtle gap-x-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] scroll-smooth w-min">
+          {[
+            { id: 'shipments', label: 'Shipments', icon: Package },
+            { id: 'pending', label: 'Pending Ready-to-Ship', icon: Clock },
+            { id: 'couriers', label: 'Courier Partners', icon: Truck },
+            { id: 'reconciliation', label: 'Charge Reconciliation', icon: RefreshCw },
+            { id: 'logs', label: 'API Logs', icon: FileText }
+          ].map((tab) => {
+            const isActive = activeSubTab === tab.id;
+            const iconColorClass = isActive ? "text-brand" : "text-muted";
+            const Icon = tab.icon;
+            
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveSubTab(tab.id as any)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-bold whitespace-nowrap transition-all group/tab relative ${
+                  isActive
+                    ? "bg-brand/10 dark:bg-brand/20 text-brand shadow-subtle shadow-blue-100/50"
+                    : "text-secondary hover:text-primary hover:bg-surface-hover"
+                }`}
+              >
+                <Icon size={14} strokeWidth={isActive ? 2.5 : 2} className={`${iconColorClass} group-hover/tab:scale-110 transition-transform`} />
+                <span className="tracking-tight">{tab.label}</span>
+                {tab.id === 'pending' && (
+                  <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-black ${
+                    isActive ? "bg-brand text-white" : "bg-slate-800 dark:bg-gray-700 text-white"
+                  }`}>
+                    {pendingOrders.length}
+                  </span>
+                )}
+                {isActive && (
+                  <motion.div 
+                    layoutId="activeSubTabLogistics"
+                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-brand rounded-full"
+                  />
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
