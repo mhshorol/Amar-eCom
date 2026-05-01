@@ -60,7 +60,8 @@ import {
   serverTimestamp,
   Timestamp,
   updateDoc,
-  runTransaction
+  runTransaction,
+  limit
 } from '../firebase';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
