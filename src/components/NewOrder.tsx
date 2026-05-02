@@ -57,6 +57,7 @@ export default function NewOrder() {
     customerCity: 'Dhaka',
     customerZone: 'Inside Dhaka',
     customShipmentNumber: '',
+    isExchange: false,
     division: '',
     district: '',
     area: '',
@@ -621,6 +622,7 @@ export default function NewOrder() {
         customerCity: 'Dhaka',
         customerZone: 'Inside Dhaka',
         customShipmentNumber: '',
+        isExchange: false,
         division: '',
         district: '',
         area: '',
@@ -880,9 +882,20 @@ export default function NewOrder() {
                 </div>
               </div>
 
-              {/* Row 4: Custom Shipment Number */}
+              {/* Row 4: Custom Shipment Number & Exchange */}
               <div className="space-y-2">
-                <label className="mb-2 block text-[11px] font-semibold text-secondary uppercase tracking-wider">Custom Shipment Number (Optional)</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-[11px] font-semibold text-secondary uppercase tracking-wider">Shipment Number</label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="checkbox"
+                      checked={orderForm.isExchange}
+                      onChange={e => setOrderForm({...orderForm, isExchange: e.target.checked})}
+                      className="w-3.5 h-3.5 rounded border-border text-brand focus:ring-brand"
+                    />
+                    <span className="text-[11px] font-bold text-brand uppercase tracking-wider">Exchange</span>
+                  </label>
+                </div>
                 <div className="relative">
                   <input 
                     type="text"

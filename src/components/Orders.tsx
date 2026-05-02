@@ -4246,7 +4246,7 @@ export default function Orders() {
         )}
 
         {/* Hidden Print Containers - Moved outside conditional blocks to ensure refs are always attached and accessible */}
-        <div className="print-only">
+        <div className="hidden print:block">
           <div ref={printRef}>
             {selectedOrderForPrint && (
               <>
@@ -4270,7 +4270,7 @@ export default function Orders() {
         </div>
 
         {/* Hidden Bulk Print Content */}
-        <div className="print-only">
+        <div className="hidden print:block">
           <div ref={bulkPrintRef}>
             {selectedOrders.length > 0 &&
               selectedOrders.map((id) => {

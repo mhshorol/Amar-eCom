@@ -18,11 +18,14 @@ export const openPrintWindow = (elementHTML: string, title: string = 'Print Docu
         <title>${title}</title>
         ${styles}
         <style>
+          @page { margin: 0; }
           @media print {
             body, html { 
               visibility: visible !important;
               -webkit-print-color-adjust: exact !important; 
               print-color-adjust: exact !important; 
+              margin: 0 !important;
+              padding: 0 !important;
             }
             body * {
               visibility: visible !important;

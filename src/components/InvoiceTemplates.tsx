@@ -8,7 +8,16 @@ interface InvoiceProps {
 
 export const A5Invoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ order, company, currencySymbol = '৳' }, ref) => {
   return (
-    <div ref={ref} className="p-4 bg-[#ffffff] text-[#000000] relative overflow-hidden" style={{ width: '210mm', height: '148mm', margin: '0 auto', boxSizing: 'border-box', fontFamily: "'Poppins', 'Siyam Rupali', sans-serif" }}>
+    <>
+      <style type="text/css">
+        {`
+          @media print {
+            @page { size: 210mm 148mm landscape; margin: 0; }
+            .break-after-page { page-break-after: always; }
+          }
+        `}
+      </style>
+      <div ref={ref} className="p-4 bg-[#ffffff] text-[#000000] relative overflow-hidden break-inside-avoid" style={{ width: '210mm', height: '148mm', margin: '0 auto', boxSizing: 'border-box', fontFamily: "'Poppins', 'Siyam Rupali', sans-serif" }}>
       {/* Decorative Background Elements - Subtle Grayscale */}
       <div className="absolute top-0 right-0 w-48 h-48 rounded-full -mr-24 -mt-24 z-0" style={{ backgroundColor: 'rgba(0, 0, 0, 0.02)' }}></div>
       <div className="absolute bottom-0 left-0 w-32 h-32 rounded-full -ml-16 -mb-16 z-0" style={{ backgroundColor: 'rgba(0, 0, 0, 0.02)' }}></div>
@@ -16,9 +25,17 @@ export const A5Invoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ order
       {/* Top Accent Bar - Black */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-[#000000]"></div>
 
+      {order.isExchange && (
+        <div className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-0 opacity-20 pointer-events-none">
+          <span className="inline-block border-[4px] rounded-lg border-[#000000] text-[#000000] text-[60px] font-black tracking-[0.2em] px-8 py-2 uppercase rotate-[-15deg]">
+            EXCHANGE
+          </span>
+        </div>
+      )}
+
       <div className="relative z-10 flex flex-col h-full">
         {/* Header Section */}
-        <div className="flex justify-between items-start mb-4">
+        <div className="flex justify-between items-start mb-4 relative">
           <div className="space-y-2">
             {company.companyLogo ? (
               <img src={company.companyLogo} alt="Logo" className="h-10 object-contain grayscale" referrerPolicy="no-referrer" />
@@ -204,12 +221,21 @@ export const A5Invoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ order
         </div>
       </div>
     </div>
+    </>
   );
 });
 
 export const POSInvoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ order, company, currencySymbol = '৳' }, ref) => {
   return (
-    <div ref={ref} className="p-2 bg-[#ffffff] text-[#000000] font-mono" style={{ width: '80mm' }}>
+    <>
+      <style type="text/css">
+        {`
+          @media print {
+            @page { size: 80mm 297mm; margin: 0; }
+          }
+        `}
+      </style>
+      <div ref={ref} className="p-2 bg-[#ffffff] text-[#000000] font-mono break-inside-avoid" style={{ width: '80mm' }}>
       <div className="text-center mb-1">
         {company.companyLogo && (
           <img src={company.companyLogo} alt="Logo" className="h-8 object-contain mx-auto mb-1" referrerPolicy="no-referrer" />
@@ -241,6 +267,11 @@ export const POSInvoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ orde
           <div className="flex justify-between font-bold">
             <span>Shipment No:</span>
             <span>{order.customShipmentNumber}</span>
+          </div>
+        )}
+        {order.isExchange && (
+          <div className="text-center font-bold border border-black p-0.5 mt-1 text-[10px]">
+            ** EXCHANGE **
           </div>
         )}
       </div>
@@ -295,5 +326,6 @@ export const POSInvoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ orde
         <p className="whitespace-pre-line">{company.invoiceFooterNote || '*** Thank You ***\nPlease visit again'}</p>
       </div>
     </div>
+    </>
   );
 });
