@@ -456,10 +456,31 @@ export default function NewOrder() {
         inventorySnaps.push({ item, snap: invSnap });
       }
 
+      let accountId = '';
+      if (data.paidAmount > 0) {
+        const accountsQuery = query(collection(db, 'accounts'), where('name', '==', data.paymentMethod));
+        const accountsSnap = await getDocs(accountsQuery);
+        if (!accountsSnap.empty) {
+          accountId = accountsSnap.docs[0].id;
+        } else {
+          const allAccountsSnap = await getDocs(query(collection(db, 'accounts'), limit(1)));
+          if (!allAccountsSnap.empty) {
+            accountId = allAccountsSnap.docs[0].id;
+          }
+        }
+      }
+
       const createdOrderNumber = await runTransaction(db, async (transaction) => {
         // 2. TRANSACTION READS
         const settingsRef = doc(db, 'settings', 'company');
         const settingsSnap = await transaction.get(settingsRef);
+
+        let accountSnap = null;
+        let accountRef = null;
+        if (accountId) {
+          accountRef = doc(db, 'accounts', accountId);
+          accountSnap = await transaction.get(accountRef);
+        }
         
         const rewardPointsRate = settingsSnap.exists() ? (settingsSnap.data().rewardPointsRate || 0) : 0;
         const pointsEarned = Math.floor(totalAmount / 100) * rewardPointsRate;
@@ -508,18 +529,6 @@ export default function NewOrder() {
 
         // Add to Finance if paidAmount > 0
         if (data.paidAmount > 0) {
-          let accountId = '';
-          const accountsQuery = query(collection(db, 'accounts'), where('name', '==', data.paymentMethod));
-          const accountsSnap = await getDocs(accountsQuery);
-          if (!accountsSnap.empty) {
-            accountId = accountsSnap.docs[0].id;
-          } else {
-            const allAccountsSnap = await getDocs(query(collection(db, 'accounts'), limit(1)));
-            if (!allAccountsSnap.empty) {
-              accountId = allAccountsSnap.docs[0].id;
-            }
-          }
-
           const transactionRef = doc(collection(db, 'transactions'));
           transaction.set(transactionRef, {
             type: 'income',
@@ -535,16 +544,12 @@ export default function NewOrder() {
             createdAt: serverTimestamp()
           });
 
-          if (accountId) {
-            const accountRef = doc(db, 'accounts', accountId);
-            const accountSnap = await transaction.get(accountRef);
-            if (accountSnap.exists()) {
-              const currentBalance = accountSnap.data().balance || 0;
-              transaction.update(accountRef, {
-                balance: currentBalance + data.paidAmount,
-                updatedAt: serverTimestamp()
-              });
-            }
+          if (accountRef && accountSnap && accountSnap.exists()) {
+            const currentBalance = accountSnap.data().balance || 0;
+            transaction.update(accountRef, {
+              balance: currentBalance + data.paidAmount,
+              updatedAt: serverTimestamp()
+            });
           }
         }
 
