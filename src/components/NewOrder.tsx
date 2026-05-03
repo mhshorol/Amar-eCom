@@ -930,7 +930,9 @@ export default function NewOrder({ initialOrder, onClose, onSuccess }: NewOrderP
                     }}
                   >
                     <option value="">Select District</option>
-                    {districts.map(d => (
+                    {[...districts]
+                      .sort((a, b) => a.nameEn.localeCompare(b.nameEn))
+                      .map(d => (
                       <option key={d.id} value={d.nameEn}>{d.nameEn}</option>
                     ))}
                   </select>
@@ -956,6 +958,7 @@ export default function NewOrder({ initialOrder, onClose, onSuccess }: NewOrderP
                     <option value="">Select Area</option>
                     {upazilas
                       .filter(u => orderForm.district && districts.find(d => d.nameEn === orderForm.district)?.id === u.districtId)
+                      .sort((a, b) => a.nameEn.localeCompare(b.nameEn))
                       .map(u => (
                         <option key={u.id} value={u.nameEn}>{u.nameEn}</option>
                       ))

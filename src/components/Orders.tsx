@@ -103,8 +103,6 @@ import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
 import { locationService } from "../services/locationService";
 import {
   LocationNode,
-  districts,
-  upazilas,
 } from "../data/bangladesh-locations";
 import { CourierFactory } from "../lib/courierAdapters";
 

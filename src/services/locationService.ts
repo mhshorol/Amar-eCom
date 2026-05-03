@@ -65,10 +65,14 @@ export const locationService = {
   parseAddress(address: string): ParsedAddress {
     if (!address) return { remainingAddress: '' };
 
-    const cleanAddress = address.replace(/[^\w\s\u0980-\u09FF]/g, ' ');
-    const tokens = cleanAddress.split(/[\s,.-]+/).filter(t => t.length > 2);
+    // Remove common prefixes and punctuation
+    const noiseWords = /\b(house|road|block|sector|avenue|lane|village|po|ps|dist|district|thana|upazila|zila|holding|ward|pourashava|বাড়ি|বাসা|ব্লক|সেক্টর|এভিনিউ|লেন|গ্রাম|পোস্ট|পিও|থানা|উপজেলা|জেলা|রোড)\b/gi;
+    let cleanAddress = address.replace(/[^\w\s\u0980-\u09FF-]/g, ' ');
+    cleanAddress = cleanAddress.replace(noiseWords, ' ');
     
-    // Generate unigrams, bigrams, and trigrams for better area detection
+    const tokens = cleanAddress.split(/[\s-]+/).filter(t => t.length > 2);
+    
+    // Generate unigrams, bigrams, trigrams, and 4-grams
     const searchTerms: string[] = [];
     for(let i = 0; i < tokens.length; i++) {
         searchTerms.push(tokens[i]);
@@ -78,30 +82,48 @@ export const locationService = {
         if(i < tokens.length - 2) {
             searchTerms.push(tokens[i] + ' ' + tokens[i+1] + ' ' + tokens[i+2]);
         }
+        if(i < tokens.length - 3) {
+            searchTerms.push(tokens[i] + ' ' + tokens[i+1] + ' ' + tokens[i+2] + ' ' + tokens[i+3]);
+        }
     }
 
     interface Match {
         term: string;
         item: LocationNode;
         score: number;
+        exactMatch: boolean;
     }
     const matches: Match[] = [];
     
+    // Create an exact match lookup for fast matching
     searchTerms.forEach(term => {
-        const termMatches = fuse.search(term);
-        termMatches.forEach(m => {
-            if(m.score !== undefined && m.score <= 0.35) {
-                 matches.push({
-                     term,
-                     item: m.item,
-                     score: m.score
-                 });
-            }
-        });
+        const lowerTerm = term.toLowerCase();
+        
+        // Find exact matches first
+        const exactItems = allLocations.filter(loc => 
+            loc.nameEn.toLowerCase() === lowerTerm || 
+            loc.nameBn === term
+        );
+        
+        if (exactItems.length > 0) {
+            exactItems.forEach(item => {
+                matches.push({ term, item, score: 0, exactMatch: true });
+            });
+        } else {
+            // Fuzzy search as fallback
+            const termMatches = fuse.search(term);
+            const validMatches = termMatches.filter(m => m.score !== undefined && m.score <= 0.2); // Stricter threshold
+            
+            validMatches.forEach(m => {
+                matches.push({ term, item: m.item, score: m.score as number, exactMatch: false });
+            });
+        }
     });
 
     matches.sort((a, b) => {
-        if (Math.abs(a.score - b.score) < 0.01) {
+        if (a.exactMatch && !b.exactMatch) return -1;
+        if (!a.exactMatch && b.exactMatch) return 1;
+        if (Math.abs(a.score - b.score) < 0.001) {
             return b.term.length - a.term.length; // prefer longer search terms for similar scores
         }
         return a.score - b.score;
@@ -146,10 +168,11 @@ export const locationService = {
         if (detectedDistrict && item.districtId && item.districtId !== detectedDistrict.id) continue;
         if (detectedUpazila && item.upazilaId && item.upazilaId !== detectedUpazila.id) continue;
         
+        // Block area matching if it has empty districtId but we have detected a district, because it could be a chaotic match
+        if (detectedDistrict && !item.districtId) continue;
+        
         detectedArea = item;
         // Optionally backfill upazila/district from area if they were not found
-        // But since upazilas are an array of LocationNode, and might not be exported as easily,
-        // we can just fill district and division
         if (!detectedDistrict && item.districtId) {
           detectedDistrict = districts.find(d => d.id === item.districtId);
           detectedDivision = divisions.find(d => d.id === item.divisionId);
