@@ -27,6 +27,7 @@ import {
   Facebook,
   MapPin,
   Sparkles,
+  Pencil,
 } from "lucide-react";
 import {
   db,
@@ -1369,8 +1370,8 @@ export default function NewOrder({
                   </div>
                   <input
                     type="text"
-                    placeholder="Search by product name, SKU or scan barcode..."
-                    className="w-full pl-12 pr-[140px] py-3 bg-surface border border-border rounded-lg text-sm focus:border-brand focus:ring-4 focus:ring-brand/20 outline-none transition-all text-primary placeholder:text-muted"
+                    placeholder="Search product, SKU or scan barcode..."
+                    className="w-full pl-12 pr-[140px] py-3 bg-surface border border-border rounded-lg text-sm focus:border-brand focus:ring-4 focus:ring-brand/20 outline-none transition-all text-primary placeholder:text-muted shadow-subtle"
                     value={productSearch}
                     onFocus={() => setShowProductDropdown(true)}
                     onChange={(e) => {
@@ -1380,9 +1381,6 @@ export default function NewOrder({
                     }}
                   />
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-muted bg-surface-hover px-2 py-1 rounded hidden sm:block border border-border">
-                      Ctrl + K
-                    </span>
                     <button
                       type="button"
                       className="p-2 sm:px-3 sm:py-1.5 bg-surface border border-border text-brand rounded-lg hover:bg-surface-hover transition-colors flex items-center gap-1.5 shadow-subtle"
@@ -1405,15 +1403,37 @@ export default function NewOrder({
                             type="button"
                             className="w-full flex items-center gap-4 p-4 hover:bg-surface-hover transition-colors border-b border-border last:border-0 text-left group/item"
                             onClick={() => {
-                              setNewItem({
-                                ...newItem,
+                              const pVariants = variants.filter((v) => v.productId === p.id);
+                              let defaultVariant = null;
+                              let variantString = "";
+                              
+                              if (p.type === "variable" && pVariants.length > 0) {
+                                defaultVariant = pVariants[0];
+                                variantString = Object.entries(defaultVariant)
+                                  .filter(([key]) => !["id", "productId", "uid", "createdAt", "updatedAt", "sku", "barcode", "price", "costPrice", "bundleItems"].includes(key))
+                                  .map(([, val]) => val)
+                                  .filter(Boolean)
+                                  .join("/");
+                              }
+
+                              const itemWithInfo = {
                                 productId: p.id,
-                                variantId: "",
-                                price: p.price || 0,
+                                variantId: defaultVariant?.id || "",
+                                quantity: 1,
+                                price: defaultVariant ? defaultVariant.price : (p.price || 0),
+                                name: p.name || "",
+                                variant: variantString,
                                 image: p.images?.[0] || p.image || "",
+                                sku: p.sku || defaultVariant?.sku || ""
+                              };
+
+                              setOrderForm({
+                                ...orderForm,
+                                items: [itemWithInfo, ...orderForm.items],
                               });
-                              setProductSearch(p.name);
+                              setProductSearch("");
                               setShowProductDropdown(false);
+                              setActiveProductFilter("all");
                             }}
                           >
                             <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 border border-border">
@@ -1436,8 +1456,8 @@ export default function NewOrder({
                               </p>
                               <p className="text-xs text-secondary mt-1 flex items-center gap-1">
                                 {currencySymbol}
-                                {p.price?.toLocaleString()}{" "}
-                                <span className="text-muted mx-1">•</span>{" "}
+                                {p.price?.toLocaleString()}
+                                <span className="text-muted mx-1">•</span>
                                 <span className="font-normal">
                                   SKU: {p.sku || "N/A"}
                                 </span>
@@ -1454,14 +1474,14 @@ export default function NewOrder({
                   )}
               </div>
 
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                 <button
                   type="button"
                   onClick={() => {
                     setActiveProductFilter("recent");
                     setShowProductDropdown(true);
                   }}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors border ${activeProductFilter === "recent" && showProductDropdown ? "bg-brand/10 text-brand-hover border-blue-200" : "bg-surface text-secondary border-border hover:bg-surface-hover"}`}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors border ${activeProductFilter === "recent" && showProductDropdown ? "bg-brand/10 text-brand-hover border-blue-200" : "bg-surface text-secondary border-border hover:bg-surface-hover"}`}
                 >
                   <Package size={14} /> Recent Products
                 </button>
@@ -1471,7 +1491,7 @@ export default function NewOrder({
                     setActiveProductFilter("best_selling");
                     setShowProductDropdown(true);
                   }}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors border ${activeProductFilter === "best_selling" && showProductDropdown ? "bg-brand/10 text-brand-hover border-blue-200" : "bg-surface text-secondary border-border hover:bg-surface-hover"}`}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors border ${activeProductFilter === "best_selling" && showProductDropdown ? "bg-brand/10 text-brand-hover border-blue-200" : "bg-surface text-secondary border-border hover:bg-surface-hover"}`}
                 >
                   <ShoppingCart size={14} /> Best Selling
                 </button>
@@ -1481,357 +1501,156 @@ export default function NewOrder({
                     setActiveProductFilter("frequent");
                     setShowProductDropdown(true);
                   }}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors border ${activeProductFilter === "frequent" && showProductDropdown ? "bg-brand/10 text-brand-hover border-blue-200" : "bg-surface text-secondary border-border hover:bg-surface-hover"}`}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors border ${activeProductFilter === "frequent" && showProductDropdown ? "bg-brand/10 text-brand-hover border-blue-200" : "bg-surface text-secondary border-border hover:bg-surface-hover"}`}
                 >
                   <ListFilter size={14} /> Frequently Bought
                 </button>
               </div>
+              {orderForm.items.length > 0 ? (
+                <div className="pt-6 mt-6 border-t border-border space-y-4">
+                  <div className="flex items-center justify-between pointer-events-auto">
+                    <h4 className="text-[16px] font-bold text-primary flex items-center gap-2">
+                      <ShoppingCart size={20} className="text-brand" /> Order Items ({orderForm.items.length})
+                    </h4>
+                  </div>
+                  
+                  <div className="hidden md:grid grid-cols-12 gap-4 pb-2 border-b border-border text-[11px] font-semibold text-secondary uppercase tracking-wider">
+                    <div className="col-span-5">Product</div>
+                    <div className="col-span-2 text-center">Price</div>
+                    <div className="col-span-2 text-center">Quantity</div>
+                    <div className="col-span-3 text-right">Total</div>
+                  </div>
 
-              {newItem.productId && (
-                <div className="bg-surface-hover p-4 rounded-xl border border-border mt-4">
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                    {/* Variant Select */}
-                    <div className="md:col-span-5 space-y-2">
-                      <label className="text-[11px] font-semibold text-secondary uppercase tracking-wider block mb-1">
-                        Select Variant
-                      </label>
-                      <div className="relative">
-                        <select
-                          disabled={
-                            !newItem.productId ||
-                            products.find((p) => p.id === newItem.productId)
-                              ?.type !== "variable"
-                          }
-                          className="w-full pl-4 pr-10 py-2.5 bg-surface border border-border rounded-lg text-sm focus:border-brand focus:ring-4 focus:ring-brand/20 outline-none transition-all text-primary appearance-none cursor-pointer disabled:opacity-50 disabled:bg-surface-hover"
-                          value={newItem.variantId}
-                          onChange={(e) => {
-                            const v = variants.find(
-                              (varnt) => varnt.id === e.target.value,
-                            );
-                            setNewItem({
-                              ...newItem,
-                              variantId: e.target.value,
-                              price: v?.price || newItem.price,
-                            });
-                          }}
-                        >
-                          <option value="">DEFAULT VARIANT</option>
-                          {newItem.productId &&
-                            variants
-                              .filter((v) => v.productId === newItem.productId)
-                              .map((v) => (
-                                <option key={v.id} value={v.id}>
-                                  {Object.entries(v)
-                                    .filter(
-                                      ([key]) =>
-                                        ![
-                                          "id",
-                                          "productId",
-                                          "uid",
-                                          "createdAt",
-                                          "updatedAt",
-                                          "sku",
-                                          "barcode",
-                                          "price",
-                                          "costPrice",
-                                          "bundleItems",
-                                        ].includes(key),
-                                    )
-                                    .map(([, val]) => val)
-                                    .filter(Boolean)
-                                    .join("/")}{" "}
-                                  - {currencySymbol}
-                                  {v.price}
-                                </option>
-                              ))}
-                        </select>
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted">
-                          <ChevronDown size={14} strokeWidth={3} />
+                  <div className="space-y-3">
+                    {orderForm.items.map((item, idx) => {
+                      const product = products.find((p) => p.id === item.productId);
+                      const isVariable = product?.type === "variable";
+                      
+                      return (
+                      <div
+                        key={idx}
+                        className="flex flex-col md:grid md:grid-cols-12 gap-4 items-center bg-white border border-border/80 p-4 rounded-xl shadow-sm relative group/item"
+                      >
+                        <div className="col-span-5 flex items-center gap-4 w-full">
+                          {item.image ? (
+                            <div className="w-[52px] h-[52px] rounded-lg overflow-hidden shrink-0 border border-border/60 shadow-sm">
+                              <img src={item.image} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            </div>
+                          ) : (
+                            <div className="w-[52px] h-[52px] rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 shrink-0 border border-border/60 shadow-sm">
+                              <Package size={20} strokeWidth={1.5} />
+                            </div>
+                          )}
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[15px] font-bold text-slate-900 truncate leading-tight">
+                              {item.name}
+                            </span>
+                            <span className="text-[12px] font-medium text-slate-500 mt-0.5">
+                              SKU: {item.sku || "N/A"}
+                            </span>
+                            {isVariable && item.variant && (
+                              <span className="text-[12px] font-medium text-slate-500 mt-0.5">
+                                Variant: {item.variant}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="col-span-2 flex justify-between md:justify-center items-center w-full md:w-auto">
+                           <span className="md:hidden text-[12px] font-medium text-slate-500">Price:</span>
+                           <span className="text-[15px] font-black text-slate-900">{currencySymbol}{item.price.toLocaleString()}</span>
+                        </div>
+
+                        <div className="col-span-2 flex justify-start md:justify-center items-center w-full md:w-auto">
+                           <div className="flex items-center bg-white rounded-lg overflow-hidden border border-slate-200 w-[110px] shadow-sm h-[36px]">
+                             <button
+                               type="button"
+                               onClick={() => {
+                                 const newItems = [...orderForm.items];
+                                 newItems[idx].quantity = Math.max(1, newItems[idx].quantity - 1);
+                                 setOrderForm({ ...orderForm, items: newItems });
+                               }}
+                               className="px-3 h-full hover:bg-slate-50 text-slate-500 transition-colors font-black flex items-center justify-center active:bg-slate-100"
+                             >
+                               <Minus size={14} strokeWidth={3} />
+                             </button>
+                             <input
+                               type="number"
+                               className="w-full text-center bg-transparent text-[14px] font-bold outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield] text-slate-800 h-full border-x border-slate-100 placeholder:text-slate-300"
+                               value={item.quantity === 0 ? "" : item.quantity}
+                               onChange={(e) => {
+                                 const val = parseInt(e.target.value);
+                                 const newItems = [...orderForm.items];
+                                 newItems[idx].quantity = isNaN(val) ? 0 : val;
+                                 setOrderForm({ ...orderForm, items: newItems });
+                               }}
+                             />
+                             <button
+                               type="button"
+                               onClick={() => {
+                                 const newItems = [...orderForm.items];
+                                 newItems[idx].quantity = newItems[idx].quantity + 1;
+                                 setOrderForm({ ...orderForm, items: newItems });
+                               }}
+                               className="px-3 h-full hover:bg-slate-50 text-slate-500 transition-colors font-black flex items-center justify-center active:bg-slate-100"
+                             >
+                               <Plus size={14} strokeWidth={3} />
+                             </button>
+                           </div>
+                        </div>
+
+                        <div className="col-span-3 flex justify-between md:justify-end items-center gap-5 w-full md:w-auto mt-2 md:mt-0 pt-2 md:pt-0 border-t border-dashed border-border/60 md:border-t-0">
+                           <span className="md:hidden text-[12px] font-medium text-slate-500">Total:</span>
+                           <span className="text-[15px] font-black text-slate-900">
+                             {currencySymbol}{(item.quantity * item.price).toLocaleString()}
+                           </span>
+                           <div className="flex items-center gap-3">
+                             <button
+                               type="button"
+                               className="text-slate-400 hover:text-brand transition-colors"
+                             >
+                               <Pencil size={18} strokeWidth={2} />
+                             </button>
+                             <button
+                               type="button"
+                               onClick={() => setOrderForm({ ...orderForm, items: orderForm.items.filter((_, i) => i !== idx) })}
+                               className="text-slate-400 hover:text-red-500 transition-colors"
+                             >
+                               <Trash2 size={18} strokeWidth={2} />
+                             </button>
+                           </div>
                         </div>
                       </div>
-                    </div>
+                      )
+                    })}
+                  </div>
 
-                    {/* Quantity */}
-                    <div className="md:col-span-4 space-y-2">
-                      <label className="text-[11px] font-semibold text-secondary uppercase tracking-wider block mb-1">
-                        Quantity
-                      </label>
-                      <div className="flex items-center h-[42px] bg-surface border border-border rounded-lg overflow-hidden shadow-subtle group focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/20 transition-all">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setNewItem((prev) => ({
-                              ...prev,
-                              quantity: Math.max(1, prev.quantity - 1),
-                            }))
-                          }
-                          className="h-full px-4 hover:bg-surface-hover text-secondary hover:text-primary transition-colors active:bg-surface-hover"
-                        >
-                          <Minus size={14} strokeWidth={3} />
-                        </button>
-                        <input
-                          type="number"
-                          className="w-full text-center h-full text-sm font-bold bg-transparent outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield] text-primary"
-                          value={newItem.quantity === 0 ? "" : newItem.quantity}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value);
-                            setNewItem({
-                              ...newItem,
-                              quantity: isNaN(val) ? 0 : val,
-                            });
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setNewItem((prev) => ({
-                              ...prev,
-                              quantity: prev.quantity + 1,
-                            }))
-                          }
-                          className="h-full px-4 hover:bg-surface-hover text-secondary hover:text-primary transition-colors active:bg-surface-hover"
-                        >
-                          <Plus size={14} strokeWidth={3} />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Add Button */}
-                    <div className="md:col-span-3 flex items-end">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!newItem.productId) {
-                            toast.error("Please select a product");
-                            return;
-                          }
-                          const p = products.find(
-                            (prod) => prod.id === newItem.productId,
-                          );
-                          const v = variants.find(
-                            (varnt) => varnt.id === newItem.variantId,
-                          );
-                          const itemWithInfo = {
-                            ...newItem,
-                            name: p?.name || "Unknown Product",
-                            variant: v
-                              ? Object.entries(v)
-                                  .filter(
-                                    ([key]) =>
-                                      ![
-                                        "id",
-                                        "productId",
-                                        "uid",
-                                        "createdAt",
-                                        "updatedAt",
-                                        "sku",
-                                        "barcode",
-                                        "price",
-                                        "costPrice",
-                                        "bundleItems",
-                                      ].includes(key),
-                                  )
-                                  .map(([, val]) => val)
-                                  .filter(Boolean)
-                                  .join("/")
-                              : "",
-                            image: p?.image || "",
-                          };
-                          setOrderForm({
-                            ...orderForm,
-                            items: [...orderForm.items, itemWithInfo],
-                          });
-                          setNewItem({
-                            productId: "",
-                            variantId: "",
-                            quantity: 1,
-                            price: 0,
-                            image: "",
-                          });
-                          setProductSearch("");
-                        }}
-                        className="w-full h-[42px] bg-brand text-white rounded-xl text-sm font-bold hover:bg-brand-hover transition-all shadow-subtle active:scale-[0.98] flex items-center justify-center gap-2"
-                      >
-                        <Plus size={16} /> Add
-                      </button>
-                    </div>
+                  <div className="flex items-center justify-between pt-6">
+                    <button
+                      type="button"
+                      onClick={() => setOrderForm({ ...orderForm, items: [] })}
+                      className="px-4 py-2 border border-red-200 text-red-500 rounded-lg text-sm font-semibold hover:bg-red-50 transition-colors bg-white shadow-sm flex items-center gap-2"
+                    >
+                      Clear All
+                    </button>
+                    <p className="text-[15px] font-bold text-slate-600">
+                      Total Items: {orderForm.items.reduce((acc, item) => acc + item.quantity, 0)}
+                    </p>
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Order Items Section */}
-          <div className="bg-surface rounded-xl border border-border p-6 shadow-subtle space-y-6">
-            <h4 className="text-base font-bold text-primary flex items-center gap-2 mb-4">
-              <ShoppingCart size={20} className="text-brand" /> Order Items (
-              {orderForm.items.length})
-            </h4>
-
-            {orderForm.items.length > 0 && (
-              <div className="hidden sm:grid grid-cols-12 gap-4 pb-2 border-b border-border text-[11px] font-semibold text-secondary uppercase tracking-wider">
-                <div className="col-span-4">Product</div>
-                <div className="col-span-2 text-center">Price</div>
-                <div className="col-span-3 text-center">Quantity</div>
-                <div className="col-span-3 text-right">Total</div>
-              </div>
-            )}
-
-            <div className="space-y-3">
-              {orderForm.items.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex flex-col sm:grid sm:grid-cols-12 gap-4 items-center bg-surface border border-border p-4 rounded-xl hover:border-blue-300 transition-all group/item shadow-subtle"
-                >
-                  <div className="col-span-4 w-full flex items-center gap-4">
-                    {item.image ? (
-                      <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 border border-border">
-                        <img
-                          src={item.image}
-                          alt=""
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-12 h-12 rounded-lg bg-surface-hover flex items-center justify-center text-muted shrink-0 border border-border">
-                        <Package size={20} strokeWidth={1.5} />
-                      </div>
-                    )}
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-sm font-bold text-primary truncate">
-                        {item.name}
-                      </span>
-                      <span className="text-[11px] font-medium text-secondary flex items-center gap-1.5 mt-0.5">
-                        {item.variant ? (
-                          <span>Variant: {item.variant}</span>
-                        ) : null}
-                        {item.variant && (
-                          <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                        )}
-                        <span>SKU: {item.sku || "N/A"}</span>
-                      </span>
+              ) : (
+                <div className="pt-6 mt-6 border-t border-border">
+                  <div className="text-center py-12 bg-surface-hover/50 rounded-xl border border-dashed border-border">
+                    <div className="mx-auto w-12 h-12 bg-surface rounded-lg flex items-center justify-center text-muted border border-border shadow-subtle mb-4">
+                      <Package size={24} strokeWidth={1.5} />
                     </div>
+                    <p className="text-[15px] font-bold text-primary">
+                      No items added yet
+                    </p>
+                    <p className="text-[13px] font-medium text-secondary mt-1">
+                      Search the catalog above to add products.
+                    </p>
                   </div>
-
-                  <div className="col-span-2 w-full sm:w-auto flex justify-between sm:justify-center items-center font-bold text-primary text-sm">
-                    <span className="sm:hidden text-xs text-secondary font-normal">
-                      Price:
-                    </span>
-                    {currencySymbol}
-                    {item.price.toLocaleString()}
-                  </div>
-
-                  <div className="col-span-3 w-full sm:w-auto flex justify-center items-center">
-                    <div className="flex items-center bg-surface rounded-lg overflow-hidden border border-border w-full max-w-[120px] sm:max-w-none">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newItems = [...orderForm.items];
-                          newItems[idx].quantity = Math.max(
-                            1,
-                            newItems[idx].quantity - 1,
-                          );
-                          setOrderForm({ ...orderForm, items: newItems });
-                        }}
-                        className="px-3 py-1.5 hover:bg-surface-hover text-secondary transition-colors"
-                      >
-                        <Minus size={14} />
-                      </button>
-                      <input
-                        type="number"
-                        className="w-full text-center bg-transparent text-sm font-bold outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield] text-primary"
-                        value={item.quantity === 0 ? "" : item.quantity}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value);
-                          const newItems = [...orderForm.items];
-                          newItems[idx].quantity = isNaN(val) ? 0 : val;
-                          setOrderForm({ ...orderForm, items: newItems });
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newItems = [...orderForm.items];
-                          newItems[idx].quantity = newItems[idx].quantity + 1;
-                          setOrderForm({ ...orderForm, items: newItems });
-                        }}
-                        className="px-3 py-1.5 hover:bg-surface-hover text-secondary transition-colors"
-                      >
-                        <Plus size={14} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="col-span-3 w-full sm:w-auto flex justify-between sm:justify-end items-center gap-4">
-                    <span className="sm:hidden text-xs text-secondary font-normal">
-                      Total:
-                    </span>
-                    <span className="text-sm font-black text-primary">
-                      {currencySymbol}
-                      {(item.quantity * item.price).toLocaleString()}
-                    </span>
-                    <div className="flex gap-1 shrink-0">
-                      <button
-                        type="button"
-                        className="p-2 text-muted hover:text-brand rounded-lg transition-colors"
-                      >
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setOrderForm({
-                            ...orderForm,
-                            items: orderForm.items.filter((_, i) => i !== idx),
-                          })
-                        }
-                        className="p-2 text-muted hover:text-red-500 rounded-lg transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {orderForm.items.length === 0 && (
-                <div className="text-center py-16 bg-surface-hover rounded-xl border border-dashed border-border">
-                  <div className="mx-auto w-12 h-12 bg-surface rounded-lg flex items-center justify-center text-muted border border-border shadow-subtle mb-4">
-                    <Package size={24} strokeWidth={1.5} />
-                  </div>
-                  <p className="text-sm font-bold text-primary">
-                    No items added yet
-                  </p>
-                  <p className="text-xs font-medium text-secondary mt-1">
-                    Search the catalog above to add products.
-                  </p>
-                </div>
-              )}
-
-              {orderForm.items.length > 0 && (
-                <div className="flex items-center justify-between pt-4 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => setOrderForm({ ...orderForm, items: [] })}
-                    className="px-4 py-2 border border-red-200 text-red-500 rounded-lg text-sm font-semibold hover:bg-red-50 transition-colors bg-surface shadow-subtle"
-                  >
-                    Clear All
-                  </button>
-                  <p className="text-sm font-semibold text-secondary">
-                    Total Items: {orderForm.items.length}
-                  </p>
                 </div>
               )}
             </div>
