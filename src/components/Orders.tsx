@@ -3363,15 +3363,18 @@ export default function Orders() {
                             type="checkbox"
                             className="w-4 h-4 rounded border-border text-primary focus:ring-gray-900 cursor-pointer"
                             checked={
-                              selectedOrders.length === filteredOrders.length &&
-                              filteredOrders.length > 0
+                              paginatedOrders.length > 0 &&
+                              paginatedOrders.every((o) => selectedOrders.includes(o.id))
                             }
                             onChange={(e) => {
-                              if (e.target.checked)
-                                setSelectedOrders(
-                                  filteredOrders.map((o) => o.id),
-                                );
-                              else setSelectedOrders([]);
+                              if (e.target.checked) {
+                                const newSelection = new Set(selectedOrders);
+                                paginatedOrders.forEach((o) => newSelection.add(o.id));
+                                setSelectedOrders(Array.from(newSelection));
+                              } else {
+                                const currentIds = paginatedOrders.map((o) => o.id);
+                                setSelectedOrders(selectedOrders.filter((id) => !currentIds.includes(id)));
+                              }
                             }}
                           />
                         </div>
@@ -4338,22 +4341,27 @@ export default function Orders() {
         <div className="hidden print:block">
           <div ref={bulkPrintRef}>
             {selectedOrders.length > 0 &&
-              selectedOrders.map((id) => {
-                const order = orders.find((o) => o.id === id);
-                if (!order) return null;
-                return (
-                  <div
-                    key={id}
-                    className="print:break-after-page break-after-page"
-                  >
-                    <A5Invoice
-                      order={order}
-                      company={companySettings || {}}
-                      currencySymbol={currencySymbol}
-                    />
-                  </div>
-                );
-              })}
+              orders
+                .filter((o) => selectedOrders.includes(o.id))
+                .sort((a, b) => {
+                  const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
+                  const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
+                  return dateA - dateB;
+                })
+                .map((order) => {
+                  return (
+                    <div
+                      key={order.id}
+                      className="print:break-after-page break-after-page"
+                    >
+                      <A5Invoice
+                        order={order}
+                        company={companySettings || {}}
+                        currencySymbol={currencySymbol}
+                      />
+                    </div>
+                  );
+                })}
           </div>
         </div>
       </div>
