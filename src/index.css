@@ -127,6 +127,15 @@
   to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
 }
 
+@keyframes loader-animate {
+ 0%{
+   opacity: 1;
+ }
+ 100%{
+   opacity: 0;
+ }
+}
+
 .animate-letter-fade-in {
   animation: letterFadeIn 0.5s ease-out forwards;
 }

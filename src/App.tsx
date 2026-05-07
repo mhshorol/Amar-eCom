@@ -127,33 +127,19 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-brand selection:bg-white/20 transition-colors duration-500">
-        <div className="flex flex-col items-center gap-12 animate-fade-in">
-          <div className="flex flex-col items-center gap-6">
-            <h1
-              className="text-white drop-shadow-lg lowercase flex items-center"
+      <div className="min-h-screen flex items-center justify-center bg-[#4070f4] w-full">
+        <div className="relative flex items-center justify-center">
+          {Array.from({ length: 15 }).map((_, i) => (
+            <span
+              key={i}
+              className="absolute h-[10px] w-[10px] rounded-full bg-white opacity-0"
               style={{
-                fontFamily: "'Caveat', cursive",
-                fontSize: "5.5rem",
-                fontWeight: 600,
-                letterSpacing: "0",
-                lineHeight: 1,
+                transform: `rotate(${(i + 1) * (360 / 15)}deg) translateY(35px)`,
+                animation: "loader-animate 1.5s linear infinite",
+                animationDelay: `${(i + 1) * 0.1}s`,
               }}
-            >
-              {"amar ecom".split("").map((char, index) => (
-                <span
-                  key={index}
-                  className="inline-block animate-letter-fade-in opacity-0"
-                  style={{ animationDelay: `${index * 0.15}s` }}
-                >
-                  {char === " " ? "\u00A0" : char}
-                </span>
-              ))}
-            </h1>
-          </div>
-          <div className="w-56 h-[4px] bg-white/20 rounded-full overflow-hidden relative">
-            <div className="absolute top-0 left-0 h-full w-[30%] bg-white rounded-full animate-apple-shimmer"></div>
-          </div>
+            />
+          ))}
         </div>
       </div>
     );
@@ -205,33 +191,19 @@ function AppContent() {
   }
 
   const FallbackLoader = () => (
-    <div className="min-h-screen flex items-center justify-center bg-brand selection:bg-white/20 transition-colors duration-500">
-      <div className="flex flex-col items-center gap-12 animate-fade-in">
-        <div className="flex flex-col items-center gap-6">
-          <h1
-            className="text-white drop-shadow-lg lowercase flex items-center"
+    <div className="min-h-screen flex items-center justify-center bg-[#4070f4] w-full">
+      <div className="relative flex items-center justify-center">
+        {Array.from({ length: 15 }).map((_, i) => (
+          <span
+            key={i}
+            className="absolute h-[10px] w-[10px] rounded-full bg-white opacity-0"
             style={{
-              fontFamily: "'Caveat', cursive",
-              fontSize: "5.5rem",
-              fontWeight: 600,
-              letterSpacing: "0",
-              lineHeight: 1,
+              transform: `rotate(${(i + 1) * (360 / 15)}deg) translateY(35px)`,
+              animation: "loader-animate 1.5s linear infinite",
+              animationDelay: `${(i + 1) * 0.1}s`,
             }}
-          >
-            {"amar ecom".split("").map((char, index) => (
-              <span
-                key={index}
-                className="inline-block animate-letter-fade-in opacity-0"
-                style={{ animationDelay: `${index * 0.15}s` }}
-              >
-                {char === " " ? "\u00A0" : char}
-              </span>
-            ))}
-          </h1>
-        </div>
-        <div className="w-56 h-[4px] bg-white/20 rounded-full overflow-hidden relative">
-          <div className="absolute top-0 left-0 h-full w-[30%] bg-white rounded-full animate-apple-shimmer"></div>
-        </div>
+          />
+        ))}
       </div>
     </div>
   );
