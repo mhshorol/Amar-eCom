@@ -16,9 +16,17 @@ export default function Login() {
     if (!isFirebaseConfigured) return;
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login failed:", error);
-      toast.error("Google login failed. Please try again.");
+      if (error.code === 'auth/popup-closed-by-user') {
+        toast.error("Sign in popup was closed. Please try again.");
+      } else if (error.code === 'auth/unauthorized-domain') {
+        toast.error("This domain is not authorized for OAuth. Please add it to your Firebase Console under Authentication > Settings > Authorized domains.");
+      } else if (error.code === 'auth/operation-not-allowed') {
+        toast.error("Google sign-in is not enabled in Firebase Console.");
+      } else {
+        toast.error(`Google login failed: ${error.message}`);
+      }
     }
   };
 
