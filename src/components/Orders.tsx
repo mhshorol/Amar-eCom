@@ -634,7 +634,7 @@ export default function Orders() {
           snapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
-            source: "local",
+            source: doc.data().source || doc.data().channel || "local",
           })),
         );
         setLoading(false);
@@ -1169,6 +1169,7 @@ export default function Orders() {
       paidAmount: 0,
       dueAmount: 0,
       advanceAmount: 0,
+      source: "Facebook",
       channel: "Facebook",
       paymentMethod: "COD",
       status: "pending",
@@ -1210,6 +1211,7 @@ export default function Orders() {
       paidAmount: order.paidAmount || 0,
       dueAmount: order.dueAmount || 0,
       advanceAmount: order.advanceAmount || 0,
+      source: order.source || order.channel || "Facebook",
       channel: order.channel || "Facebook",
       paymentMethod: order.paymentMethod || "COD",
       status: order.status || "pending",
@@ -2305,7 +2307,7 @@ export default function Orders() {
         order.paidAmount || 0,
         order.dueAmount || 0,
         order.status || "",
-        order.channel || "",
+        order.source || order.channel || "",
         order.paymentMethod || "",
         order.createdAt?.toDate
           ? order.createdAt.toDate().toLocaleString()
@@ -3364,16 +3366,26 @@ export default function Orders() {
                             className="w-4 h-4 rounded border-border text-primary focus:ring-gray-900 cursor-pointer"
                             checked={
                               paginatedOrders.length > 0 &&
-                              paginatedOrders.every((o) => selectedOrders.includes(o.id))
+                              paginatedOrders.every((o) =>
+                                selectedOrders.includes(o.id),
+                              )
                             }
                             onChange={(e) => {
                               if (e.target.checked) {
                                 const newSelection = new Set(selectedOrders);
-                                paginatedOrders.forEach((o) => newSelection.add(o.id));
+                                paginatedOrders.forEach((o) =>
+                                  newSelection.add(o.id),
+                                );
                                 setSelectedOrders(Array.from(newSelection));
                               } else {
-                                const currentIds = paginatedOrders.map((o) => o.id);
-                                setSelectedOrders(selectedOrders.filter((id) => !currentIds.includes(id)));
+                                const currentIds = paginatedOrders.map(
+                                  (o) => o.id,
+                                );
+                                setSelectedOrders(
+                                  selectedOrders.filter(
+                                    (id) => !currentIds.includes(id),
+                                  ),
+                                );
                               }
                             }}
                           />
@@ -4344,8 +4356,12 @@ export default function Orders() {
               orders
                 .filter((o) => selectedOrders.includes(o.id))
                 .sort((a, b) => {
-                  const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
-                  const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
+                  const dateA = a.createdAt?.toDate
+                    ? a.createdAt.toDate().getTime()
+                    : new Date(a.createdAt || 0).getTime();
+                  const dateB = b.createdAt?.toDate
+                    ? b.createdAt.toDate().getTime()
+                    : new Date(b.createdAt || 0).getTime();
                   return dateA - dateB;
                 })
                 .map((order) => {

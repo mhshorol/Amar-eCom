@@ -119,7 +119,7 @@ export const A5Invoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ order
               <div className="h-5 w-[1px] bg-[#dddddd]"></div>
               <div className="text-right space-y-0">
                 <p className="text-[9px] font-black text-[#000000] uppercase tracking-widest">Channel</p>
-                <p className="text-[10px] font-black text-[#000000] uppercase">{order.channel || 'Direct'}</p>
+                <p className="text-[10px] font-black text-[#000000] uppercase">{order.source || order.channel || 'Direct'}</p>
               </div>
             </div>
           </div>
@@ -258,6 +258,10 @@ export const POSInvoice = React.forwardRef<HTMLDivElement, InvoiceProps>(({ orde
               )
             }
           </span>
+        </div>
+        <div className="flex justify-between">
+          <span>Channel:</span>
+          <span>{order.source || order.channel || 'Direct'}</span>
         </div>
         <div className="flex justify-between font-bold">
           <span>Cust: {order.customerName}</span>

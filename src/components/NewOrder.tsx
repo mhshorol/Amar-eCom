@@ -130,6 +130,7 @@ export default function NewOrder({
     if (initialOrder) {
       setOrderForm({
         ...initialOrder,
+        source: initialOrder.source || initialOrder.channel || "Facebook",
         items: initialOrder.items || [],
       });
     }
@@ -762,6 +763,7 @@ export default function NewOrder({
             customerId,
             orderNumber: nextOrderNumber,
             uid: auth.currentUser!.uid,
+            createdBy: auth.currentUser?.displayName || auth.currentUser?.email || "Unknown User",
             createdAt: serverTimestamp(),
           });
 
@@ -1868,7 +1870,7 @@ export default function NewOrder({
 
                   <div>
                     <label className="text-xs text-secondary block mb-1.5">
-                      Order Source
+                      Sales Channel
                     </label>
                     <div className="relative">
                       <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted">

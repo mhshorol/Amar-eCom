@@ -179,7 +179,8 @@ export default function Reports() {
     totalProducts: 0,
     salesGrowth: 0,
     ordersGrowth: 0,
-    inventoryValue: 0
+    inventoryValue: 0,
+    activeEmployees: 0
   });
 
   const [forecasting, setForecasting] = useState<string | null>(null);
@@ -383,8 +384,13 @@ export default function Reports() {
       const ordersGrowth = prevOrders.length > 0 ? ((orders.length - prevOrders.length) / prevOrders.length * 100) : (orders.length > 0 ? 100 : 0);
 
       // Fetch total counts
-      const customersSnap = await getDocs(collection(db, 'customers'));
-      const productsSnap = await getDocs(collection(db, 'products'));
+      const [customersSnap, productsSnap, usersSnap, inventoryVal] = await Promise.all([
+        getDocs(collection(db, 'customers')),
+        getDocs(collection(db, 'products')),
+        getDocs(collection(db, 'users')),
+        ValuationService.calculateValuation(valuationMethod)
+      ]);
+      const activeEmployeesCount = usersSnap.docs.filter(doc => doc.data().active !== false).length;
 
       setStats(prev => ({
         ...prev,
@@ -392,6 +398,8 @@ export default function Reports() {
         totalOrders: orders.length,
         totalCustomers: customersSnap.size,
         totalProducts: productsSnap.size,
+        activeEmployees: activeEmployeesCount,
+        inventoryValue: inventoryVal.totalValuation,
         salesGrowth: parseFloat(salesGrowth.toFixed(1)),
         ordersGrowth: parseFloat(ordersGrowth.toFixed(1))
       }));
@@ -634,7 +642,7 @@ export default function Reports() {
                 />
                 <ReportStatCard 
                   title="ASSET (BDT)" 
-                  value={stats.inventoryValue > 0 ? `৳${stats.inventoryValue.toLocaleString()}` : "12"} 
+                  value={stats.inventoryValue > 0 ? `৳${stats.inventoryValue.toLocaleString()}` : "৳0"} 
                   icon={Package} 
                   trend="up" 
                   trendValue={12.5} 
@@ -644,7 +652,7 @@ export default function Reports() {
                 />
                 <ReportStatCard 
                   title="ACTIVE EMPLOYEES" 
-                  value="68" 
+                  value={stats.activeEmployees.toString()} 
                   icon={Users} 
                   trend="up" 
                   trendValue={8.5} 
@@ -654,7 +662,7 @@ export default function Reports() {
                 />
                 <ReportStatCard 
                   title="PRODUCT CATALOG" 
-                  value="11" 
+                  value={stats.totalProducts.toString()} 
                   icon={FileText} 
                   trend="up" 
                   trendValue={15.2} 

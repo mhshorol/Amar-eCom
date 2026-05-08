@@ -141,6 +141,17 @@ export default function OrderDetailsModal({
     );
   };
 
+  const getCreatedBy = () => {
+    if (order.createdBy) return order.createdBy;
+    if (order.source && order.source.toLowerCase() === 'woocommerce') return 'WooCommerce Sync';
+    if (order.logs && Array.isArray(order.logs) && order.logs.length > 0) {
+      const createLog = order.logs.find((l: any) => l.action && l.action.toLowerCase().includes('creat'));
+      if (createLog && createLog.user) return createLog.user.split('@')[0];
+      return order.logs[0].user?.split('@')[0] || 'Unknown';
+    }
+    return 'System';
+  };
+
   const statusConfig = getStatusConfig(order.status);
   const StatusIcon = statusConfig.icon;
 
@@ -197,10 +208,16 @@ export default function OrderDetailsModal({
                   </span>
                 </div>
                 <p className="text-[10px] font-medium text-muted mt-0.5">
-                  Placed on{" "}
-                  {order.createdAt?.toDate
-                    ? order.createdAt.toDate().toLocaleDateString()
-                    : new Date(order.createdAt).toLocaleDateString()}
+                  Placed on /{" "}
+                  {(()=>{
+                    if (!order.createdAt) return "Date unknown";
+                    const d = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+                    if (isNaN(d.getTime())) return "Invalid date";
+                    const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                    return `${dateStr} / ${timeStr}`;
+                  })()}{" "}
+                  / Placed by {getCreatedBy()}
                 </p>
               </div>
             </div>
