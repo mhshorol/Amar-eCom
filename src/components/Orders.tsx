@@ -3048,9 +3048,19 @@ export default function Orders() {
                 Business Value
               </span>
             </div>
-            <div className="bg-[#1DAB61]/10 border border-[#1DAB61]/20 text-[#1DAB61] text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1">
-              <TrendingUp size={12} />
-              100%
+            <div
+              className={`border text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 ${
+                totalStats.growth.isPositive
+                  ? "bg-[#1DAB61]/10 border-[#1DAB61]/20 text-[#1DAB61]"
+                  : "bg-red-500/10 border-red-500/20 text-red-500"
+              }`}
+            >
+              {totalStats.growth.isPositive ? (
+                <TrendingUp size={12} />
+              ) : (
+                <TrendingDown size={12} />
+              )}
+              {totalStats.growth.value}
             </div>
           </div>
           {/* Value */}
@@ -3059,7 +3069,7 @@ export default function Orders() {
               Total Sales Revenue
             </p>
             <h3 className="text-[40px] leading-none font-bold text-white tracking-tight">
-              ৳124,279
+              ৳{totalStats.revenue}
             </h3>
           </div>
 
